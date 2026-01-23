@@ -1,13 +1,17 @@
 package com.vltv.play
 
+import android.app.PictureInPictureParams
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Base64
 import android.util.Log
+import android.util.Rational
 import android.view.KeyEvent
 import android.view.View
 import android.widget.Button
@@ -215,6 +219,31 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
+    // ✅ INÍCIO DA INCLUSÃO DA MINI TELA (PIP) - SEM ALTERAR LÓGICA
+    override fun onUserLeaveHint() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && player?.isPlaying == true) {
+            val params = PictureInPictureParams.Builder()
+                .setAspectRatio(Rational(16, 9))
+                .build()
+            enterPictureInPictureMode(params)
+        }
+        super.onUserLeaveHint()
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        if (isInPictureInPictureMode) {
+            playerView.useController = false
+            topBar.visibility = View.GONE
+            loading.visibility = View.GONE
+            nextEpisodeContainer.visibility = View.GONE
+        } else {
+            playerView.useController = true
+            topBar.visibility = if (playerView.isControllerFullyVisible) View.VISIBLE else View.GONE
+        }
+    }
+    // ✅ FIM DA INCLUSÃO DA MINI TELA
+
     private fun setupServerList() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val savedDns = prefs.getString("dns", "") ?: ""
@@ -328,7 +357,6 @@ class PlayerActivity : AppCompatActivity() {
 
         val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
 
-        // CONFIGURAÇÃO TURBO (Para abrir filmes rápido)
         val isLive = streamType == "live"
         val minBufferMs = 2000
         val maxBufferMs = if (isLive) 5000 else 15000
@@ -527,7 +555,6 @@ class PlayerActivity : AppCompatActivity() {
         })
     }
 
-    // ✅ CORREÇÃO: LÓGICA DO CONTROLE REMOTO (SEM ZOOM, PLAY/PAUSE NO OK)
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         val keyCode = event.keyCode
         val action = event.action
@@ -535,28 +562,24 @@ class PlayerActivity : AppCompatActivity() {
 
         if (action == KeyEvent.ACTION_DOWN) {
             when (keyCode) {
-                // ✅ BOTÃO OK: PLAY / PAUSE (E MOSTRA CONTROLES)
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
                     if (playerView.isControllerFullyVisible) {
                         if (p.isPlaying) p.pause() else p.play()
                     } else {
                         playerView.showController()
                     }
-                    return true // Bloqueia o Zoom nativo
+                    return true 
                 }
 
-                // ✅ SETA PARA BAIXO: FOCA NA BARRA DE PROGRESSO
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
                     if (!playerView.isControllerFullyVisible) {
                         playerView.showController()
                     }
-                    // Foca na SeekBar do Media3 automaticamente
                     val seekBar = playerView.findViewById<View>(androidx.media3.ui.R.id.exo_progress)
                     seekBar?.requestFocus()
                     return true
                 }
 
-                // ✅ SETAS LATERAIS: AVANÇAR / RETROCEDER 10s
                 KeyEvent.KEYCODE_DPAD_RIGHT -> {
                     if (streamType != "live") {
                         p.seekTo((p.currentPosition + 10_000L).coerceAtMost(p.duration))
@@ -576,7 +599,6 @@ class PlayerActivity : AppCompatActivity() {
         return super.dispatchKeyEvent(event)
     }
 
-    // Mantendo seu onKeyDown para o BACK sair corretamente
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
             finish()
@@ -587,11 +609,14 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        val p = player ?: return
-        if (streamType == "movie") {
-            saveMovieResume(streamId, p.currentPosition, p.duration)
-        } else if (streamType == "series") {
-            saveSeriesResume(streamId, p.currentPosition, p.duration)
+        // ✅ Mantido conforme original, agora com trava para PiP
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && !isInPictureInPictureMode) {
+            val p = player ?: return
+            if (streamType == "movie") {
+                saveMovieResume(streamId, p.currentPosition, p.duration)
+            } else if (streamType == "series") {
+                saveSeriesResume(streamId, p.currentPosition, p.duration)
+            }
         }
     }
 
@@ -615,10 +640,11 @@ class PlayerActivity : AppCompatActivity() {
         return if (ext.isBlank()) "$base/$streamType/$user/$pass/$id" else "$base/$streamType/$user/$pass/$id.$ext"
     }
 
-    // ADICIONE OS NOVOS BLOCOS AQUI, ANTES DA ÚLTIMA CHAVE
     override fun onStop() {
         super.onStop()
-        player?.pause() 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && !isInPictureInPictureMode) {
+            player?.pause() 
+        }
         if (isFinishing) {
             player?.release()
             player = null
@@ -632,4 +658,4 @@ class PlayerActivity : AppCompatActivity() {
         super.onBackPressed()
         finish()
     }
-} // Esta é a última chave do arquivo
+}

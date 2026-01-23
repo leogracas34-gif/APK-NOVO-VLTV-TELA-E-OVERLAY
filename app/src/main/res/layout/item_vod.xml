@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="120dp"
+    android:layout_height="180dp"
+    android:layout_margin="6dp"
+    app:cardCornerRadius="8dp"
+    app:cardBackgroundColor="#202020"
+    android:clickable="true"
+    android:focusable="true">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <ImageView
+            android:id="@+id/imgPoster"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:src="@mipmap/ic_launcher"/>
+
+        <!-- ÍCONE DOWNLOAD MAIOR E VISÍVEL -->
+        <ImageView
+            android:id="@+id/imgDownload"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:layout_gravity="bottom|end"
+            android:layout_margin="12dp"
+            android:background="@drawable/circle_download_bg"
+            android:src="@drawable/ic_download"
+            android:tint="@android:color/white"
+            android:scaleType="centerInside"/>
+
+        <!-- Sombra no fundo do nome -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:layout_gravity="bottom"
+            android:background="#99000000"/>
+
+        <TextView
+            android:id="@+id/tvName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:padding="4dp"
+            android:text="Nome do Filme"
+            android:textColor="@color/white"
+            android:textSize="11sp"
+            android:maxLines="2"
+            android:ellipsize="end"
+            android:gravity="center"/>
+    </FrameLayout>
+
+</androidx.cardview.widget.CardView>

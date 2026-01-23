@@ -236,6 +236,7 @@ class LiveTvActivity : AppCompatActivity() {
             intent.putExtra("stream_ext", "ts")
             intent.putExtra("stream_type", "live")
             intent.putExtra("channel_name", canal.name)
+            intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
             startActivity(intent)
         }
         rvChannels.adapter = channelAdapter

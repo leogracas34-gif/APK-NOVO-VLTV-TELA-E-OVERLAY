@@ -79,6 +79,15 @@ class LiveTvActivity : AppCompatActivity() {
         tvPreviewNext = findViewById(R.id.tvPreviewNext) // INICIALIZADO
         layoutPreviewContainer = findViewById(R.id.layoutPreviewContainer) // ADICIONADO PARA O CONTAINER
 
+        // --- LÓGICA DE RECEPÇÃO DA HOME ---
+        val showPreview = intent.getBooleanExtra("SHOW_PREVIEW", true)
+        if (showPreview) {
+            layoutPreviewContainer.visibility = View.VISIBLE
+        } else {
+            layoutPreviewContainer.visibility = View.GONE
+        }
+        // ----------------------------------
+
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         username = prefs.getString("username", "") ?: ""
         password = prefs.getString("password", "") ?: ""

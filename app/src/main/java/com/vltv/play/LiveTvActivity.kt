@@ -1,6 +1,3 @@
-yCode, event)
-    }
-}
 package com.vltv.play
 
 import android.content.Context
@@ -45,17 +42,17 @@ class LiveTvActivity : AppCompatActivity() {
     private lateinit var progressBar: ProgressBar
     private lateinit var tvCategoryTitle: TextView
 
-    // Novas Views para o Preview
+    // Novas Views para o Preview (Conforme o novo Layout)
     private lateinit var pvPreview: PlayerView
     private lateinit var tvPreviewName: TextView
     private lateinit var tvPreviewEpg: TextView
-    private lateinit var tvPreviewNext: TextView
+    private lateinit var tvPreviewNext: TextView // ADICIONADO PARA O PRÓXIMO PROGRAMA
     private var miniPlayer: ExoPlayer? = null
-    private lateinit var layoutPreviewContainer: LinearLayout
+    private lateinit var layoutPreviewContainer: LinearLayout // ADICIONADO PARA O CONTAINER
 
     private var username = ""
     private var password = ""
-    private var isFullscreen = false // ✅ CONTROLE DE TELA
+    private var isFullscreen = false // ✅ ADICIONADO PARA CONTROLE
 
     // Mantendo a estrutura original do seu cache
     private var cachedCategories: List<LiveCategory>? = null
@@ -78,18 +75,12 @@ class LiveTvActivity : AppCompatActivity() {
         progressBar = findViewById(R.id.progressBar)
         tvCategoryTitle = findViewById(R.id.tvCategoryTitle)
 
-        // Inicializar as Views do Preview
+        // Inicializar as Views do Preview que adicionamos no XML
         pvPreview = findViewById(R.id.pvPreview)
         tvPreviewName = findViewById(R.id.tvPreviewName)
         tvPreviewEpg = findViewById(R.id.tvPreviewEpg)
-        tvPreviewNext = findViewById(R.id.tvPreviewNext)
-        layoutPreviewContainer = findViewById(R.id.layoutPreviewContainer)
-
-        // Inicializa o player logo no início para evitar lentidão depois
-        if (miniPlayer == null) {
-            miniPlayer = ExoPlayer.Builder(this).build()
-            pvPreview.player = miniPlayer
-        }
+        tvPreviewNext = findViewById(R.id.tvPreviewNext) // INICIALIZADO
+        layoutPreviewContainer = findViewById(R.id.layoutPreviewContainer) // ADICIONADO PARA O CONTAINER
 
         // --- LÓGICA DE RECEPÇÃO DA HOME ---
         val showPreview = intent.getBooleanExtra("SHOW_PREVIEW", true)
@@ -109,9 +100,11 @@ class LiveTvActivity : AppCompatActivity() {
 
         rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
         rvCategories.setHasFixedSize(true)
+
         rvCategories.isFocusable = true
         rvCategories.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
 
+        // Trocado para LinearLayoutManager para modo Lista Vertical
         rvChannels.layoutManager = LinearLayoutManager(this)
         rvChannels.isFocusable = true
         rvChannels.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
@@ -122,23 +115,21 @@ class LiveTvActivity : AppCompatActivity() {
         carregarCategorias()
     }
 
+    // ✅ ADICIONADO PARA RESOLVER O MINI PLAYER PRETO AO VOLTAR
     override fun onResume() {
         super.onResume()
         hideSystemUI()
-        // Recupera o player se ele foi perdido
-        if (miniPlayer == null) {
-            miniPlayer = ExoPlayer.Builder(this).build()
-            pvPreview.player = miniPlayer
-        }
         miniPlayer?.playWhenReady = true
     }
 
+    // Função para forçar a barra de bateria e relógio a sumirem
     private fun hideSystemUI() {
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
     }
 
+    // Garante que as barras sumam sempre que a tela for focada
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) {
@@ -148,21 +139,30 @@ class LiveTvActivity : AppCompatActivity() {
 
     private fun setupRecyclerFocus() {
         rvCategories.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus) rvCategories.smoothScrollToPosition(0)
+            if (hasFocus) {
+                rvCategories.smoothScrollToPosition(0)
+            }
         }
+        
         rvChannels.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus) rvChannels.smoothScrollToPosition(0)
+            if (hasFocus) {
+                rvChannels.smoothScrollToPosition(0)
+            }
         }
     }
 
-    // ✅ OTIMIZADO: Troca canal instantaneamente sem travar
+    // Lógica para carregar o Preview no quadro da direita
     private fun carregarPreview(canal: LiveStream) {
         val categoriaAtual = tvCategoryTitle.text.toString().lowercase()
 
-        layoutPreviewContainer.visibility = View.VISIBLE
-        pvPreview.visibility = View.VISIBLE
+        // ✅ TRAVA REMOVIDA: Agora o preview carrega em todas as categorias (Filmes/Séries/Canais)
         
-        // Atualiza textos da mini tela
+        // Se for TV ao Vivo, mostra a tela (VISIBLE) e inicia o player
+        layoutPreviewContainer.visibility = View.VISIBLE // ADICIONADO
+        pvPreview.visibility = View.VISIBLE
+        miniPlayer?.stop()
+        miniPlayer?.release()
+        
         tvPreviewName.text = canal.name
         
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
@@ -171,16 +171,14 @@ class LiveTvActivity : AppCompatActivity() {
         
         val url = "$cleanDns/live/$username/$password/${canal.id}.ts"
 
-        // Se o player não existe, cria. Se existe, REUTILIZA (Muito mais rápido)
-        if (miniPlayer == null) {
-            miniPlayer = ExoPlayer.Builder(this).build()
-            pvPreview.player = miniPlayer
-        }
-
-        // Garante a configuração correta de controle
-        pvPreview.useController = isFullscreen // Só mostra controle se estiver em tela cheia
+        miniPlayer = ExoPlayer.Builder(this).build()
+        pvPreview.player = miniPlayer
+        pvPreview.useController = false // Impede o player de chamar as barras do sistema
         
-        // Define o nome do canal para aparecer no HUD ao clicar
+        // ✅ GARANTE O AJUSTE DE PROPORÇÃO INICIAL NA MINI TELA
+        pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+
+        // ✅ INJETA O NOME DO CANAL PARA APARECER NO HUD AO CLICAR
         val mediaItem = MediaItem.Builder()
             .setUri(url)
             .setMediaMetadata(MediaMetadata.Builder().setTitle(canal.name).build())
@@ -229,20 +227,32 @@ class LiveTvActivity : AppCompatActivity() {
 
                         aplicarCategorias(categorias)
                     } else {
-                        Toast.makeText(this@LiveTvActivity, "Erro ao carregar categorias", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            this@LiveTvActivity,
+                            "Erro ao carregar categorias",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 }
 
                 override fun onFailure(call: Call<List<LiveCategory>>, t: Throwable) {
                     progressBar.visibility = View.GONE
-                    Toast.makeText(this@LiveTvActivity, "Falha de conexão", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        this@LiveTvActivity,
+                        "Falha de conexão",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             })
     }
 
     private fun aplicarCategorias(categorias: List<LiveCategory>) {
         if (categorias.isEmpty()) {
-            Toast.makeText(this@LiveTvActivity, "Nenhuma categoria disponível.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                this@LiveTvActivity,
+                "Nenhuma categoria disponível.",
+                Toast.LENGTH_SHORT
+            ).show()
             rvCategories.adapter = CategoryAdapter(emptyList()) {}
             rvChannels.adapter = ChannelAdapter(emptyList(), username, password) {}
             return
@@ -258,7 +268,7 @@ class LiveTvActivity : AppCompatActivity() {
 
     private fun carregarCanais(categoria: LiveCategory) {
         tvCategoryTitle.text = categoria.name
-        // miniPlayer?.stop() // REMOVIDO: Não parar o player deixa a troca de categoria fluida
+        miniPlayer?.stop() // Para o vídeo ao trocar de categoria
 
         val catIdStr = categoria.id.toString()
 
@@ -289,7 +299,11 @@ class LiveTvActivity : AppCompatActivity() {
 
                         aplicarCanais(categoria, canais)
                     } else {
-                        Toast.makeText(this@LiveTvActivity, "Erro ao carregar canais", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            this@LiveTvActivity,
+                            "Erro ao carregar canais",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 }
 
@@ -303,11 +317,12 @@ class LiveTvActivity : AppCompatActivity() {
         tvCategoryTitle.text = categoria.name
 
         channelAdapter = ChannelAdapter(canais, username, password) { canal ->
-            // ✅ CLICAR NO CANAL AGORA EXPANDE A TELA
+            // ✅ MUDANÇA AQUI: Em vez de ir para PlayerActivity, apenas expande
             toggleFullscreen(true)
         }
         rvChannels.adapter = channelAdapter
 
+        // ✅ ADICIONADO: FOCO AUTOMÁTICO NO PRIMEIRO CANAL E AUTO-PLAY
         if (canais.isNotEmpty()) {
             rvChannels.post {
                 val firstView = rvChannels.layoutManager?.findViewByPosition(0)
@@ -317,11 +332,11 @@ class LiveTvActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ FUNÇÃO CORRIGIDA: Resolve Bordas Pretas e Tela Preta ao Voltar
+    // ✅ FUNÇÃO CORRIGIDA: Alterna com preenchimento total e estabiliza retorno
     private fun toggleFullscreen(full: Boolean) {
         isFullscreen = full
         if (full) {
-            // 1. Esconde TUDO para a tela ficar limpa
+            // Esconde TUDO o que é fixo
             rvCategories.visibility = View.GONE
             rvChannels.visibility = View.GONE
             tvCategoryTitle.visibility = View.GONE
@@ -334,16 +349,13 @@ class LiveTvActivity : AppCompatActivity() {
             params.height = ViewGroup.LayoutParams.MATCH_PARENT
             layoutPreviewContainer.layoutParams = params
             
-            // ✅ ZOOM: Remove bordas pretas esticando o vídeo
+            // ✅ CORREÇÃO BORDAS PRETAS: Estica o vídeo para preencher a tela toda
             pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
             
-            // Ativa controles (HUD) na tela cheia
-            pvPreview.useController = true
+            pvPreview.useController = true // Nome do canal aparece ao clicar
             pvPreview.requestFocus()
-            
             hideSystemUI()
         } else {
-            // 1. Mostra tudo de volta na mini tela
             rvCategories.visibility = View.VISIBLE
             rvChannels.visibility = View.VISIBLE
             tvCategoryTitle.visibility = View.VISIBLE
@@ -356,13 +368,14 @@ class LiveTvActivity : AppCompatActivity() {
             params.height = ViewGroup.LayoutParams.MATCH_PARENT 
             layoutPreviewContainer.layoutParams = params
             
-            // ✅ FIT: Volta para proporção correta na caixinha
+            // ✅ VOLTA PARA PROPORÇÃO NORMAL NA MINI TELA
             pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
             pvPreview.useController = false
             
-            // ✅ TRUQUE ANTI-TELA PRETA: Reconecta o player à view forçando o refresh
-            pvPreview.player = null
-            pvPreview.player = miniPlayer
+            // ✅ ESTABILIZAÇÃO DE RETORNO: Força o motor do player a renderizar na mini view
+            Handler(Looper.getMainLooper()).postDelayed({
+                miniPlayer?.play()
+            }, 100)
             
             rvChannels.requestFocus()
         }
@@ -478,10 +491,11 @@ class LiveTvActivity : AppCompatActivity() {
                 holder.itemView.alpha = if (hasFocus) 1.0f else 0.8f
                 
                 if (hasFocus) {
+                    // Atualiza texto do EPG no Preview (Agora e A Seguir)
                     tvPreviewEpg.text = "Agora: ${holder.tvNow.text}"
                     tvPreviewNext.text = "A seguir: ${holder.tvNext.text}"
                     
-                    // Delay otimizado para não travar scroll rápido
+                    // Delay para carregar o vídeo (Evita travar ao navegar rápido)
                     pendingRunnable?.let { handler.removeCallbacks(it) }
                     val r = Runnable { carregarPreview(item) }
                     pendingRunnable = r
@@ -563,17 +577,20 @@ class LiveTvActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
+        // ✅ APENAS PAUSA PARA RETOMADA RÁPIDA NO ONRESUME
         miniPlayer?.playWhenReady = false
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        miniPlayer?.stop()
         miniPlayer?.release()
         miniPlayer = null
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
+            // ✅ TRAVA DO BOTÃO VOLTAR PARA SAIR DA TELA CHEIA
             if (isFullscreen) {
                 toggleFullscreen(false)
                 return true

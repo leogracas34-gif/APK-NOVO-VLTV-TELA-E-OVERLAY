@@ -30,6 +30,12 @@ import java.util.ArrayList
 import com.vltv.play.CastAdapter
 import com.vltv.play.CastMember
 
+// ✅ IMPORTAÇÕES ADICIONADAS PARA A LOGO
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
 class SeriesDetailsActivity : AppCompatActivity() {
 
     private var seriesId: Int = 0
@@ -41,6 +47,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private lateinit var imgPoster: ImageView
     private lateinit var imgBackground: ImageView
     private lateinit var tvTitle: TextView
+    private lateinit var imgTitleLogo: ImageView // ✅ ADICIONADO
     private lateinit var tvRating: TextView
     private lateinit var tvGenre: TextView
     private lateinit var tvCast: TextView // Título "Elenco"
@@ -161,6 +168,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         imgPoster = findViewById(R.id.imgPoster)
         imgBackground = try { findViewById(R.id.imgBackground) } catch (e: Exception) { imgPoster }
         tvTitle = findViewById(R.id.tvTitle)
+        imgTitleLogo = findViewById(R.id.imgTitleLogo) // ✅ INICIALIZADO
         tvRating = findViewById(R.id.tvRating)
         tvGenre = findViewById(R.id.tvGenre)
         tvPlot = findViewById(R.id.tvPlot)
@@ -216,8 +224,15 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
     private fun sincronizarDadosTMDB() {
         val apiKey = "9b73f5dd15b8165b1b57419be2f29128"
-        var cleanName = seriesName.replace(Regex("\\(\\d{4}\\)"), "")
-        cleanName = cleanName.replace(Regex("[^A-Za-z0-9 ÁáÉéÍíÓóÚúÃãÕõÇç]"), "").trim()
+
+        // ✅ VASSOURA DE NOMES (LIMPEZA RIGOROSA)
+        var cleanName = seriesName
+        cleanName = cleanName.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
+        cleanName = cleanName.replace(Regex("\\b\\d{4}\\b"), "")
+        val lixo = listOf("FHD", "HD", "SD", "4K", "8K", "H265", "LEG", "DUBLADO", "DUB", "|", "-", "_", ".")
+        lixo.forEach { cleanName = cleanName.replace(it, "", ignoreCase = true) }
+        cleanName = cleanName.trim().replace(Regex("\\s+"), " ")
+
         val encodedName = try { URLEncoder.encode(cleanName, "UTF-8") } catch(e:Exception) { cleanName }
         val url = "https://api.themoviedb.org/3/search/tv?api_key=$apiKey&query=$encodedName&language=pt-BR"
 
@@ -231,7 +246,12 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         val results = jsonObject.optJSONArray("results")
                         if (results != null && results.length() > 0) {
                             val show = results.getJSONObject(0)
-                            buscarDetalhesTMDB(show.getInt("id"), apiKey)
+                            val tmdbId = show.getInt("id")
+
+                            // ✅ BUSCAR LOGO COM PRIORIDADE PT-BR
+                            buscarLogoSerieTraduzida(tmdbId, apiKey)
+
+                            buscarDetalhesTMDB(tmdbId, apiKey)
                             runOnUiThread {
                                 val sinopse = show.optString("overview")
                                 tvPlot.text = if (sinopse.isNotEmpty()) sinopse else "Sinopse indisponível."
@@ -249,6 +269,40 @@ class SeriesDetailsActivity : AppCompatActivity() {
                     } catch (e: Exception) {}
                 }
             }
+        })
+    }
+
+    // ✅ FUNÇÃO LOGO OVERLAY COM PRIORIDADE PT-BR
+    private fun buscarLogoSerieTraduzida(id: Int, key: String) {
+        val imagesUrl = "https://api.themoviedb.org/3/tv/$id/images?api_key=$key&include_image_language=pt,en,null"
+        client.newCall(Request.Builder().url(imagesUrl).build()).enqueue(object : okhttp3.Callback {
+            override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                val body = response.body()?.string()
+                if (body != null) {
+                    try {
+                        val obj = JSONObject(body)
+                        val logos = obj.optJSONArray("logos")
+                        if (logos != null && logos.length() > 0) {
+                            var logoPath: String? = null
+                            for (i in 0 until logos.length()) {
+                                val logo = logos.getJSONObject(i)
+                                if (logo.optString("iso_639_1") == "pt") {
+                                    logoPath = logo.getString("file_path")
+                                    break
+                                }
+                            }
+                            if (logoPath == null) logoPath = logos.getJSONObject(0).getString("file_path")
+                            val finalUrl = "https://image.tmdb.org/t/p/w500$logoPath"
+                            runOnUiThread {
+                                tvTitle.visibility = View.GONE
+                                imgTitleLogo.visibility = View.VISIBLE
+                                Glide.with(this@SeriesDetailsActivity).load(finalUrl).into(imgTitleLogo)
+                            }
+                        }
+                    } catch (e: Exception) {}
+                }
+            }
+            override fun onFailure(call: okhttp3.Call, e: IOException) {}
         })
     }
 

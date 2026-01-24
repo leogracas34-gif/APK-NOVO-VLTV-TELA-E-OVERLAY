@@ -73,7 +73,7 @@ class LiveTvActivity : AppCompatActivity() {
         rvCategories.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
 
         // Mantendo o GridLayoutManager (4 colunas) como você pediu
-        rvChannels.layoutManager = GridLayoutManager(this, 4)
+        rvChannels.layoutManager = LinearLayoutManager(this)
         rvChannels.isFocusable = true
         rvChannels.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
         rvChannels.setHasFixedSize(true)

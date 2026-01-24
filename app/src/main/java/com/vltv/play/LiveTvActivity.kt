@@ -50,6 +50,7 @@ class LiveTvActivity : AppCompatActivity() {
 
     private var username = ""
     private var password = ""
+    private var isFullscreen = false // ✅ ADICIONADO PARA CONTROLE
 
     // Mantendo a estrutura original do seu cache
     private var cachedCategories: List<LiveCategory>? = null
@@ -306,18 +307,8 @@ class LiveTvActivity : AppCompatActivity() {
         tvCategoryTitle.text = categoria.name
 
         channelAdapter = ChannelAdapter(canais, username, password) { canal ->
-            // Para o mini player antes de ir para a tela cheia
-            miniPlayer?.stop()
-            miniPlayer?.release()
-            miniPlayer = null
-            
-            val intent = Intent(this@LiveTvActivity, PlayerActivity::class.java)
-            intent.putExtra("stream_id", canal.id)
-            intent.putExtra("stream_ext", "ts")
-            intent.putExtra("stream_type", "live")
-            intent.putExtra("channel_name", canal.name)
-            intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-            startActivity(intent)
+            // ✅ MUDANÇA AQUI: Em vez de ir para PlayerActivity, apenas expande
+            toggleFullscreen(true)
         }
         rvChannels.adapter = channelAdapter
 
@@ -328,6 +319,37 @@ class LiveTvActivity : AppCompatActivity() {
                 firstView?.requestFocus()
                 carregarPreview(canais[0])
             }
+        }
+    }
+
+    // ✅ NOVA FUNÇÃO ADICIONADA: Alterna entre Mini e Fullscreen sem parar o vídeo
+    private fun toggleFullscreen(full: Boolean) {
+        isFullscreen = full
+        if (full) {
+            rvCategories.visibility = View.GONE
+            rvChannels.visibility = View.GONE
+            tvCategoryTitle.visibility = View.GONE
+            
+            val params = layoutPreviewContainer.layoutParams
+            params.width = ViewGroup.LayoutParams.MATCH_PARENT
+            params.height = ViewGroup.LayoutParams.MATCH_PARENT
+            layoutPreviewContainer.layoutParams = params
+            
+            pvPreview.useController = true
+            pvPreview.requestFocus()
+        } else {
+            rvCategories.visibility = View.VISIBLE
+            rvChannels.visibility = View.VISIBLE
+            tvCategoryTitle.visibility = View.VISIBLE
+
+            val params = layoutPreviewContainer.layoutParams
+            // IMPORTANTE: Ajuste aqui para o comportamento original do seu XML
+            params.width = 0 
+            params.height = ViewGroup.LayoutParams.MATCH_PARENT 
+            layoutPreviewContainer.layoutParams = params
+            
+            pvPreview.useController = false
+            rvChannels.requestFocus()
         }
     }
 
@@ -540,6 +562,11 @@ class LiveTvActivity : AppCompatActivity() {
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
+            // ✅ TRAVA DO BOTÃO VOLTAR PARA SAIR DA TELA CHEIA
+            if (isFullscreen) {
+                toggleFullscreen(false)
+                return true
+            }
             finish()
             return true
         }

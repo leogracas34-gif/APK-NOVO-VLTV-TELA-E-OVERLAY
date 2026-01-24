@@ -11,6 +11,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
+import android.widget.LinearLayout // ADICIONADO PARA O CONTAINER
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
@@ -44,6 +45,7 @@ class LiveTvActivity : AppCompatActivity() {
     private lateinit var tvPreviewName: TextView
     private lateinit var tvPreviewEpg: TextView
     private var miniPlayer: ExoPlayer? = null
+    private lateinit var layoutPreviewContainer: LinearLayout // ADICIONADO
 
     private var username = ""
     private var password = ""
@@ -73,6 +75,7 @@ class LiveTvActivity : AppCompatActivity() {
         pvPreview = findViewById(R.id.pvPreview)
         tvPreviewName = findViewById(R.id.tvPreviewName)
         tvPreviewEpg = findViewById(R.id.tvPreviewEpg)
+        layoutPreviewContainer = findViewById(R.id.layoutPreviewContainer) // ADICIONADO
 
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         username = prefs.getString("username", "") ?: ""
@@ -131,17 +134,18 @@ class LiveTvActivity : AppCompatActivity() {
     private fun carregarPreview(canal: LiveStream) {
         val categoriaAtual = tvCategoryTitle.text.toString().lowercase()
 
-        // TRAVA: Se for filme ou série, para o player e esconde a tela de vídeo
+        // TRAVA: Se for filme ou série, para o player e esconde a tela de vídeo (GONE remove o espaço da tela)
         if (categoriaAtual.contains("filme") || categoriaAtual.contains("serie") || categoriaAtual.contains("série")) {
             miniPlayer?.stop()
             miniPlayer?.release()
             miniPlayer = null
-            pvPreview.visibility = View.GONE
+            layoutPreviewContainer.visibility = View.GONE // ALTERADO PARA GONE
             tvPreviewName.text = canal.name
             return
         }
 
-        // Se for TV ao Vivo, mostra a tela e inicia o player
+        // Se for TV ao Vivo, mostra a tela (VISIBLE) e inicia o player
+        layoutPreviewContainer.visibility = View.VISIBLE // ADICIONADO
         pvPreview.visibility = View.VISIBLE
         miniPlayer?.stop()
         miniPlayer?.release()

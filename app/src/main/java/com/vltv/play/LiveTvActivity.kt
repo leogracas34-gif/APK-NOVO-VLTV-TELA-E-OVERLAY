@@ -148,20 +148,12 @@ class LiveTvActivity : AppCompatActivity() {
         }
     }
 
-    // Lógica para carregar o Preview no quadro da direita com TRAVA para Filmes/Séries
+    // Lógica para carregar o Preview no quadro da direita
     private fun carregarPreview(canal: LiveStream) {
         val categoriaAtual = tvCategoryTitle.text.toString().lowercase()
 
-        // TRAVA: Se for filme ou série, para o player e esconde a tela de vídeo (GONE remove o espaço da tela)
-        if (categoriaAtual.contains("filme") || categoriaAtual.contains("serie") || categoriaAtual.contains("série")) {
-            miniPlayer?.stop()
-            miniPlayer?.release()
-            miniPlayer = null
-            layoutPreviewContainer.visibility = View.GONE 
-            tvPreviewName.text = canal.name
-            return
-        }
-
+        // ✅ TRAVA REMOVIDA: Agora o preview carrega em todas as categorias (Filmes/Séries/Canais)
+        
         // Se for TV ao Vivo, mostra a tela (VISIBLE) e inicia o player
         layoutPreviewContainer.visibility = View.VISIBLE // ADICIONADO
         pvPreview.visibility = View.VISIBLE

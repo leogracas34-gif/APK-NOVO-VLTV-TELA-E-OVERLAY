@@ -23,8 +23,10 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata // ADICIONADO PARA O HUD
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import androidx.media3.ui.AspectRatioFrameLayout // ADICIONADO PARA RESIZE
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.Priority
@@ -174,14 +176,12 @@ class LiveTvActivity : AppCompatActivity() {
         pvPreview.useController = false // Impede o player de chamar as barras do sistema
         
         // ✅ GARANTE O AJUSTE DE PROPORÇÃO INICIAL NA MINI TELA
-        pvPreview.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+        pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
 
-        // ✅ INJETA O NOME DO CANAL NO METADATA PARA O PLAYER MOSTRAR AO CLICAR
+        // ✅ INJETA O NOME DO CANAL PARA APARECER NO HUD AO CLICAR
         val mediaItem = MediaItem.Builder()
             .setUri(url)
-            .setMediaMetadata(androidx.media3.common.MediaMetadata.Builder()
-                .setTitle(canal.name)
-                .build())
+            .setMediaMetadata(MediaMetadata.Builder().setTitle(canal.name).build())
             .build()
 
         miniPlayer?.setMediaItem(mediaItem)
@@ -332,15 +332,14 @@ class LiveTvActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ FUNÇÃO CORRIGIDA: Alterna com preenchimento total e esconde textos
+    // ✅ FUNÇÃO CORRIGIDA: Alterna com preenchimento total e estabiliza retorno
     private fun toggleFullscreen(full: Boolean) {
         isFullscreen = full
         if (full) {
+            // Esconde TUDO o que é fixo
             rvCategories.visibility = View.GONE
             rvChannels.visibility = View.GONE
             tvCategoryTitle.visibility = View.GONE
-            
-            // ✅ ESCONDE TEXTOS PARA TELA CHEIA LIMPA
             tvPreviewName.visibility = View.GONE
             tvPreviewEpg.visibility = View.GONE
             tvPreviewNext.visibility = View.GONE
@@ -350,17 +349,16 @@ class LiveTvActivity : AppCompatActivity() {
             params.height = ViewGroup.LayoutParams.MATCH_PARENT
             layoutPreviewContainer.layoutParams = params
             
-            // ✅ FORÇA O VÍDEO A PREENCHER TUDO (Elimina bordas pretas)
-            pvPreview.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+            // ✅ CORREÇÃO BORDAS PRETAS: Estica o vídeo para preencher a tela toda
+            pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
             
-            pvPreview.useController = true
+            pvPreview.useController = true // Nome do canal aparece ao clicar
             pvPreview.requestFocus()
+            hideSystemUI()
         } else {
             rvCategories.visibility = View.VISIBLE
             rvChannels.visibility = View.VISIBLE
             tvCategoryTitle.visibility = View.VISIBLE
-            
-            // ✅ TRAZ OS TEXTOS DE VOLTA NA MINI TELA
             tvPreviewName.visibility = View.VISIBLE
             tvPreviewEpg.visibility = View.VISIBLE
             tvPreviewNext.visibility = View.VISIBLE
@@ -371,13 +369,13 @@ class LiveTvActivity : AppCompatActivity() {
             layoutPreviewContainer.layoutParams = params
             
             // ✅ VOLTA PARA PROPORÇÃO NORMAL NA MINI TELA
-            pvPreview.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+            pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
             pvPreview.useController = false
             
-            // ✅ CORREÇÃO TELA PRETA: Força a reconexão da View ao Player
-            pvPreview.player = null
-            pvPreview.player = miniPlayer
-            miniPlayer?.play()
+            // ✅ ESTABILIZAÇÃO DE RETORNO: Força o motor do player a renderizar na mini view
+            Handler(Looper.getMainLooper()).postDelayed({
+                miniPlayer?.play()
+            }, 100)
             
             rvChannels.requestFocus()
         }

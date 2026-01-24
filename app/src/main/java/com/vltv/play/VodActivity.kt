@@ -55,7 +55,12 @@ class VodActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_live_tv)
+        
+        // --- AQUI ESTÁ A MÁGICA ---
+        // Agora usamos o molde SEM PLAYER. A lista vai ocupar a tela toda.
+        setContentView(R.layout.activity_vod) 
+        // --------------------------
+
         val windowInsetsController = WindowCompat.getInsetsController(window,
         window.decorView)
         windowInsetsController?.systemBarsBehavior =
@@ -63,7 +68,7 @@ class VodActivity : AppCompatActivity() {
         windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
 
         rvCategories = findViewById(R.id.rvCategories)
-        rvMovies = findViewById(R.id.rvChannels)
+        rvMovies = findViewById(R.id.rvChannels) // O ID continua o mesmo no XML novo
         progressBar = findViewById(R.id.progressBar)
         tvCategoryTitle = findViewById(R.id.tvCategoryTitle)
 

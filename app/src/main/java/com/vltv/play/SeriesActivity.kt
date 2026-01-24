@@ -55,14 +55,18 @@ class SeriesActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_live_tv)
+        
+        // --- AQUI ESTÁ A MUDANÇA ---
+        // Agora as séries usam o layout LIMPO (sem player), ocupando 100% da tela
+        setContentView(R.layout.activity_vod)
+        // ---------------------------
 
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
 
         rvCategories = findViewById(R.id.rvCategories)
-        rvSeries = findViewById(R.id.rvChannels)
+        rvSeries = findViewById(R.id.rvChannels) // O ID bate com o XML novo (activity_vod)
         progressBar = findViewById(R.id.progressBar)
         tvCategoryTitle = findViewById(R.id.tvCategoryTitle)
 

@@ -176,7 +176,14 @@ class LiveTvActivity : AppCompatActivity() {
         // ✅ GARANTE O AJUSTE DE PROPORÇÃO INICIAL NA MINI TELA
         pvPreview.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
 
-        val mediaItem = MediaItem.fromUri(url)
+        // ✅ INJETA O NOME DO CANAL NO METADATA PARA O PLAYER MOSTRAR AO CLICAR
+        val mediaItem = MediaItem.Builder()
+            .setUri(url)
+            .setMediaMetadata(androidx.media3.common.MediaMetadata.Builder()
+                .setTitle(canal.name)
+                .build())
+            .build()
+
         miniPlayer?.setMediaItem(mediaItem)
         miniPlayer?.prepare()
         miniPlayer?.playWhenReady = true
@@ -333,7 +340,7 @@ class LiveTvActivity : AppCompatActivity() {
             rvChannels.visibility = View.GONE
             tvCategoryTitle.visibility = View.GONE
             
-            // ✅ ESCONDE TEXTOS QUE FICAVAM APARECENDO EMBAIXO NA TELA GRANDE
+            // ✅ ESCONDE TEXTOS PARA TELA CHEIA LIMPA
             tvPreviewName.visibility = View.GONE
             tvPreviewEpg.visibility = View.GONE
             tvPreviewNext.visibility = View.GONE
@@ -343,8 +350,8 @@ class LiveTvActivity : AppCompatActivity() {
             params.height = ViewGroup.LayoutParams.MATCH_PARENT
             layoutPreviewContainer.layoutParams = params
             
-            // ✅ FORÇA O VÍDEO A OCUPAR CADA PIXEL (Remove bordas pretas)
-            pvPreview.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
+            // ✅ FORÇA O VÍDEO A PREENCHER TUDO (Elimina bordas pretas)
+            pvPreview.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
             
             pvPreview.useController = true
             pvPreview.requestFocus()
@@ -365,11 +372,13 @@ class LiveTvActivity : AppCompatActivity() {
             
             // ✅ VOLTA PARA PROPORÇÃO NORMAL NA MINI TELA
             pvPreview.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
-            
             pvPreview.useController = false
             
-            // ✅ GARANTE QUE O VÍDEO VOLTE TOCANDO
+            // ✅ CORREÇÃO TELA PRETA: Força a reconexão da View ao Player
+            pvPreview.player = null
+            pvPreview.player = miniPlayer
             miniPlayer?.play()
+            
             rvChannels.requestFocus()
         }
     }

@@ -15,8 +15,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
-import com.bumptech.glide.load.engine.DiskCacheStrategy // Adicionado para cache
-import com.bumptech.glide.Priority // Adicionado para prioridade
+import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.Priority
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import retrofit2.Call
 import retrofit2.Callback
@@ -93,7 +93,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
             btnDownloadSeason.visibility = View.GONE
         }
 
-        // tvTitle.text = seriesName // Removido daqui para evitar o delay visual (inicia invisível)
+        tvTitle.text = seriesName
         tvRating.text = "Nota: $seriesRating"
         tvGenre.text = "Gênero: Buscando..."
         tvCast.text = "Elenco:" 
@@ -162,7 +162,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         restaurarEstadoDownload()
         setupDownloadButtons() 
 
-        // ✅ MEMÓRIA DE LOGOS: Carrega instantaneamente do Cache se já existir
+        // ✅ MEMÓRIA DE LOGOS: Tenta carregar do cache interno antes de ir na internet
         tentarCarregarLogoCache()
 
         carregarSeriesInfo()
@@ -176,7 +176,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         
         // Esconde o título por padrão para evitar o delay visual do texto trocando por imagem
         tvTitle.visibility = View.INVISIBLE 
-        
+
         imgTitleLogo = findViewById(R.id.imgTitleLogo) // ✅ INICIALIZADO
         tvRating = findViewById(R.id.tvRating)
         tvGenre = findViewById(R.id.tvGenre)
@@ -192,27 +192,10 @@ class SeriesDetailsActivity : AppCompatActivity() {
         btnFavoriteSeries = findViewById(R.id.btnFavorite)
         btnResume = findViewById(R.id.btnResume) 
         
-        btnDownloadArea = findViewById(R.id.btnDownloadArea)
+        btnDownloadEpisodeArea = findViewById(R.id.btnDownloadArea)
         imgDownloadEpisodeState = findViewById(R.id.imgDownloadState)
         tvDownloadEpisodeState = findViewById(R.id.tvDownloadState)
         btnDownloadSeason = findViewById(R.id.btnDownloadSeason)
-    }
-
-    // ✅ FUNÇÃO DE CACHE INSTANTÂNEO
-    private fun tentarCarregarLogoCache() {
-        val prefs = getSharedPreferences("vltv_logos_cache", Context.MODE_PRIVATE)
-        val cachedUrl = prefs.getString("series_logo_$seriesId", null)
-
-        if (cachedUrl != null) {
-            tvTitle.visibility = View.GONE
-            imgTitleLogo.visibility = View.VISIBLE
-            Glide.with(this)
-                .load(cachedUrl)
-                .diskCacheStrategy(DiskCacheStrategy.ALL)
-                .priority(Priority.IMMEDIATE)
-                .dontAnimate()
-                .into(imgTitleLogo)
-        }
     }
 
     private fun setupDownloadButtons() {
@@ -325,7 +308,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
                             }
                             if (logoPath == null) logoPath = logos.getJSONObject(0).getString("file_path")
                             val finalUrl = "https://image.tmdb.org/t/p/w500$logoPath"
-                            
+
                             // ✅ SALVA NO CACHE INTERNO PARA A PRÓXIMA VEZ
                             getSharedPreferences("vltv_logos_cache", Context.MODE_PRIVATE)
                                 .edit().putString("series_logo_$seriesId", finalUrl).apply()
@@ -336,6 +319,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
                                 Glide.with(this@SeriesDetailsActivity)
                                     .load(finalUrl)
                                     .diskCacheStrategy(DiskCacheStrategy.ALL)
+                                    .priority(Priority.IMMEDIATE)
                                     .dontAnimate()
                                     .into(imgTitleLogo)
                             }
@@ -393,6 +377,23 @@ class SeriesDetailsActivity : AppCompatActivity() {
         })
     }
 
+    // ✅ Tenta carregar a logo do cache SharedPreferences IMEDIATAMENTE
+    private fun tentarCarregarLogoCache() {
+        val prefs = getSharedPreferences("vltv_logos_cache", Context.MODE_PRIVATE)
+        val cachedUrl = prefs.getString("series_logo_$seriesId", null)
+
+        if (cachedUrl != null) {
+            tvTitle.visibility = View.GONE
+            imgTitleLogo.visibility = View.VISIBLE
+            Glide.with(this)
+                .load(cachedUrl)
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .priority(Priority.IMMEDIATE)
+                .dontAnimate()
+                .into(imgTitleLogo)
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         restaurarEstadoDownload()
@@ -443,20 +444,34 @@ class SeriesDetailsActivity : AppCompatActivity() {
             })
     }
 
+    // =========================================================================
+    // NOVA FUNÇÃO: SELETOR DE TEMPORADA CENTRALIZADO E TRANSPARENTE (ESTILO OVERLAY)
+    // =========================================================================
     private fun mostrarSeletorDeTemporada() {
         if (sortedSeasons.isEmpty()) return
+
+        // Usamos o estilo transparente definido no themes.xml
         val dialog = BottomSheetDialog(this, R.style.DialogTemporadaTransparente)
+        
+        // Layout principal
         val root = LinearLayout(this)
-        root.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+        root.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
         root.orientation = LinearLayout.VERTICAL
         root.gravity = Gravity.CENTER_HORIZONTAL
         root.setPadding(0, 30, 0, 30)
         root.setBackgroundColor(Color.TRANSPARENT)
+
+        // RecyclerView com altura limitada para permitir o scroll
         val rvSeasons = RecyclerView(this)
+        // Definimos uma largura fixa (250dp) e uma altura máxima (ex: 400dp) para a coluna
         val rvParams = LinearLayout.LayoutParams(250.toPx(), 400.toPx()) 
         rvSeasons.layoutParams = rvParams
         rvSeasons.layoutManager = LinearLayoutManager(this)
         rvSeasons.setBackgroundColor(Color.TRANSPARENT)
+
         rvSeasons.adapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
             override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
                 val tv = TextView(parent.context)
@@ -469,13 +484,15 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 tv.isClickable = true
                 return object : RecyclerView.ViewHolder(tv) {}
             }
+
             override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
                 val season = sortedSeasons[position]
                 val tv = holder.itemView as TextView
                 tv.text = "Temporada $season"
+                
                 tv.setOnFocusChangeListener { v, hasFocus ->
                     if (hasFocus) {
-                        v.setBackgroundColor(Color.parseColor("#FFD700"))
+                        v.setBackgroundColor(Color.parseColor("#FFD700")) // Amarelo Ouro
                         (v as TextView).setTextColor(Color.BLACK)
                         v.animate().scaleX(1.1f).scaleY(1.1f).setDuration(150).start()
                     } else {
@@ -484,10 +501,16 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
                     }
                 }
-                tv.setOnClickListener { mudarTemporada(season); dialog.dismiss() }
+
+                tv.setOnClickListener {
+                    mudarTemporada(season)
+                    dialog.dismiss()
+                }
             }
             override fun getItemCount() = sortedSeasons.size
         }
+
+        // Botão Fechar no rodapé da coluna
         val btnClose = TextView(this)
         val closeParams = LinearLayout.LayoutParams(250.toPx(), ViewGroup.LayoutParams.WRAP_CONTENT)
         closeParams.setMargins(0, 20, 0, 20)
@@ -498,21 +521,37 @@ class SeriesDetailsActivity : AppCompatActivity() {
         btnClose.setPadding(0, 25, 0, 25)
         btnClose.isFocusable = true
         btnClose.isClickable = true
+
         btnClose.setOnFocusChangeListener { v, hasFocus ->
-            if (hasFocus) { (v as TextView).setTextColor(Color.RED); v.setBackgroundColor(Color.parseColor("#33000000")) }
-            else { (v as TextView).setTextColor(Color.WHITE); v.setBackgroundColor(Color.TRANSPARENT) }
+            if (hasFocus) {
+                (v as TextView).setTextColor(Color.RED)
+                v.setBackgroundColor(Color.parseColor("#33000000"))
+            } else {
+                (v as TextView).setTextColor(Color.WHITE)
+                v.setBackgroundColor(Color.TRANSPARENT)
+            }
         }
         btnClose.setOnClickListener { dialog.dismiss() }
-        root.addView(rvSeasons); root.addView(btnClose)
+
+        root.addView(rvSeasons)
+        root.addView(btnClose)
+
         dialog.setContentView(root)
+
+        // Configura o comportamento para não expandir para o topo automaticamente
         val bottomSheet = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
         bottomSheet?.let {
             val behavior = com.google.android.material.bottomsheet.BottomSheetBehavior.from(it)
+            // Mantém a altura que definirmos no layout, sem forçar tela cheia
             behavior.peekHeight = 500.toPx() 
             it.setBackgroundColor(Color.TRANSPARENT)
         }
+
         dialog.show()
-        rvSeasons.postDelayed({ rvSeasons.findViewHolderForAdapterPosition(0)?.itemView?.requestFocus() }, 150)
+        
+        rvSeasons.postDelayed({
+            rvSeasons.findViewHolderForAdapterPosition(0)?.itemView?.requestFocus()
+        }, 150)
     }
     private fun Int.toPx(): Int = (this * resources.displayMetrics.density).toInt()
 
@@ -523,6 +562,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         if (lista.isNotEmpty()) {
             currentEpisode = lista.first()
             restaurarEstadoDownload()
+            
             val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
             val streamId = currentEpisode?.id?.toIntOrNull() ?: 0
             val pos = prefs.getLong("series_resume_${streamId}_pos", 0L)
@@ -531,10 +571,12 @@ class SeriesDetailsActivity : AppCompatActivity() {
         rvEpisodes.adapter = EpisodeAdapter(lista) { ep, _ ->
             currentEpisode = ep
             restaurarEstadoDownload()
+            
             val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
             val streamId = ep.id.toIntOrNull() ?: 0
             val pos = prefs.getLong("series_resume_${streamId}_pos", 0L)
             btnResume.visibility = if (pos > 10000) View.VISIBLE else View.GONE
+            
             abrirPlayer(ep, true)
         }
     }
@@ -542,32 +584,43 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private fun abrirPlayer(ep: EpisodeStream, usarResume: Boolean) {
         val streamId = ep.id.toIntOrNull() ?: 0
         val ext = ep.container_extension ?: "mp4"
+
         val lista = episodesBySeason[currentSeason] ?: emptyList()
         val position = lista.indexOfFirst { it.id == ep.id }
+        
         val nextEp = if (position + 1 < lista.size) lista[position + 1] else null
         val nextStreamId = nextEp?.id?.toIntOrNull() ?: 0
         val nextChannelName = nextEp?.let { "T${currentSeason}E${it.episode_num} - $seriesName" }
+
         val mochilaIds = ArrayList<Int>()
         for (item in lista) {
             val idInt = item.id.toIntOrNull() ?: 0
             if (idInt != 0) mochilaIds.add(idInt)
         }
+
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val keyBase = "series_resume_$streamId"
         val pos = prefs.getLong("${keyBase}_pos", 0L)
         val dur = prefs.getLong("${keyBase}_dur", 0L)
         val existe = usarResume && pos > 30_000L && dur > 0L && pos < (dur * 0.95).toLong()
+
         val intent = Intent(this, PlayerActivity::class.java)
         intent.putExtra("stream_id", streamId)
         intent.putExtra("stream_ext", ext)
         intent.putExtra("stream_type", "series")
         intent.putExtra("channel_name", "T${currentSeason}E${ep.episode_num} - $seriesName")
-        if (mochilaIds.isNotEmpty()) intent.putIntegerArrayListExtra("episode_list", mochilaIds)
+        
+        if (mochilaIds.isNotEmpty()) {
+            intent.putIntegerArrayListExtra("episode_list", mochilaIds)
+        }
+
         if (existe) intent.putExtra("start_position_ms", pos)
+        
         if (nextStreamId != 0) {
             intent.putExtra("next_stream_id", nextStreamId)
             if (nextChannelName != null) intent.putExtra("next_channel_name", nextChannelName)
         }
+        
         startActivity(intent)
     }
 
@@ -576,8 +629,10 @@ class SeriesDetailsActivity : AppCompatActivity() {
         val user = prefs.getString("username", "") ?: ""
         val pass = prefs.getString("password", "") ?: ""
         val server = "http://tvblack.shop"
+
         val eid = ep.id.toIntOrNull() ?: 0
         val ext = ep.container_extension ?: "mp4"
+
         var base = if (server.endsWith("/")) server.dropLast(1) else server
         if (!base.startsWith("http")) base = "http://$base"
         val output = if (ext.isEmpty()) "ts" else ext
@@ -604,7 +659,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
         if (eid == 0) return "Baixar"
         val progress = DownloadHelper.getDownloadProgress(this, "series_$eid")
         return when (downloadState) {
-            DownloadState.BAIXAR -> "Baixar"; DownloadState.BAIXANDO -> "Baixando ${progress}%"; DownloadState.BAIXADO -> "Baixado"
+            DownloadState.BAIXAR -> "Baixar"
+            DownloadState.BAIXANDO -> "Baixando ${progress}%"
+            DownloadState.BAIXADO -> "Baixado"
         }
     }
 
@@ -616,16 +673,33 @@ class SeriesDetailsActivity : AppCompatActivity() {
             prefs.edit().putString("series_download_state_$eid", state.name).apply()
         }
         when (state) {
-            DownloadState.BAIXAR -> { imgDownloadEpisodeState.setImageResource(R.drawable.ic_dl_arrow); tvDownloadEpisodeState.text = getProgressText() }
-            DownloadState.BAIXANDO -> { imgDownloadEpisodeState.setImageResource(R.drawable.ic_dl_loading); tvDownloadEpisodeState.text = getProgressText() }
-            DownloadState.BAIXADO -> { imgDownloadEpisodeState.setImageResource(R.drawable.ic_dl_done); tvDownloadEpisodeState.text = getProgressText() }
+            DownloadState.BAIXAR -> {
+                imgDownloadEpisodeState.setImageResource(R.drawable.ic_dl_arrow)
+                tvDownloadEpisodeState.text = getProgressText()
+            }
+            DownloadState.BAIXANDO -> {
+                imgDownloadEpisodeState.setImageResource(R.drawable.ic_dl_loading)
+                tvDownloadEpisodeState.text = getProgressText()
+            }
+            DownloadState.BAIXADO -> {
+                imgDownloadEpisodeState.setImageResource(R.drawable.ic_dl_done)
+                tvDownloadEpisodeState.text = getProgressText()
+            }
         }
     }
 
     private fun restaurarEstadoDownload() {
-        val ep = currentEpisode ?: run { downloadState = DownloadState.BAIXAR; imgDownloadEpisodeState.setImageResource(R.drawable.ic_dl_arrow); tvDownloadEpisodeState.text = "Baixar"; return }
+        val ep = currentEpisode ?: run {
+            downloadState = DownloadState.BAIXAR
+            imgDownloadEpisodeState.setImageResource(R.drawable.ic_dl_arrow)
+            tvDownloadEpisodeState.text = "Baixar"
+            return
+        }
         val eid = ep.id.toIntOrNull() ?: 0
-        if (eid == 0) { setDownloadState(DownloadState.BAIXAR, ep); return }
+        if (eid == 0) {
+            setDownloadState(DownloadState.BAIXAR, ep)
+            return
+        }
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val saved = prefs.getString("series_download_state_$eid", DownloadState.BAIXAR.name)
         val state = try { DownloadState.valueOf(saved ?: DownloadState.BAIXAR.name) } catch (_: Exception) { DownloadState.BAIXAR }
@@ -644,11 +718,19 @@ class SeriesDetailsActivity : AppCompatActivity() {
         override fun onBindViewHolder(holder: VH, position: Int) {
             val ep = list[position]
             holder.tvTitle.text = "E${ep.episode_num.toString().padStart(2, '0')} - ${ep.title}"
-            if (holder.imgThumb != null) { Glide.with(holder.itemView.context).load(ep.info?.movie_image).placeholder(android.R.drawable.ic_menu_gallery).error(android.R.color.darker_gray).centerCrop().into(holder.imgThumb) }
+            if (holder.imgThumb != null) {
+                Glide.with(holder.itemView.context).load(ep.info?.movie_image)
+                    .placeholder(android.R.drawable.ic_menu_gallery).error(android.R.color.darker_gray).centerCrop().into(holder.imgThumb)
+            }
             holder.itemView.setOnClickListener { onClick(ep, position) }
             holder.itemView.setOnFocusChangeListener { _, hasFocus ->
-                if (hasFocus) { holder.tvTitle.setTextColor(Color.YELLOW); holder.tvTitle.setBackgroundColor(Color.parseColor("#CC000000")) }
-                else { holder.tvTitle.setTextColor(Color.WHITE); holder.tvTitle.setBackgroundColor(Color.parseColor("#D9000000")) }
+                if (hasFocus) {
+                    holder.tvTitle.setTextColor(Color.YELLOW)
+                    holder.tvTitle.setBackgroundColor(Color.parseColor("#CC000000"))
+                } else {
+                    holder.tvTitle.setTextColor(Color.WHITE)
+                    holder.tvTitle.setBackgroundColor(Color.parseColor("#D9000000"))
+                }
             }
         }
         override fun getItemCount() = list.size

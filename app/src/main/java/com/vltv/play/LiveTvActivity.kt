@@ -112,6 +112,13 @@ class LiveTvActivity : AppCompatActivity() {
         carregarCategorias()
     }
 
+    // ✅ ADICIONADO PARA RESOLVER O MINI PLAYER PRETO AO VOLTAR
+    override fun onResume() {
+        super.onResume()
+        hideSystemUI()
+        miniPlayer?.playWhenReady = true
+    }
+
     // Função para forçar a barra de bateria e relógio a sumirem
     private fun hideSystemUI() {
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
@@ -262,8 +269,8 @@ class LiveTvActivity : AppCompatActivity() {
 
         val catIdStr = categoria.id.toString()
 
-        channelsCache[catIdStr]?.let { canaisCacheados ->
-            aplicarCanais(categoria, canaisCacheados)
+        channelsCache[catIdStr]?.let { canaisCacheadas ->
+            aplicarCanais(categoria, canaisCacheadas)
             return
         }
 
@@ -299,11 +306,6 @@ class LiveTvActivity : AppCompatActivity() {
 
                 override fun onFailure(call: Call<List<LiveStream>>, t: Throwable) {
                     progressBar.visibility = View.GONE
-                    Toast.makeText(
-                        this@LiveTvActivity,
-                        "Falha de conexão",
-                        Toast.LENGTH_SHORT
-                    ).show()
                 }
             })
     }
@@ -326,6 +328,15 @@ class LiveTvActivity : AppCompatActivity() {
             startActivity(intent)
         }
         rvChannels.adapter = channelAdapter
+
+        // ✅ ADICIONADO: FOCO AUTOMÁTICO NO PRIMEIRO CANAL E AUTO-PLAY
+        if (canais.isNotEmpty()) {
+            rvChannels.post {
+                val firstView = rvChannels.layoutManager?.findViewByPosition(0)
+                firstView?.requestFocus()
+                carregarPreview(canais[0])
+            }
+        }
     }
 
     // --------------------
@@ -524,6 +535,12 @@ class LiveTvActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
+        // ✅ APENAS PAUSA PARA RETOMADA RÁPIDA NO ONRESUME
+        miniPlayer?.playWhenReady = false
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
         miniPlayer?.stop()
         miniPlayer?.release()
         miniPlayer = null

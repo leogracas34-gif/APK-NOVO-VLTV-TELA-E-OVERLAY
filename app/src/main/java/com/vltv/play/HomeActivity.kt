@@ -28,6 +28,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.URL
+import java.net.URLEncoder
 import kotlin.random.Random
 
 class HomeActivity : AppCompatActivity() {
@@ -100,7 +101,6 @@ class HomeActivity : AppCompatActivity() {
             binding.btnSettings.setColorFilter(if (hasFocus) 0xFF00C6FF.toInt() else 0xFFFFFFFF.toInt())
         }
 
-        // --- NOVO: ÁREA KIDS ADICIONADA NA LISTA DE CARDS ---
         val cards = listOf(binding.cardLiveTv, binding.cardMovies, binding.cardSeries, binding.cardKids, binding.cardBanner)
         
         cards.forEach { card ->
@@ -164,13 +164,12 @@ class HomeActivity : AppCompatActivity() {
                 } else false
             }
             
-            // --- AJUSTE NO SÉRIES PARA IR PARA O KIDS ---
             binding.cardSeries.setOnKeyListener { _, keyCode, event ->
                 if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && event.action == KeyEvent.ACTION_DOWN) {
                     binding.cardMovies.requestFocus()
                     true
                 } else if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && event.action == KeyEvent.ACTION_DOWN) {
-                    binding.cardKids.requestFocus() // Vai para o Kids à direita
+                    binding.cardKids.requestFocus()
                     true
                 } else if (keyCode == KeyEvent.KEYCODE_DPAD_UP && event.action == KeyEvent.ACTION_DOWN) {
                     binding.btnSettings.requestFocus()
@@ -178,10 +177,9 @@ class HomeActivity : AppCompatActivity() {
                 } else false
             }
 
-            // --- NOVO: NAVEGAÇÃO DPAD PARA O BOTÃO KIDS ---
             binding.cardKids.setOnKeyListener { _, keyCode, event ->
                 if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && event.action == KeyEvent.ACTION_DOWN) {
-                    binding.cardSeries.requestFocus() // Volta para Séries
+                    binding.cardSeries.requestFocus()
                     true
                 } else if (keyCode == KeyEvent.KEYCODE_DPAD_UP && event.action == KeyEvent.ACTION_DOWN) {
                     binding.btnSettings.requestFocus()
@@ -260,18 +258,19 @@ class HomeActivity : AppCompatActivity() {
                     val randomIndex = Random.nextInt(results.length())
                     val item = results.getJSONObject(randomIndex)
 
-                    val titulo = if (item.has("title")) item.getString("title")
+                    val tituloOriginal = if (item.has("title")) item.getString("title")
                     else if (item.has("name")) item.getString("name")
                     else "Destaque"
 
                     val overview = if (item.has("overview")) item.getString("overview") else ""
                     val backdropPath = item.getString("backdrop_path")
                     val prefixo = if (tipoAtual == "movie") "Filme em Alta: " else "Série em Alta: "
+                    val tmdbId = item.getString("id")
 
                     if (backdropPath != "null" && backdropPath.isNotBlank()) {
                         val imageUrl = "https://image.tmdb.org/t/p/original$backdropPath"
                         withContext(Dispatchers.Main) {
-                            binding.tvBannerTitle.text = "$prefixo$titulo"
+                            binding.tvBannerTitle.text = "$prefixo$tituloOriginal"
                             binding.tvBannerOverview.text = overview
                             Glide.with(this@HomeActivity)
                                 .load(imageUrl)
@@ -279,10 +278,60 @@ class HomeActivity : AppCompatActivity() {
                                 .placeholder(android.R.color.black)
                                 .into(binding.imgBanner)
                         }
+                        
+                        // ✅ Chama a vassoura e busca a Logo Overlay para o Banner
+                        buscarLogoOverlayHome(tmdbId, tipoAtual, tituloOriginal)
                     }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+            }
+        }
+    }
+
+    // ✅ NOVA FUNÇÃO: VASSOURA DE NOMES + BUSCA DE LOGO OVERLAY PARA O BANNER
+    private fun buscarLogoOverlayHome(tmdbId: String, tipo: String, rawName: String) {
+        // 1. A VASSOURA (Limpeza Rigorosa do Título)
+        var cleanName = rawName
+        cleanName = cleanName.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
+        cleanName = cleanName.replace(Regex("\\b\\d{4}\\b"), "")
+        
+        val lixo = listOf("FHD", "HD", "SD", "4K", "8K", "H265", "H.265", "LEG", "DUBLADO", "DUB", "|", "-", "_", ".")
+        lixo.forEach { cleanName = cleanName.replace(it, "", ignoreCase = true) }
+        cleanName = cleanName.trim().replace(Regex("\\s+"), " ")
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // Tenta buscar as logos usando o ID já obtido no trending (mais preciso)
+                val imagesUrl = "https://api.themoviedb.org/3/$tipo/$tmdbId/images?api_key=$TMDB_API_KEY&include_image_language=pt,en,null"
+                val imagesJson = URL(imagesUrl).readText()
+                val imagesObj = JSONObject(imagesJson)
+
+                if (imagesObj.has("logos")) {
+                    val logos = imagesObj.getJSONArray("logos")
+                    if (logos.length() > 0) {
+                        val logoPath = logos.getJSONObject(0).getString("file_path")
+                        val fullLogoUrl = "https://image.tmdb.org/t/p/w500$logoPath"
+
+                        withContext(Dispatchers.Main) {
+                            binding.tvBannerTitle.visibility = View.GONE
+                            binding.imgBannerLogo.visibility = View.VISIBLE
+                            Glide.with(this@HomeActivity).load(fullLogoUrl).into(binding.imgBannerLogo)
+                        }
+                        return@launch
+                    }
+                }
+                
+                // Fallback: Se não achar logo, volta para o texto
+                withContext(Dispatchers.Main) {
+                    binding.tvBannerTitle.visibility = View.VISIBLE
+                    binding.imgBannerLogo.visibility = View.GONE
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    binding.tvBannerTitle.visibility = View.VISIBLE
+                    binding.imgBannerLogo.visibility = View.GONE
+                }
             }
         }
     }

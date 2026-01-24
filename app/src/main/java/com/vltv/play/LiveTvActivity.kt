@@ -141,7 +141,7 @@ class LiveTvActivity : AppCompatActivity() {
             miniPlayer?.stop()
             miniPlayer?.release()
             miniPlayer = null
-            layoutPreviewContainer.visibility = View.GONE // ALTERADO PARA GONE
+            layoutPreviewContainer.visibility = View.INVISIBLE
             tvPreviewName.text = canal.name
             return
         }

@@ -2,6 +2,7 @@ package com.vltv.play
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager // ADICIONADO PARA DETECTAR TV
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -10,6 +11,7 @@ import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageButton // ADICIONADO PARA O BOTÃO
 import android.widget.ImageView
 import android.widget.LinearLayout // ADICIONADO PARA O CONTAINER
 import android.widget.ProgressBar
@@ -53,6 +55,7 @@ class LiveTvActivity : AppCompatActivity() {
     private var username = ""
     private var password = ""
     private var isFullscreen = false // ✅ ADICIONADO PARA CONTROLE
+    private var zoomIndex = 0 // ✅ ADICIONADO PARA AS 5 OPÇÕES DE ZOOM
 
     // Mantendo a estrutura original do seu cache
     private var cachedCategories: List<LiveCategory>? = null
@@ -88,6 +91,14 @@ class LiveTvActivity : AppCompatActivity() {
             pvPreview.player = miniPlayer
         }
 
+        // ✅ RECONHECIMENTO AUTOMÁTICO DE TV
+        val isTV = packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
+        if (isTV) {
+            pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+        } else {
+            pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
+        }
+
         // --- LÓGICA DE RECEPÇÃO DA HOME ---
         val showPreview = intent.getBooleanExtra("SHOW_PREVIEW", true)
         if (showPreview) {
@@ -119,6 +130,27 @@ class LiveTvActivity : AppCompatActivity() {
         rvCategories.requestFocus()
 
         carregarCategorias()
+
+        // ✅ LIGA O BOTÃO DE ASPECTO (ZOOM) DO SEU XML DE CONTROLES
+        val btnAspect = pvPreview.findViewById<ImageButton>(R.id.btnAspect)
+        btnAspect?.setOnClickListener {
+            alternarZoom()
+        }
+    }
+
+    // ✅ FUNÇÃO PARA ALTERNAR ENTRE AS 5 OPÇÕES DE ZOOM
+    private fun alternarZoom() {
+        zoomIndex = (zoomIndex + 1) % 5
+        val labels = arrayOf("Preencher", "Original", "Zoom (Corte)", "Largura Fixa", "Altura Fixa")
+        
+        when (zoomIndex) {
+            0 -> pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
+            1 -> pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+            2 -> pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+            3 -> pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIXED_WIDTH
+            4 -> pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIXED_HEIGHT
+        }
+        Toast.makeText(this, "Modo: ${labels[zoomIndex]}", Toast.LENGTH_SHORT).show()
     }
 
     // ✅ ADICIONADO PARA RESOLVER O MINI PLAYER PRETO AO VOLTAR
@@ -369,7 +401,7 @@ class LiveTvActivity : AppCompatActivity() {
             params.height = ViewGroup.LayoutParams.MATCH_PARENT
             layoutPreviewContainer.layoutParams = params
             
-            // ✅ CORREÇÃO BORDAS PRETAS: Estica o vídeo para preencher a tela toda
+            // ✅ TELA CHEIA: Começa com FILL por padrão no celular
             pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
             
             pvPreview.useController = true // Nome do canal aparece ao clicar

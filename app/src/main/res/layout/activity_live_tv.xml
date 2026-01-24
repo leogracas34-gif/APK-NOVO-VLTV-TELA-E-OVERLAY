@@ -62,7 +62,7 @@
                 <FrameLayout
                     android:id="@+id/video_preview_container"
                     android:layout_width="match_parent"
-                    android:layout_height="220dp"
+                    android:layout_height="250dp"
                     android:background="#000000">
                     
                     <androidx.media3.ui.PlayerView
@@ -78,7 +78,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     android:textColor="#FFFFFF"
-                    android:textSize="18sp"
+                    android:textSize="20sp"
                     android:textStyle="bold"
                     android:text="Selecione um canal" />
 
@@ -87,9 +87,20 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:textColor="#FFCC00"
+                    android:textColor="#FF4444"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:text="Agora: Aguardando..." />
+
+                <TextView
+                    android:id="@+id/tvPreviewNext"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:textColor="#AAAAAA"
                     android:textSize="14sp"
-                    android:text="Aguardando programação..." />
+                    android:textStyle="normal"
+                    android:text="A seguir: Aguardando..." />
 
             </LinearLayout>
         </LinearLayout>

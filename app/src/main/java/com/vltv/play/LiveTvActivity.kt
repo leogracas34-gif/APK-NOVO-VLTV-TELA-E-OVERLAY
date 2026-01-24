@@ -370,7 +370,7 @@ class LiveTvActivity : AppCompatActivity() {
             layoutPreviewContainer.layoutParams = params
             
             // ✅ CORREÇÃO BORDAS PRETAS: Estica o vídeo para preencher a tela toda
-            pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+            pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
             
             pvPreview.useController = true // Nome do canal aparece ao clicar
             pvPreview.requestFocus()

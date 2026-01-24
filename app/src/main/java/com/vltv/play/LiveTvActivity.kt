@@ -61,9 +61,8 @@ class LiveTvActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_live_tv)
 
-        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
-        windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
+        // Esconder barras iniciais
+        hideSystemUI()
 
         rvCategories = findViewById(R.id.rvCategories)
         rvChannels = findViewById(R.id.rvChannels)
@@ -97,6 +96,21 @@ class LiveTvActivity : AppCompatActivity() {
         rvCategories.requestFocus()
 
         carregarCategorias()
+    }
+
+    // Função para forçar a barra de bateria e relógio a sumirem
+    private fun hideSystemUI() {
+        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+        windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
+    }
+
+    // Garante que as barras sumam sempre que a tela for focada
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            hideSystemUI()
+        }
     }
 
     private fun setupRecyclerFocus() {
@@ -142,7 +156,8 @@ class LiveTvActivity : AppCompatActivity() {
 
         miniPlayer = ExoPlayer.Builder(this).build()
         pvPreview.player = miniPlayer
-        
+        pvPreview.useController = false // Impede o player de chamar as barras do sistema
+
         val mediaItem = MediaItem.fromUri(url)
         miniPlayer?.setMediaItem(mediaItem)
         miniPlayer?.prepare()

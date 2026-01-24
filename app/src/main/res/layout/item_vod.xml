@@ -21,24 +21,33 @@
             android:scaleType="centerCrop"
             android:src="@mipmap/ic_launcher"/>
 
-        <!-- ÍCONE DOWNLOAD MAIOR E VISÍVEL -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="100dp"
+            android:layout_gravity="bottom"
+            android:background="@drawable/gradient_black_bottom"/>
+
+        <ImageView
+            android:id="@+id/imgLogo"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="10dp"
+            android:layout_marginHorizontal="4dp"
+            android:scaleType="fitCenter"
+            android:visibility="invisible" />
+
         <ImageView
             android:id="@+id/imgDownload"
             android:layout_width="28dp"
             android:layout_height="28dp"
-            android:layout_gravity="bottom|end"
-            android:layout_margin="12dp"
+            android:layout_gravity="top|end" 
+            android:layout_margin="8dp"
             android:background="@drawable/circle_download_bg"
+            android:padding="5dp"
             android:src="@drawable/ic_download"
-            android:tint="@android:color/white"
+            app:tint="@android:color/white"
             android:scaleType="centerInside"/>
-
-        <!-- Sombra no fundo do nome -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="40dp"
-            android:layout_gravity="bottom"
-            android:background="#99000000"/>
 
         <TextView
             android:id="@+id/tvName"
@@ -46,12 +55,14 @@
             android:layout_height="wrap_content"
             android:layout_gravity="bottom"
             android:padding="4dp"
-            android:text="Nome do Filme"
+            android:text="Carregando..."
             android:textColor="@color/white"
             android:textSize="11sp"
             android:maxLines="2"
             android:ellipsize="end"
-            android:gravity="center"/>
+            android:gravity="center"
+            android:visibility="gone"/>
+
     </FrameLayout>
 
 </androidx.cardview.widget.CardView>

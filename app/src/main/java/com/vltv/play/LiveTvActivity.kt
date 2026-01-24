@@ -44,8 +44,9 @@ class LiveTvActivity : AppCompatActivity() {
     private lateinit var pvPreview: PlayerView
     private lateinit var tvPreviewName: TextView
     private lateinit var tvPreviewEpg: TextView
+    private lateinit var tvPreviewNext: TextView // ADICIONADO PARA O PRÓXIMO PROGRAMA
     private var miniPlayer: ExoPlayer? = null
-    private lateinit var layoutPreviewContainer: LinearLayout // ADICIONADO
+    private lateinit var layoutPreviewContainer: LinearLayout // ADICIONADO PARA O CONTAINER
 
     private var username = ""
     private var password = ""
@@ -75,7 +76,8 @@ class LiveTvActivity : AppCompatActivity() {
         pvPreview = findViewById(R.id.pvPreview)
         tvPreviewName = findViewById(R.id.tvPreviewName)
         tvPreviewEpg = findViewById(R.id.tvPreviewEpg)
-        layoutPreviewContainer = findViewById(R.id.layoutPreviewContainer) // ADICIONADO
+        tvPreviewNext = findViewById(R.id.tvPreviewNext) // INICIALIZADO
+        layoutPreviewContainer = findViewById(R.id.layoutPreviewContainer) // ADICIONADO PARA O CONTAINER
 
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         username = prefs.getString("username", "") ?: ""
@@ -427,8 +429,9 @@ class LiveTvActivity : AppCompatActivity() {
                 holder.itemView.alpha = if (hasFocus) 1.0f else 0.8f
                 
                 if (hasFocus) {
-                    // Atualiza texto do EPG no Preview
-                    tvPreviewEpg.text = holder.tvNow.text
+                    // Atualiza texto do EPG no Preview (Agora e A Seguir)
+                    tvPreviewEpg.text = "Agora: ${holder.tvNow.text}"
+                    tvPreviewNext.text = "A seguir: ${holder.tvNext.text}"
                     
                     // Delay para carregar o vídeo (Evita travar ao navegar rápido)
                     pendingRunnable?.let { handler.removeCallbacks(it) }

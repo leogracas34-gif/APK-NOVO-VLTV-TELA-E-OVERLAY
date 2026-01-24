@@ -443,6 +443,7 @@ class LiveTvActivity : AppCompatActivity() {
 
             holder.itemView.setOnClickListener { 
                 pendingRunnable?.let { handler.removeCallbacks(it) }
+                  carregarPreview(item)
                 onClick(item) 
             }
         }

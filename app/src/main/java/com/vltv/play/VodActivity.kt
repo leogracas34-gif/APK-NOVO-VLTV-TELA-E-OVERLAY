@@ -27,6 +27,15 @@ import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
 
+// --- IMPORTAÇÕES ADICIONADAS PARA A BUSCA DE LOGO ---
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.net.URL
+import java.net.URLEncoder
+
 class VodActivity : AppCompatActivity() {
 
     private lateinit var rvCategories: RecyclerView
@@ -451,15 +460,19 @@ class VodActivity : AppCompatActivity() {
         override fun getItemCount() = list.size
     }
 
+    // ================= ADAPTER TURBINADO COM LOGO TMDB =================
     inner class VodAdapter(
         private val list: List<VodStream>,
         private val onClick: (VodStream) -> Unit,
         private val onDownloadClick: (VodStream) -> Unit
     ) : RecyclerView.Adapter<VodAdapter.VH>() {
 
+        private val TMDB_API_KEY = "9b73f5dd15b8165b1b57419be2f29128"
+
         inner class VH(v: View) : RecyclerView.ViewHolder(v) {
             val tvName: TextView = v.findViewById(R.id.tvName)
             val imgPoster: ImageView = v.findViewById(R.id.imgPoster)
+            val imgLogo: ImageView = v.findViewById(R.id.imgLogo)
             val imgDownload: ImageView = v.findViewById(R.id.imgDownload)
         }
 
@@ -471,28 +484,31 @@ class VodActivity : AppCompatActivity() {
 
         override fun onBindViewHolder(holder: VH, position: Int) {
             val item = list[position]
-            holder.tvName.text = item.name
+            
+            // 1. Esconde o texto feio imediatamente
+            holder.tvName.visibility = View.GONE
+            holder.imgLogo.setImageDrawable(null) // Limpa logo antiga (reciclagem)
+            holder.imgLogo.visibility = View.INVISIBLE
 
-            // ✅ LÓGICA DE CAPAS INTELIGENTES (CELULAR VS TV BOX)
+            // 2. Carrega o Pôster do IPTV (Fundo)
             val context = holder.itemView.context
             if (isTelevision(context)) {
-                // Modo TV Box: Otimizado para carregar rápido e não travar (usa miniatura primeiro)
+                // Modo TV: Usa thumbnail para economizar memória e não travar
                 Glide.with(context)
                     .load(item.icon)
                     .diskCacheStrategy(DiskCacheStrategy.ALL)
-                    .override(200, 300) 
-                    .thumbnail(0.1f) 
+                    .override(200, 300)
                     .priority(Priority.HIGH)
+                    .thumbnail(0.1f)
                     .placeholder(R.drawable.bg_logo_placeholder)
                     .error(R.drawable.bg_logo_placeholder)
                     .centerCrop()
                     .into(holder.imgPoster)
             } else {
-                // Modo Celular: Carrega 100% da qualidade direto (sem efeito embaçado)
+                // Modo Celular: Qualidade total
                 Glide.with(context)
                     .load(item.icon)
                     .diskCacheStrategy(DiskCacheStrategy.ALL)
-                    .override(com.bumptech.glide.request.target.Target.SIZE_ORIGINAL) 
                     .priority(Priority.IMMEDIATE)
                     .placeholder(R.drawable.bg_logo_placeholder)
                     .error(R.drawable.bg_logo_placeholder)
@@ -500,17 +516,24 @@ class VodActivity : AppCompatActivity() {
                     .into(holder.imgPoster)
             }
 
+            // 3. BUSCA LOGO NO TMDB (Estilo Disney)
+            searchTmdbLogo(item.name, holder.imgLogo)
+
+            // 4. Animações de Foco (Zoom e Controle)
             holder.itemView.isFocusable = true
             holder.itemView.isClickable = true
-
             holder.itemView.setOnFocusChangeListener { view, hasFocus ->
-                // ✅ EFEITO VISUAL TV BOX: Zoom + Brilho ao focar
                 if (hasFocus) {
                     view.animate().scaleX(1.1f).scaleY(1.1f).setDuration(150).start()
+                    view.elevation = 10f
+                    // Se não tiver logo, mostra o texto quando foca, para o usuário saber o nome
+                    if (holder.imgLogo.drawable == null) holder.tvName.visibility = View.VISIBLE
                     holder.tvName.setTextColor(0xFF00C6FF.toInt()) // Azul Neon
                     view.alpha = 1.0f
                 } else {
                     view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
+                    view.elevation = 4f
+                    holder.tvName.visibility = View.GONE
                     holder.tvName.setTextColor(0xFFFFFFFF.toInt())
                     view.alpha = 0.8f
                 }
@@ -521,6 +544,80 @@ class VodActivity : AppCompatActivity() {
         }
 
         override fun getItemCount() = list.size
+
+        // --- FUNÇÃO DE BUSCA COM LIMPEZA SUPER PODEROSA ---
+        private fun searchTmdbLogo(rawName: String, targetView: ImageView) {
+            
+            // 1. A VASSOURA (Limpeza do Nome)
+            var cleanName = rawName
+
+            // Passo A: Remove tudo que estiver entre parenteses (), colchetes [] ou chaves {}
+            // Ex: "Filme (2019)" ou "[FHD] Filme" vira "Filme"
+            cleanName = cleanName.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
+
+            // Passo B: Remove anos soltos (4 números seguidos, ex: "2019" no inicio ou fim)
+            // Remove se for "2019 " ou " 2019"
+            cleanName = cleanName.replace(Regex("\\b\\d{4}\\b"), "")
+
+            // Passo C: Remove sujeiras comuns de IPTV
+            val sujeiras = listOf(
+                "FHD", "HD", "SD", "4K", "8K", "H265", "H.265",
+                "LEG", "DUBLADO", "DUB", "LEGENDADO", "DUAL", 
+                "|", "-", "_", ".", "MKV", "MP4", "AVI"
+            )
+            
+            sujeiras.forEach { lixo ->
+                cleanName = cleanName.replace(lixo, "", ignoreCase = true)
+            }
+
+            // Passo D: Remove espaços duplos e laterais que sobraram
+            cleanName = cleanName.trim().replace(Regex("\\s+"), " ")
+
+            // Se o nome ficou vazio (ex: só tinha lixo), usa o original
+            if (cleanName.length < 2) cleanName = rawName
+
+            // 2. Dispara a busca no TMDB com o nome limpo
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val query = URLEncoder.encode(cleanName, "UTF-8")
+                    
+                    // Busca ID
+                    val searchUrl = "https://api.themoviedb.org/3/search/movie?api_key=$TMDB_API_KEY&query=$query&language=pt-BR"
+                    val searchJson = URL(searchUrl).readText()
+                    val searchObj = JSONObject(searchJson)
+                    val results = searchObj.getJSONArray("results")
+
+                    if (results.length() > 0) {
+                        val movieId = results.getJSONObject(0).getString("id")
+                        
+                        // Busca LOGO (Pede 'en' e 'pt' pois logos PNG geralmente são classificadas como 'en')
+                        val imagesUrl = "https://api.themoviedb.org/3/movie/$movieId/images?api_key=$TMDB_API_KEY&include_image_language=pt,en,null"
+                        val imagesJson = URL(imagesUrl).readText()
+                        val imagesObj = JSONObject(imagesJson)
+                        
+                        if (imagesObj.has("logos")) {
+                            val logos = imagesObj.getJSONArray("logos")
+                            if (logos.length() > 0) {
+                                val logoPath = logos.getJSONObject(0).getString("file_path")
+                                val fullLogoUrl = "https://image.tmdb.org/t/p/w500$logoPath"
+
+                                withContext(Dispatchers.Main) {
+                                    targetView.visibility = View.VISIBLE
+                                    Glide.with(targetView.context)
+                                        .load(fullLogoUrl)
+                                        .diskCacheStrategy(DiskCacheStrategy.ALL)
+                                        .fitCenter()
+                                        .into(targetView)
+                                }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    // Se der erro, não faz nada (o texto aparecerá no foco como backup)
+                }
+            }
+        }
     }
 
     // ✅ BACK = SAIR (TV + Celular)

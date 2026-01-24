@@ -10,7 +10,11 @@
         android:layout_width="250dp"
         android:layout_height="match_parent"
         android:background="#121212"
-        android:padding="8dp" />
+        android:padding="8dp"
+        android:focusable="true"
+        android:focusableInTouchMode="true"
+        android:descendantFocusability="afterDescendants"
+        android:nextFocusRight="@+id/rvChannels" />
 
     <View
         android:layout_width="1dp"
@@ -27,7 +31,7 @@
             android:id="@+id/tvCategoryTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Carregando Filmes..."
+            android:text="Carregando..."
             android:textColor="@color/white"
             android:textSize="22sp"
             android:textStyle="bold"
@@ -43,7 +47,11 @@
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvChannels"
             android:layout_width="match_parent"
-            android:layout_height="match_parent" />
+            android:layout_height="match_parent"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:descendantFocusability="afterDescendants"
+            android:nextFocusLeft="@+id/rvCategories" />
 
     </LinearLayout>
 

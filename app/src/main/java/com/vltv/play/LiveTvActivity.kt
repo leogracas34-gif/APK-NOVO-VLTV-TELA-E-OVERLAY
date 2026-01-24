@@ -437,7 +437,7 @@ class LiveTvActivity : AppCompatActivity() {
                     pendingRunnable?.let { handler.removeCallbacks(it) }
                     val r = Runnable { carregarPreview(item) }
                     pendingRunnable = r
-                    handler.postDelayed(r, 800)
+                    handler.postDelayed(r)
                 }
             }
 

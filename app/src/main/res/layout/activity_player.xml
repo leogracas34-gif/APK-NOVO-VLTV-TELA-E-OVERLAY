@@ -13,6 +13,7 @@
         android:layout_height="match_parent"
         android:fitsSystemWindows="false"
         app:use_controller="true"
+        app:surface_type="texture_view" 
         app:resize_mode="fit"
         app:show_buffering="when_playing"
         android:keepScreenOn="true"
@@ -21,7 +22,6 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
 
-    <!-- Barra superior -->
     <LinearLayout
         android:id="@+id/topBar"
         android:layout_width="match_parent"
@@ -58,20 +58,21 @@
             android:ellipsize="end"/>
     </LinearLayout>
 
-    <!-- Botão de aspecto -->
     <ImageButton
         android:id="@+id/btnAspect"
-        android:layout_width="32dp"
-        android:layout_height="32dp"
-        android:background="@android:color/transparent"
+        android:layout_width="48dp" 
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
         android:src="@drawable/ic_aspect_ratio"
+        android:focusable="true"
+        android:clickable="true"
+        android:visibility="visible"
         app:tint="#FFFFFF"
         app:layout_constraintTop_toTopOf="@id/playerView"
         app:layout_constraintEnd_toEndOf="@id/playerView"
         android:layout_marginTop="8dp"
         android:layout_marginEnd="8dp"/>
 
-    <!-- Overlay Próximo Episódio -->
     <LinearLayout
         android:id="@+id/nextEpisodeContainer"
         android:layout_width="wrap_content"

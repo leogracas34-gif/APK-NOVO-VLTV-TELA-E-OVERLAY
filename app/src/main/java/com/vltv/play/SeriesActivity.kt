@@ -29,6 +29,15 @@ import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
 
+// --- IMPORTAÇÕES PARA A API DO TMDB ---
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.net.URL
+import java.net.URLEncoder
+
 class SeriesActivity : AppCompatActivity() {
 
     private lateinit var rvCategories: RecyclerView
@@ -56,8 +65,7 @@ class SeriesActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // --- AQUI ESTÁ A MUDANÇA ---
-        // Agora as séries usam o layout LIMPO (sem player), ocupando 100% da tela
+        // --- USANDO O LAYOUT LIMPO (SEM PLAYER) ---
         setContentView(R.layout.activity_vod)
         // ---------------------------
 
@@ -339,17 +347,24 @@ class SeriesActivity : AppCompatActivity() {
         override fun getItemCount() = list.size
     }
 
+    // ================= ADAPTER TURBINADO PARA SÉRIES COM LOGO =================
     inner class SeriesAdapter(
         private val list: List<SeriesStream>,
         private val onClick: (SeriesStream) -> Unit
     ) : RecyclerView.Adapter<SeriesAdapter.VH>() {
 
+        private val TMDB_API_KEY = "9b73f5dd15b8165b1b57419be2f29128"
+
         inner class VH(v: View) : RecyclerView.ViewHolder(v) {
             val tvName: TextView = v.findViewById(R.id.tvName)
             val imgPoster: ImageView = v.findViewById(R.id.imgPoster)
+            val imgLogo: ImageView = v.findViewById(R.id.imgLogo)
+            // Mantemos a referência mas na série geralmente não tem download direto na lista
+            val imgDownload: ImageView = v.findViewById(R.id.imgDownload) 
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
+            // Reutiliza o item_vod que já tem a estrutura de camadas (Poster + Logo)
             val v = LayoutInflater.from(parent.context)
                 .inflate(R.layout.item_vod, parent, false)
             return VH(v)
@@ -357,12 +372,18 @@ class SeriesActivity : AppCompatActivity() {
 
         override fun onBindViewHolder(holder: VH, position: Int) {
             val item = list[position]
-            holder.tvName.text = item.name
+            
+            // 1. Esconde o texto e prepara a logo
+            holder.tvName.visibility = View.GONE
+            holder.imgLogo.setImageDrawable(null)
+            holder.imgLogo.visibility = View.INVISIBLE
+            
+            // Esconde botão de download pois series geralmente não baixa na lista principal
+            holder.imgDownload.visibility = View.GONE 
 
-            // ✅ LÓGICA DE CAPAS INTELIGENTES (CELULAR VS TV BOX)
+            // 2. Carrega o Poster do IPTV (Fundo)
             val context = holder.itemView.context
             if (isTelevision(context)) {
-                // Modo TV Box: Otimizado para economizar RAM
                 Glide.with(context)
                     .load(item.icon)
                     .diskCacheStrategy(DiskCacheStrategy.ALL)
@@ -374,7 +395,6 @@ class SeriesActivity : AppCompatActivity() {
                     .centerCrop()
                     .into(holder.imgPoster)
             } else {
-                // Modo Celular: Alta qualidade direta
                 Glide.with(context)
                     .load(item.icon)
                     .diskCacheStrategy(DiskCacheStrategy.ALL)
@@ -386,16 +406,27 @@ class SeriesActivity : AppCompatActivity() {
                     .into(holder.imgPoster)
             }
 
+            // 3. BUSCA LOGO NO TMDB (ESPECÍFICO PARA SÉRIES)
+            searchTmdbLogo(item.name, holder.imgLogo)
+
+            // 4. Animações de Foco
             holder.itemView.isFocusable = true
             holder.itemView.isClickable = true
 
             holder.itemView.setOnFocusChangeListener { view, hasFocus ->
                 if (hasFocus) {
                     view.animate().scaleX(1.1f).scaleY(1.1f).setDuration(150).start()
+                    view.elevation = 10f
+                    // Se não tiver logo carregada, mostra o texto
+                    if (holder.imgLogo.drawable == null) holder.tvName.visibility = View.VISIBLE
                     holder.tvName.setTextColor(0xFF00C6FF.toInt()) 
+                    view.alpha = 1.0f
                 } else {
                     view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
+                    view.elevation = 4f
+                    holder.tvName.visibility = View.GONE
                     holder.tvName.setTextColor(0xFFFFFFFF.toInt())
+                    view.alpha = 0.8f
                 }
             }
 
@@ -403,5 +434,66 @@ class SeriesActivity : AppCompatActivity() {
         }
 
         override fun getItemCount() = list.size
+
+        // --- FUNÇÃO DE BUSCA DE LOGO (ADAPTADA PARA TV/SÉRIES) ---
+        private fun searchTmdbLogo(rawName: String, targetView: ImageView) {
+            
+            // 1. Limpeza do Nome (Igual filmes)
+            var cleanName = rawName
+            cleanName = cleanName.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
+            cleanName = cleanName.replace(Regex("\\b\\d{4}\\b"), "")
+            
+            val sujeiras = listOf(
+                "FHD", "HD", "SD", "4K", "8K", "H265", "H.265",
+                "LEG", "DUBLADO", "DUB", "LEGENDADO", "DUAL", 
+                "|", "-", "_", ".", "MKV", "MP4", "AVI", "COMPLETE", "COMPLETA"
+            )
+            sujeiras.forEach { lixo ->
+                cleanName = cleanName.replace(lixo, "", ignoreCase = true)
+            }
+            cleanName = cleanName.trim().replace(Regex("\\s+"), " ")
+            if (cleanName.length < 2) cleanName = rawName
+
+            // 2. Busca na API (search/tv)
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val query = URLEncoder.encode(cleanName, "UTF-8")
+                    
+                    // ATENÇÃO: Aqui usamos search/tv em vez de search/movie
+                    val searchUrl = "https://api.themoviedb.org/3/search/tv?api_key=$TMDB_API_KEY&query=$query&language=pt-BR"
+                    val searchJson = URL(searchUrl).readText()
+                    val searchObj = JSONObject(searchJson)
+                    val results = searchObj.getJSONArray("results")
+
+                    if (results.length() > 0) {
+                        val seriesId = results.getJSONObject(0).getString("id")
+                        
+                        // Busca LOGO da Série
+                        val imagesUrl = "https://api.themoviedb.org/3/tv/$seriesId/images?api_key=$TMDB_API_KEY&include_image_language=pt,en,null"
+                        val imagesJson = URL(imagesUrl).readText()
+                        val imagesObj = JSONObject(imagesJson)
+                        
+                        if (imagesObj.has("logos")) {
+                            val logos = imagesObj.getJSONArray("logos")
+                            if (logos.length() > 0) {
+                                val logoPath = logos.getJSONObject(0).getString("file_path")
+                                val fullLogoUrl = "https://image.tmdb.org/t/p/w500$logoPath"
+
+                                withContext(Dispatchers.Main) {
+                                    targetView.visibility = View.VISIBLE
+                                    Glide.with(targetView.context)
+                                        .load(fullLogoUrl)
+                                        .diskCacheStrategy(DiskCacheStrategy.ALL)
+                                        .fitCenter()
+                                        .into(targetView)
+                                }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
     }
 }

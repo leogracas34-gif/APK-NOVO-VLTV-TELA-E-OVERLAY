@@ -3,6 +3,8 @@ package com.vltv.play
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Base64
 import android.view.KeyEvent
 import android.view.LayoutInflater
@@ -19,6 +21,9 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.media3.common.MediaItem
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.Priority
@@ -33,6 +38,12 @@ class LiveTvActivity : AppCompatActivity() {
     private lateinit var rvChannels: RecyclerView
     private lateinit var progressBar: ProgressBar
     private lateinit var tvCategoryTitle: TextView
+
+    // Novas Views para o Preview (Conforme o novo Layout)
+    private lateinit var pvPreview: PlayerView
+    private lateinit var tvPreviewName: TextView
+    private lateinit var tvPreviewEpg: TextView
+    private var miniPlayer: ExoPlayer? = null
 
     private var username = ""
     private var password = ""
@@ -59,6 +70,11 @@ class LiveTvActivity : AppCompatActivity() {
         progressBar = findViewById(R.id.progressBar)
         tvCategoryTitle = findViewById(R.id.tvCategoryTitle)
 
+        // Inicializar as Views do Preview que adicionamos no XML
+        pvPreview = findViewById(R.id.pvPreview)
+        tvPreviewName = findViewById(R.id.tvPreviewName)
+        tvPreviewEpg = findViewById(R.id.tvPreviewEpg)
+
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         username = prefs.getString("username", "") ?: ""
         password = prefs.getString("password", "") ?: ""
@@ -72,7 +88,7 @@ class LiveTvActivity : AppCompatActivity() {
         rvCategories.isFocusable = true
         rvCategories.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
 
-        // Mantendo o GridLayoutManager (4 colunas) como você pediu
+        // Trocado para LinearLayoutManager para modo Lista Vertical
         rvChannels.layoutManager = LinearLayoutManager(this)
         rvChannels.isFocusable = true
         rvChannels.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
@@ -95,6 +111,28 @@ class LiveTvActivity : AppCompatActivity() {
                 rvChannels.smoothScrollToPosition(0)
             }
         }
+    }
+
+    // Lógica para carregar o Preview no quadro da direita
+    private fun carregarPreview(canal: LiveStream) {
+        miniPlayer?.stop()
+        miniPlayer?.release()
+        
+        tvPreviewName.text = canal.name
+        
+        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+        val dns = prefs.getString("dns", "http://tvblack.shop") ?: "http://tvblack.shop"
+        val cleanDns = if (dns.endsWith("/")) dns.dropLast(1) else dns
+        
+        val url = "$cleanDns/live/$username/$password/${canal.id}.ts"
+
+        miniPlayer = ExoPlayer.Builder(this).build()
+        pvPreview.player = miniPlayer
+        
+        val mediaItem = MediaItem.fromUri(url)
+        miniPlayer?.setMediaItem(mediaItem)
+        miniPlayer?.prepare()
+        miniPlayer?.playWhenReady = true
     }
 
     private fun isAdultName(name: String?): Boolean {
@@ -176,8 +214,8 @@ class LiveTvActivity : AppCompatActivity() {
 
     private fun carregarCanais(categoria: LiveCategory) {
         tvCategoryTitle.text = categoria.name
+        miniPlayer?.stop() // Para o vídeo ao trocar de categoria
 
-        // Correção aqui: Converter ID para String para usar no Cache corretamente
         val catIdStr = categoria.id.toString()
 
         channelsCache[catIdStr]?.let { canaisCacheados ->
@@ -187,7 +225,6 @@ class LiveTvActivity : AppCompatActivity() {
 
         progressBar.visibility = View.VISIBLE
 
-        // Correção aqui: Passar categoryId como String
         XtreamApi.service.getLiveStreams(username, password, categoryId = catIdStr)
             .enqueue(object : Callback<List<LiveStream>> {
                 override fun onResponse(
@@ -231,6 +268,11 @@ class LiveTvActivity : AppCompatActivity() {
         tvCategoryTitle.text = categoria.name
 
         channelAdapter = ChannelAdapter(canais, username, password) { canal ->
+            // Para o mini player antes de ir para a tela cheia
+            miniPlayer?.stop()
+            miniPlayer?.release()
+            miniPlayer = null
+            
             val intent = Intent(this@LiveTvActivity, PlayerActivity::class.java)
             intent.putExtra("stream_id", canal.id)
             intent.putExtra("stream_ext", "ts")
@@ -301,7 +343,7 @@ class LiveTvActivity : AppCompatActivity() {
     }
 
     // --------------------
-    // ADAPTER DOS CANAIS + EPG (CORRIGIDO COM A LÓGICA DO ARQUIVO ANTIGO)
+    // ADAPTER DOS CANAIS + PREVIEW DINÂMICO
     // --------------------
     inner class ChannelAdapter(
         private val list: List<LiveStream>,
@@ -311,6 +353,8 @@ class LiveTvActivity : AppCompatActivity() {
     ) : RecyclerView.Adapter<ChannelAdapter.VH>() {
 
         private val epgCache = mutableMapOf<Int, List<EpgResponseItem>>()
+        private val handler = Handler(Looper.getMainLooper())
+        private var pendingRunnable: Runnable? = null
 
         inner class VH(v: View) : RecyclerView.ViewHolder(v) {
             val tvName: TextView = v.findViewById(R.id.tvName)
@@ -330,7 +374,6 @@ class LiveTvActivity : AppCompatActivity() {
 
             holder.tvName.text = item.name
 
-            // MELHORIA DE CARREGAMENTO DAS CAPAS APLICADA AQUI
             Glide.with(holder.itemView.context)
                 .load(item.icon)
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
@@ -342,7 +385,6 @@ class LiveTvActivity : AppCompatActivity() {
                 .centerInside()
                 .into(holder.imgLogo)
 
-            // Chamada do EPG corrigida
             carregarEpg(holder, item)
 
             holder.itemView.isFocusable = true
@@ -350,17 +392,30 @@ class LiveTvActivity : AppCompatActivity() {
 
             holder.itemView.setOnFocusChangeListener { _, hasFocus ->
                 holder.itemView.alpha = if (hasFocus) 1.0f else 0.8f
+                
+                if (hasFocus) {
+                    // Atualiza texto do EPG no Preview
+                    tvPreviewEpg.text = holder.tvNow.text
+                    
+                    // Delay para carregar o vídeo (Evita travar ao navegar rápido)
+                    pendingRunnable?.let { handler.removeCallbacks(it) }
+                    val r = Runnable { carregarPreview(item) }
+                    pendingRunnable = r
+                    handler.postDelayed(r, 800)
+                }
             }
 
-            holder.itemView.setOnClickListener { onClick(item) }
+            holder.itemView.setOnClickListener { 
+                pendingRunnable?.let { handler.removeCallbacks(it) }
+                onClick(item) 
+            }
         }
 
-        // Esta é a função decodeBase64 ROBUSTA do seu arquivo antigo
         private fun decodeBase64(text: String?): String {
             return try {
                 if (text.isNullOrEmpty()) "" else String(
                     Base64.decode(text, Base64.DEFAULT),
-                    Charset.forName("UTF-8") // Garante compatibilidade de acentos
+                    Charset.forName("UTF-8")
                 )
             } catch (e: Exception) {
                 text ?: ""
@@ -373,7 +428,6 @@ class LiveTvActivity : AppCompatActivity() {
                 return
             }
 
-            // AQUI ESTÁ A MÁGICA: Convertendo explicitamente para String como no arquivo antigo
             val epgId = canal.id.toString()
 
             XtreamApi.service.getShortEpg(
@@ -421,6 +475,13 @@ class LiveTvActivity : AppCompatActivity() {
         }
 
         override fun getItemCount() = list.size
+    }
+
+    override fun onStop() {
+        super.onStop()
+        miniPlayer?.stop()
+        miniPlayer?.release()
+        miniPlayer = null
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {

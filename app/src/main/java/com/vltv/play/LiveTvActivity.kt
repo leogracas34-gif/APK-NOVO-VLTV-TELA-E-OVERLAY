@@ -172,6 +172,9 @@ class LiveTvActivity : AppCompatActivity() {
         miniPlayer = ExoPlayer.Builder(this).build()
         pvPreview.player = miniPlayer
         pvPreview.useController = false // Impede o player de chamar as barras do sistema
+        
+        // ✅ GARANTE O AJUSTE DE PROPORÇÃO INICIAL NA MINI TELA
+        pvPreview.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
 
         val mediaItem = MediaItem.fromUri(url)
         miniPlayer?.setMediaItem(mediaItem)
@@ -322,7 +325,7 @@ class LiveTvActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ NOVA FUNÇÃO ADICIONADA: Alterna entre Mini e Fullscreen sem parar o vídeo
+    // ✅ FUNÇÃO CORRIGIDA: Alterna com preenchimento total e esconde textos
     private fun toggleFullscreen(full: Boolean) {
         isFullscreen = full
         if (full) {
@@ -330,10 +333,18 @@ class LiveTvActivity : AppCompatActivity() {
             rvChannels.visibility = View.GONE
             tvCategoryTitle.visibility = View.GONE
             
+            // ✅ ESCONDE TEXTOS QUE FICAVAM APARECENDO EMBAIXO NA TELA GRANDE
+            tvPreviewName.visibility = View.GONE
+            tvPreviewEpg.visibility = View.GONE
+            tvPreviewNext.visibility = View.GONE
+            
             val params = layoutPreviewContainer.layoutParams
             params.width = ViewGroup.LayoutParams.MATCH_PARENT
             params.height = ViewGroup.LayoutParams.MATCH_PARENT
             layoutPreviewContainer.layoutParams = params
+            
+            // ✅ FORÇA O VÍDEO A OCUPAR CADA PIXEL (Remove bordas pretas)
+            pvPreview.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
             
             pvPreview.useController = true
             pvPreview.requestFocus()
@@ -341,14 +352,24 @@ class LiveTvActivity : AppCompatActivity() {
             rvCategories.visibility = View.VISIBLE
             rvChannels.visibility = View.VISIBLE
             tvCategoryTitle.visibility = View.VISIBLE
+            
+            // ✅ TRAZ OS TEXTOS DE VOLTA NA MINI TELA
+            tvPreviewName.visibility = View.VISIBLE
+            tvPreviewEpg.visibility = View.VISIBLE
+            tvPreviewNext.visibility = View.VISIBLE
 
             val params = layoutPreviewContainer.layoutParams
-            // IMPORTANTE: Ajuste aqui para o comportamento original do seu XML
             params.width = 0 
             params.height = ViewGroup.LayoutParams.MATCH_PARENT 
             layoutPreviewContainer.layoutParams = params
             
+            // ✅ VOLTA PARA PROPORÇÃO NORMAL NA MINI TELA
+            pvPreview.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+            
             pvPreview.useController = false
+            
+            // ✅ GARANTE QUE O VÍDEO VOLTE TOCANDO
+            miniPlayer?.play()
             rvChannels.requestFocus()
         }
     }

@@ -82,6 +82,12 @@ class LiveTvActivity : AppCompatActivity() {
         tvPreviewNext = findViewById(R.id.tvPreviewNext) // INICIALIZADO
         layoutPreviewContainer = findViewById(R.id.layoutPreviewContainer) // ADICIONADO PARA O CONTAINER
 
+        // Inicializa o player vazio aqui para evitar erros de null
+        if (miniPlayer == null) {
+            miniPlayer = ExoPlayer.Builder(this).build()
+            pvPreview.player = miniPlayer
+        }
+
         // --- LÓGICA DE RECEPÇÃO DA HOME ---
         val showPreview = intent.getBooleanExtra("SHOW_PREVIEW", true)
         if (showPreview) {
@@ -119,6 +125,11 @@ class LiveTvActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         hideSystemUI()
+        // Garante que o player esteja ativo ao voltar
+        if (miniPlayer == null) {
+            miniPlayer = ExoPlayer.Builder(this).build()
+            pvPreview.player = miniPlayer
+        }
         miniPlayer?.playWhenReady = true
     }
 
@@ -160,8 +171,10 @@ class LiveTvActivity : AppCompatActivity() {
         // Se for TV ao Vivo, mostra a tela (VISIBLE) e inicia o player
         layoutPreviewContainer.visibility = View.VISIBLE // ADICIONADO
         pvPreview.visibility = View.VISIBLE
-        miniPlayer?.stop()
-        miniPlayer?.release()
+        
+        // ALTERAÇÃO CRÍTICA: Não destruir o player, apenas reutilizar (Resolve lentidão)
+        // miniPlayer?.stop()
+        // miniPlayer?.release()
         
         tvPreviewName.text = canal.name
         
@@ -171,12 +184,19 @@ class LiveTvActivity : AppCompatActivity() {
         
         val url = "$cleanDns/live/$username/$password/${canal.id}.ts"
 
-        miniPlayer = ExoPlayer.Builder(this).build()
-        pvPreview.player = miniPlayer
-        pvPreview.useController = false // Impede o player de chamar as barras do sistema
+        // Só cria se for nulo, senão reutiliza o mesmo (Mais rápido)
+        if (miniPlayer == null) {
+            miniPlayer = ExoPlayer.Builder(this).build()
+            pvPreview.player = miniPlayer
+        }
+        
+        // Garante controles corretos
+        pvPreview.useController = isFullscreen // Só usa controle se for tela cheia
         
         // ✅ GARANTE O AJUSTE DE PROPORÇÃO INICIAL NA MINI TELA
-        pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+        if (!isFullscreen) {
+            pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+        }
 
         // ✅ INJETA O NOME DO CANAL PARA APARECER NO HUD AO CLICAR
         val mediaItem = MediaItem.Builder()
@@ -268,7 +288,7 @@ class LiveTvActivity : AppCompatActivity() {
 
     private fun carregarCanais(categoria: LiveCategory) {
         tvCategoryTitle.text = categoria.name
-        miniPlayer?.stop() // Para o vídeo ao trocar de categoria
+        // miniPlayer?.stop() // REMOVIDO PARA EVITAR PISCAR AO TROCAR CATEGORIA
 
         val catIdStr = categoria.id.toString()
 
@@ -372,10 +392,10 @@ class LiveTvActivity : AppCompatActivity() {
             pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
             pvPreview.useController = false
             
-            // ✅ ESTABILIZAÇÃO DE RETORNO: Força o motor do player a renderizar na mini view
-            Handler(Looper.getMainLooper()).postDelayed({
-                miniPlayer?.play()
-            }, 100)
+            // ✅ CORREÇÃO TELA PRETA: Reconecta a View ao Player
+            // Isso força o redesenho da imagem instantaneamente (sem esperar 4s)
+            pvPreview.player = null
+            pvPreview.player = miniPlayer
             
             rvChannels.requestFocus()
         }

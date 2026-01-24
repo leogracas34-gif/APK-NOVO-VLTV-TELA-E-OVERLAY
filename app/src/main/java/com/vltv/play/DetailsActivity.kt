@@ -21,6 +21,8 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.Priority
 import com.bumptech.glide.load.resource.bitmap.CenterCrop
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -96,7 +98,9 @@ class DetailsActivity : AppCompatActivity() {
         setupEventos()
         setupEpisodesRecycler()
 
-        // Inicia a busca
+        // ✅ MEMÓRIA DE LOGOS: Tenta carregar do cache interno antes de ir na internet
+        tentarCarregarLogoCache()
+
         sincronizarDadosTMDB()
     }
 
@@ -114,6 +118,10 @@ class DetailsActivity : AppCompatActivity() {
     private fun inicializarViews() {
         imgPoster = findViewById(R.id.imgPoster)
         tvTitle = findViewById(R.id.tvTitle)
+        
+        // Esconde o texto por padrão para não ter delay visual
+        tvTitle.visibility = View.INVISIBLE 
+
         tvRating = findViewById(R.id.tvRating)
         tvGenre = findViewById(R.id.tvGenre)
         tvCast = findViewById(R.id.tvCast)
@@ -134,7 +142,6 @@ class DetailsActivity : AppCompatActivity() {
             btnDownloadArea.visibility = View.GONE
         }
 
-        // --- Configuração de Foco para TV ---
         btnPlay.isFocusable = true
         btnResume.isFocusable = true
         btnFavorite.isFocusable = true
@@ -143,7 +150,7 @@ class DetailsActivity : AppCompatActivity() {
     }
 
     private fun carregarConteudo() {
-        tvTitle.text = name
+        // tvTitle.text = name // Mantemos invisível até a logo carregar ou falhar
         tvRating.text = "⭐ $rating"
         tvGenre.text = "Gênero: Carregando..."
         tvCast.text = "Elenco:"
@@ -167,11 +174,28 @@ class DetailsActivity : AppCompatActivity() {
         restaurarEstadoDownload()
     }
 
+    // ✅ Tenta carregar a logo do cache SharedPreferences IMEDIATAMENTE
+    private fun tentarCarregarLogoCache() {
+        val prefs = getSharedPreferences("vltv_logos_cache", Context.MODE_PRIVATE)
+        val cachedUrl = prefs.getString("logo_$streamId", null)
+        val imgLogo = findViewById<ImageView>(R.id.imgTitleLogo)
+
+        if (cachedUrl != null && imgLogo != null) {
+            imgLogo.visibility = View.VISIBLE
+            tvTitle.visibility = View.GONE
+            Glide.with(this)
+                .load(cachedUrl)
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .priority(Priority.IMMEDIATE)
+                .dontAnimate()
+                .into(imgLogo)
+        }
+    }
+
     private fun sincronizarDadosTMDB() {
         val apiKey = "9b73f5dd15b8165b1b57419be2f29128"
         val type = if (isSeries) "tv" else "movie"
         
-        // ✅ VASSOURA DE NOMES (LIMPEZA RIGOROSA)
         var cleanName = name
         cleanName = cleanName.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
         cleanName = cleanName.replace(Regex("\\b\\d{4}\\b"), "")
@@ -186,7 +210,10 @@ class DetailsActivity : AppCompatActivity() {
 
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                runOnUiThread { tvPlot.text = "Falha na conexão." }
+                runOnUiThread { 
+                    tvPlot.text = "Falha na conexão." 
+                    tvTitle.visibility = View.VISIBLE // Mostra texto se falhar
+                }
             }
 
             override fun onResponse(call: Call, response: Response) {
@@ -194,20 +221,12 @@ class DetailsActivity : AppCompatActivity() {
                 if (body != null) {
                     try {
                         val jsonObject = JSONObject(body)
-                        if (jsonObject.has("status_message")) {
-                             val msg = jsonObject.optString("status_message")
-                             runOnUiThread { tvPlot.text = "Erro API: $msg" }
-                             return
-                        }
-
                         val results = jsonObject.optJSONArray("results")
                         if (results != null && results.length() > 0) {
                             val movie = results.getJSONObject(0)
                             val idTmdb = movie.getInt("id")
                             
-                            // ✅ Busca Logo Overlay Traduzida
                             buscarLogoOverlayTraduzida(idTmdb, type, apiKey)
-                            
                             buscarDetalhesCompletos(idTmdb, type, apiKey)
 
                             runOnUiThread {
@@ -222,7 +241,11 @@ class DetailsActivity : AppCompatActivity() {
                                 if (vote > 0) tvRating.text = "⭐ ${String.format("%.1f", vote)}"
                             }
                         } else {
-                            runOnUiThread { tvPlot.text = "Informações não encontradas." }
+                            runOnUiThread { 
+                                tvPlot.text = "Informações não encontradas." 
+                                tvTitle.visibility = View.VISIBLE // Mostra texto se nada for achado
+                                tvTitle.text = name
+                            }
                         }
                     } catch (e: Exception) { e.printStackTrace() }
                 }
@@ -230,7 +253,6 @@ class DetailsActivity : AppCompatActivity() {
         })
     }
 
-    // ✅ NOVA FUNÇÃO: BUSCA LOGO TRADUZIDA (PORTO PORTUGUÊS)
     private fun buscarLogoOverlayTraduzida(id: Int, type: String, key: String) {
         val imagesUrl = "https://api.themoviedb.org/3/$type/$id/images?api_key=$key&include_image_language=pt,en,null"
         client.newCall(Request.Builder().url(imagesUrl).build()).enqueue(object : Callback {
@@ -252,20 +274,33 @@ class DetailsActivity : AppCompatActivity() {
                             if (logoPath == null) logoPath = logos.getJSONObject(0).getString("file_path")
                             val finalUrl = "https://image.tmdb.org/t/p/w500$logoPath"
                             
+                            // ✅ SALVA NO CACHE INTERNO PARA A PRÓXIMA VEZ
+                            getSharedPreferences("vltv_logos_cache", Context.MODE_PRIVATE)
+                                .edit().putString("logo_$streamId", finalUrl).apply()
+
                             runOnUiThread {
-                                // Tenta achar a imgTitleLogo no XML, se não achar não faz nada
                                 val imgLogo = findViewById<ImageView>(R.id.imgTitleLogo)
                                 if (imgLogo != null) {
                                     tvTitle.visibility = View.GONE
                                     imgLogo.visibility = View.VISIBLE
-                                    Glide.with(this@DetailsActivity).load(finalUrl).into(imgLogo)
+                                    Glide.with(this@DetailsActivity)
+                                        .load(finalUrl)
+                                        .diskCacheStrategy(DiskCacheStrategy.ALL)
+                                        .dontAnimate()
+                                        .into(imgLogo)
                                 }
                             }
+                        } else {
+                            runOnUiThread { tvTitle.visibility = View.VISIBLE }
                         }
-                    } catch (e: Exception) {}
+                    } catch (e: Exception) {
+                        runOnUiThread { tvTitle.visibility = View.VISIBLE }
+                    }
                 }
             }
-            override fun onFailure(call: Call, e: IOException) {}
+            override fun onFailure(call: Call, e: IOException) {
+                runOnUiThread { tvTitle.visibility = View.VISIBLE }
+            }
         })
     }
 
@@ -319,7 +354,6 @@ class DetailsActivity : AppCompatActivity() {
         recyclerEpisodes.apply {
             layoutManager = if (isTelevisionDevice()) GridLayoutManager(this@DetailsActivity, 6) else LinearLayoutManager(this@DetailsActivity, LinearLayoutManager.HORIZONTAL, false)
             adapter = episodesAdapter
-            // Crucial para navegar na lista de episódios
             descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
         }
     }
@@ -332,7 +366,6 @@ class DetailsActivity : AppCompatActivity() {
     }
 
     private fun setupEventos() {
-        // --- Efeito Zoom Controle Remoto ---
         val zoomFocus = View.OnFocusChangeListener { v, hasFocus ->
             v.scaleX = if (hasFocus) 1.1f else 1.0f
             v.scaleY = if (hasFocus) 1.1f else 1.0f
@@ -448,7 +481,6 @@ class DetailsActivity : AppCompatActivity() {
         
         inner class ViewHolder(val v: View) : RecyclerView.ViewHolder(v) {
             fun bind(e: EpisodeData) {
-                // Foco e Zoom nos episódios
                 v.isFocusable = true
                 v.setOnFocusChangeListener { _, hasFocus ->
                     v.scaleX = if (hasFocus) 1.1f else 1.0f

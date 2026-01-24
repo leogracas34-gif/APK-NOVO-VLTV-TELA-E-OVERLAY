@@ -141,7 +141,7 @@ class LiveTvActivity : AppCompatActivity() {
             miniPlayer?.stop()
             miniPlayer?.release()
             miniPlayer = null
-            layoutPreviewContainer.visibility = View.INVISIBLE
+            layoutPreviewContainer.visibility = View.GONE 
             tvPreviewName.text = canal.name
             return
         }
@@ -437,13 +437,12 @@ class LiveTvActivity : AppCompatActivity() {
                     pendingRunnable?.let { handler.removeCallbacks(it) }
                     val r = Runnable { carregarPreview(item) }
                     pendingRunnable = r
-                    handler.postDelayed(r)
+                    handler.postDelayed(r, 800)
                 }
             }
 
             holder.itemView.setOnClickListener { 
                 pendingRunnable?.let { handler.removeCallbacks(it) }
-                  carregarPreview(item)
                 onClick(item) 
             }
         }

@@ -13,57 +13,61 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="8dp">
+        android:orientation="horizontal"
+        android:padding="8dp"
+        android:gravity="center_vertical">
 
-        <!-- LOGO CANAL com bordas arredondadas -->
         <ImageView
             android:id="@+id/imgLogo"
-            android:layout_width="match_parent"
+            android:layout_width="60dp"
             android:layout_height="56dp"
-            android:scaleType="centerCrop"
+            android:scaleType="centerInside"
             android:adjustViewBounds="true"
             android:background="@drawable/bg_logo_round"
             android:padding="4dp"
-            android:layout_marginBottom="4dp" />
+            android:layout_marginEnd="12dp" />
 
-        <!-- NOME CANAL -->
-        <TextView
-            android:id="@+id/tvName"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Canal Name"
-            android:textColor="#FFFFFF"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:gravity="center"
-            android:maxLines="1"
-            android:ellipsize="end" />
+            android:orientation="vertical">
 
-        <!-- AGORA NO AR -->
-        <TextView
-            android:id="@+id/tvNow"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Programa atual"
-            android:textColor="#FF4444"
-            android:textSize="10sp"
-            android:gravity="center"
-            android:layout_marginTop="2dp"
-            android:maxLines="1"
-            android:ellipsize="end" />
+            <TextView
+                android:id="@+id/tvName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Canal Name"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:gravity="start"
+                android:maxLines="1"
+                android:ellipsize="end" />
 
-        <!-- PRÓXIMO PROGRAMA -->
-        <TextView
-            android:id="@+id/tvNext"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Próximo programa"
-            android:textColor="#AAAAAA"
-            android:textSize="9sp"
-            android:gravity="center"
-            android:maxLines="1"
-            android:ellipsize="end" />
+            <TextView
+                android:id="@+id/tvNow"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Programa atual"
+                android:textColor="#FF4444"
+                android:textSize="11sp"
+                android:gravity="start"
+                android:layout_marginTop="2dp"
+                android:maxLines="1"
+                android:ellipsize="end" />
+
+            <TextView
+                android:id="@+id/tvNext"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Próximo programa"
+                android:textColor="#AAAAAA"
+                android:textSize="10sp"
+                android:gravity="start"
+                android:maxLines="1"
+                android:ellipsize="end" />
+
+        </LinearLayout>
 
     </LinearLayout>
 </androidx.cardview.widget.CardView>

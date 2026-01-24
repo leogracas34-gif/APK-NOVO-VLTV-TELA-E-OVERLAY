@@ -6,13 +6,12 @@ import android.content.res.Configuration
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.LayoutInflater
-import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.ImageView
-import android.widget.PopupMenu
+import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -116,11 +115,26 @@ class HomeActivity : AppCompatActivity() {
             
             card.setOnClickListener {
                 when (card.id) {
-                    R.id.cardLiveTv -> startActivity(Intent(this, LiveTvActivity::class.java))
-                    R.id.cardMovies -> startActivity(Intent(this, VodActivity::class.java))
-                    R.id.cardSeries -> startActivity(Intent(this, SeriesActivity::class.java))
-                    // NOVO: Ação de clique para Área Kids
-                    R.id.cardKids -> startActivity(Intent(this, KidsActivity::class.java))
+                    R.id.cardLiveTv -> {
+                        val intent = Intent(this, LiveTvActivity::class.java)
+                        intent.putExtra("SHOW_PREVIEW", true)
+                        startActivity(intent)
+                    }
+                    R.id.cardMovies -> {
+                        val intent = Intent(this, VodActivity::class.java)
+                        intent.putExtra("SHOW_PREVIEW", false)
+                        startActivity(intent)
+                    }
+                    R.id.cardSeries -> {
+                        val intent = Intent(this, SeriesActivity::class.java)
+                        intent.putExtra("SHOW_PREVIEW", false)
+                        startActivity(intent)
+                    }
+                    R.id.cardKids -> {
+                        val intent = Intent(this, KidsActivity::class.java)
+                        intent.putExtra("SHOW_PREVIEW", false)
+                        startActivity(intent)
+                    }
                     R.id.cardBanner -> { /* ação banner */ }
                 }
             }

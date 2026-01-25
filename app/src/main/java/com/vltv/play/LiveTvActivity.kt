@@ -72,11 +72,8 @@ class LiveTvActivity : AppCompatActivity() {
         rvCategories.isFocusable = true
         rvCategories.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
 
-        // ✅ RECONHECIMENTO AUTOMÁTICO DE TV (GRID DINÂMICO)
-        val isTV = packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
-        val spanCount = if (isTV) 4 else 4 //  colunas na TV, 4 como no seu backup
-        
-        rvChannels.layoutManager = GridLayoutManager(this, spanCount)
+        // Mantendo o GridLayoutManager (5 colunas) como você pediu
+        rvChannels.layoutManager = GridLayoutManager(this, 4)
         rvChannels.isFocusable = true
         rvChannels.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
         rvChannels.setHasFixedSize(true)

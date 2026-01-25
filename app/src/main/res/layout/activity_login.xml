@@ -12,8 +12,6 @@
         android:layout_height="match_parent"
         android:scaleType="centerCrop"
         android:alpha="0.8"
-        android:tint="#4DFFFFFF"
-        android:tintMode="src_over"
         android:src="@drawable/bg_poster_placeholder" /> 
 
     <View
@@ -22,71 +20,81 @@
         android:alpha="0.4"
         android:background="@drawable/bg_gradient_overlay"/>
 
-    <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/cardLogin"
-        android:layout_width="400dp"
+        android:layout_width="0dp" 
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="40dp"
+        android:padding="24dp"
         android:background="@drawable/bg_login_card_premium"
         android:elevation="15dp"
+        app:layout_constraintWidth_max="400dp"
+        app:layout_constraintWidth_percent="0.85"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
         <TextView
-            android:layout_width="match_parent"
+            android:id="@+id/tvTitle"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="VLTV+"
             android:textColor="#FFFFFF"
-            android:textSize="48sp"
+            android:textSize="38sp"
             android:fontFamily="sans-serif-condensed-light"
             android:textStyle="bold"
-            android:gravity="center"
             android:letterSpacing="0.15"
             android:shadowColor="#00C6FF"
-            android:shadowDx="0"
-            android:shadowDy="0"
             android:shadowRadius="20"
-            android:layout_marginBottom="32dp"/>
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginBottom="24dp"/>
 
         <TextView
+            android:id="@+id/labelUser"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Usuário"
             android:textColor="#CCCCCC"
             android:textSize="12sp"
-            android:layout_marginBottom="6dp"
+            app:layout_constraintTop_toBottomOf="@id/tvTitle"
+            app:layout_constraintStart_toStartOf="parent"
+            android:layout_marginTop="20dp"
             android:layout_marginStart="4dp"/>
 
         <EditText
             android:id="@+id/etUsername"
             android:layout_width="match_parent"
-            android:layout_height="52dp"
+            android:layout_height="48dp"
             android:background="@drawable/bg_login_input_premium"
             android:paddingStart="18dp"
             android:paddingEnd="18dp"
-            android:hint="Digite seu usuário"
+            android:hint="Usuário"
             android:textColor="#FFFFFF"
             android:textColorHint="#66FFFFFF"
             android:inputType="text"
             android:imeOptions="actionNext"
-            android:layout_marginBottom="20dp"/>
+            android:nextFocusDown="@id/etPassword"
+            app:layout_constraintTop_toBottomOf="@id/labelUser"
+            android:layout_marginTop="6dp"/>
 
         <TextView
+            android:id="@+id/labelPass"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Senha"
             android:textColor="#CCCCCC"
             android:textSize="12sp"
-            android:layout_marginBottom="6dp"
+            app:layout_constraintTop_toBottomOf="@id/etUsername"
+            app:layout_constraintStart_toStartOf="parent"
+            android:layout_marginTop="16dp"
             android:layout_marginStart="4dp"/>
 
         <EditText
             android:id="@+id/etPassword"
             android:layout_width="match_parent"
-            android:layout_height="52dp"
+            android:layout_height="48dp"
             android:background="@drawable/bg_login_input_premium"
             android:paddingStart="18dp"
             android:paddingEnd="18dp"
@@ -95,33 +103,35 @@
             android:textColor="#FFFFFF"
             android:textColorHint="#66FFFFFF"
             android:imeOptions="actionDone"
-            android:layout_marginBottom="32dp"/>
+            android:nextFocusDown="@id/btnLogin"
+            app:layout_constraintTop_toBottomOf="@id/labelPass"
+            android:layout_marginTop="6dp"/>
 
         <Button
             android:id="@+id/btnLogin"
             android:layout_width="match_parent"
-            android:layout_height="60dp"
-            android:layout_marginTop="10dp"
-            android:layout_marginBottom="5dp"
+            android:layout_height="55dp"
+            android:layout_marginTop="24dp"
             android:background="@drawable/selector_button_premium"
-            android:backgroundTint="@null"
-            app:backgroundTint="@null"
             android:text="ENTRAR"
             android:textColor="#FFFFFF"
-            android:textSize="18sp"
+            android:textSize="16sp"
             android:textStyle="bold"
-            android:elevation="8dp"
-            android:stateListAnimator="@null"/>
-
-        <ProgressBar
+            android:focusable="true"
+            android:clickable="true"
+            android:focusableInTouchMode="false" 
+            app:layout_constraintTop_toBottomOf="@id/etPassword" />
+            <ProgressBar
             android:id="@+id/progressBar"
             android:layout_width="30dp"
             android:layout_height="30dp"
-            android:layout_gravity="center"
             android:visibility="gone"
             android:indeterminateTint="#00C6FF"
-            android:layout_marginTop="20dp"/>
+            app:layout_constraintTop_toBottomOf="@id/btnLogin"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="15dp"/>
 
-    </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

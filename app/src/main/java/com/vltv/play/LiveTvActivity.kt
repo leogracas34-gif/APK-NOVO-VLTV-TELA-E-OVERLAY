@@ -2,7 +2,6 @@ package com.vltv.play
 
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager // ADICIONADO PARA DETECTAR TV
 import android.os.Bundle
 import android.util.Base64
 import android.view.KeyEvent
@@ -72,11 +71,8 @@ class LiveTvActivity : AppCompatActivity() {
         rvCategories.isFocusable = true
         rvCategories.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
 
-        // ✅ RECONHECIMENTO AUTOMÁTICO DE TV (GRID DINÂMICO)
-        val isTV = packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
-        val spanCount = if (isTV) 4 else 2 // Pela sua imagem, 4 colunas na TV fica idêntico
-        
-        rvChannels.layoutManager = GridLayoutManager(this, spanCount)
+        // Mantendo o GridLayoutManager (5 colunas) como você pediu
+        rvChannels.layoutManager = GridLayoutManager(this, 4)
         rvChannels.isFocusable = true
         rvChannels.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
         rvChannels.setHasFixedSize(true)
@@ -183,8 +179,8 @@ class LiveTvActivity : AppCompatActivity() {
         // Correção aqui: Converter ID para String para usar no Cache corretamente
         val catIdStr = categoria.id.toString()
 
-        channelsCache[catIdStr]?.let { canaisCacheadas ->
-            aplicarCanais(categoria, canaisCacheadas)
+        channelsCache[catIdStr]?.let { canaisCacheados ->
+            aplicarCanais(categoria, canaisCacheados)
             return
         }
 
@@ -242,14 +238,6 @@ class LiveTvActivity : AppCompatActivity() {
             startActivity(intent)
         }
         rvChannels.adapter = channelAdapter
-
-        // ✅ ADICIONADO: FOCO AUTOMÁTICO NA GRADE AO CARREGAR
-        if (canais.isNotEmpty()) {
-            rvChannels.post {
-                val firstView = rvChannels.layoutManager?.findViewByPosition(0)
-                firstView?.requestFocus()
-            }
-        }
     }
 
     // --------------------

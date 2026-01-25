@@ -13,6 +13,7 @@
         android:scaleType="centerCrop"
         android:src="@drawable/bg_poster_placeholder"
         android:tint="#CC000510"
+        android:alpha="0.8"
         android:tintMode="src_over" /> 
 
     <View
@@ -28,7 +29,7 @@
         android:layout_height="wrap_content"
         android:padding="32dp"
         android:background="@drawable/bg_login_card_premium"
-        android:elevation="35dp"
+        android:elevation="40dp"
         app:layout_constraintWidth_max="400dp"
         app:layout_constraintWidth_percent="0.82"
         app:layout_constraintTop_toTopOf="parent"

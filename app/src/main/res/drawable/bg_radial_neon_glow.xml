@@ -1,0 +1,10 @@
+<View
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_gradient_overlay"/>
+
+<View
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:alpha="1.0"
+    android:background="@drawable/bg_radial_neon_glow"/>

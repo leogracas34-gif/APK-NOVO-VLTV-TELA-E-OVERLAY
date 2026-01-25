@@ -74,7 +74,7 @@ class LiveTvActivity : AppCompatActivity() {
 
         // ✅ RECONHECIMENTO AUTOMÁTICO DE TV (GRID DINÂMICO)
         val isTV = packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
-        val spanCount = if (isTV) 6 else 4 // 6 colunas na TV, 4 como no seu backup
+        val spanCount = if (isTV) 5 else 4 // 5 colunas na TV, 4 como no seu backup
         
         rvChannels.layoutManager = GridLayoutManager(this, spanCount)
         rvChannels.isFocusable = true

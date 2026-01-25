@@ -27,7 +27,7 @@ import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
 
-// --- IMPORTAÇÕES ADICIONADAS PARA A BUSCA DE LOGO ---
+// --- IMPORTAÇÕES ADICIONADAS PARA A PERFORMANCE ---
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -115,6 +115,26 @@ class VodActivity : AppCompatActivity() {
         rvMovies.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus) {
                 rvMovies.smoothScrollToPosition(0)
+            }
+        }
+    }
+
+    // ✅ FUNÇÃO NOVA: PRÉ-CARREGAMENTO PARA VELOCIDADE ULTRA
+    private fun preLoadImages(filmes: List<VodStream>) {
+        CoroutineScope(Dispatchers.IO).launch {
+            // Pré-carrega os primeiros 40 posters da lista em background
+            val limit = if (filmes.size > 40) 40 else filmes.size
+            for (i in 0 until limit) {
+                val url = filmes[i].icon
+                if (!url.isNullOrEmpty()) {
+                    withContext(Dispatchers.Main) {
+                        Glide.with(this@VodActivity)
+                            .load(url)
+                            .diskCacheStrategy(DiskCacheStrategy.ALL)
+                            .priority(Priority.LOW) 
+                            .preload(200, 300)
+                    }
+                }
             }
         }
     }
@@ -219,8 +239,9 @@ class VodActivity : AppCompatActivity() {
         tvCategoryTitle.text = categoria.name
 
         // cache por categoria
-        moviesCache[categoria.id]?.let { filmesCacheados ->
-            aplicarFilmes(filmesCacheados)
+        moviesCache[categoria.id]?.let { filmesCacheadas ->
+            aplicarFilmes(filmesCacheadas)
+            preLoadImages(filmesCacheadas) // ✅ PRELOAD DO CACHE
             return
         }
 
@@ -245,6 +266,7 @@ class VodActivity : AppCompatActivity() {
                         }
 
                         aplicarFilmes(filmes)
+                        preLoadImages(filmes) // ✅ PRELOAD DA API
                     }
                 }
 
@@ -258,8 +280,9 @@ class VodActivity : AppCompatActivity() {
         tvCategoryTitle.text = "FAVORITOS"
 
         // usa cache se já montou uma vez
-        favMoviesCache?.let { favoritosCacheados ->
-            aplicarFilmes(favoritosCacheados)
+        favMoviesCache?.let { favoritosCacheadas ->
+            aplicarFilmes(favoritosCacheadas)
+            preLoadImages(favoritosCacheadas) // ✅ PRELOAD FAVORITOS CACHE
             return
         }
 
@@ -292,6 +315,7 @@ class VodActivity : AppCompatActivity() {
 
                         favMoviesCache = todos
                         aplicarFilmes(todos)
+                        preLoadImages(todos) // ✅ PRELOAD FAVORITOS API
                     }
                 }
 
@@ -492,29 +516,17 @@ class VodActivity : AppCompatActivity() {
 
             // 2. Carrega o Pôster do IPTV (Fundo)
             val context = holder.itemView.context
-            if (isTelevision(context)) {
-                // Modo TV: Usa thumbnail para economizar memória e não travar
-                Glide.with(context)
-                    .load(item.icon)
-                    .diskCacheStrategy(DiskCacheStrategy.ALL)
-                    .override(200, 300)
-                    .priority(Priority.HIGH)
-                    .thumbnail(0.1f)
-                    .placeholder(R.drawable.bg_logo_placeholder)
-                    .error(R.drawable.bg_logo_placeholder)
-                    .centerCrop()
-                    .into(holder.imgPoster)
-            } else {
-                // Modo Celular: Qualidade total
-                Glide.with(context)
-                    .load(item.icon)
-                    .diskCacheStrategy(DiskCacheStrategy.ALL)
-                    .priority(Priority.IMMEDIATE)
-                    .placeholder(R.drawable.bg_logo_placeholder)
-                    .error(R.drawable.bg_logo_placeholder)
-                    .centerCrop()
-                    .into(holder.imgPoster)
-            }
+            
+            // ✅ ESTRATÉGIA DE CACHE AGRESSIVA
+            Glide.with(context)
+                .load(item.icon)
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .priority(if (isTelevision(context)) Priority.HIGH else Priority.IMMEDIATE)
+                .thumbnail(0.1f)
+                .placeholder(R.drawable.bg_logo_placeholder)
+                .error(R.drawable.bg_logo_placeholder)
+                .centerCrop()
+                .into(holder.imgPoster)
 
             // 3. BUSCA LOGO NO TMDB (Estilo Disney)
             searchTmdbLogo(item.name, holder.imgLogo)
@@ -552,11 +564,9 @@ class VodActivity : AppCompatActivity() {
             var cleanName = rawName
 
             // Passo A: Remove tudo que estiver entre parenteses (), colchetes [] ou chaves {}
-            // Ex: "Filme (2019)" ou "[FHD] Filme" vira "Filme"
             cleanName = cleanName.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
 
-            // Passo B: Remove anos soltos (4 números seguidos, ex: "2019" no inicio ou fim)
-            // Remove se for "2019 " ou " 2019"
+            // Passo B: Remove anos soltos
             cleanName = cleanName.replace(Regex("\\b\\d{4}\\b"), "")
 
             // Passo C: Remove sujeiras comuns de IPTV
@@ -570,27 +580,21 @@ class VodActivity : AppCompatActivity() {
                 cleanName = cleanName.replace(lixo, "", ignoreCase = true)
             }
 
-            // Passo D: Remove espaços duplos e laterais que sobraram
+            // Passo D: Remove espaços duplos
             cleanName = cleanName.trim().replace(Regex("\\s+"), " ")
 
-            // Se o nome ficou vazio (ex: só tinha lixo), usa o original
             if (cleanName.length < 2) cleanName = rawName
 
-            // 2. Dispara a busca no TMDB com o nome limpo
+            // 2. Dispara a busca no TMDB
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val query = URLEncoder.encode(cleanName, "UTF-8")
-                    
-                    // Busca ID
                     val searchUrl = "https://api.themoviedb.org/3/search/movie?api_key=$TMDB_API_KEY&query=$query&language=pt-BR"
                     val searchJson = URL(searchUrl).readText()
-                    val searchObj = JSONObject(searchJson)
-                    val results = searchObj.getJSONArray("results")
+                    val results = JSONObject(searchJson).getJSONArray("results")
 
                     if (results.length() > 0) {
                         val movieId = results.getJSONObject(0).getString("id")
-                        
-                        // Busca LOGO (Pede 'en' e 'pt' pois logos PNG geralmente são classificadas como 'en')
                         val imagesUrl = "https://api.themoviedb.org/3/movie/$movieId/images?api_key=$TMDB_API_KEY&include_image_language=pt,en,null"
                         val imagesJson = URL(imagesUrl).readText()
                         val imagesObj = JSONObject(imagesJson)
@@ -612,10 +616,7 @@ class VodActivity : AppCompatActivity() {
                             }
                         }
                     }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                    // Se der erro, não faz nada (o texto aparecerá no foco como backup)
-                }
+                } catch (e: Exception) { e.printStackTrace() }
             }
         }
     }

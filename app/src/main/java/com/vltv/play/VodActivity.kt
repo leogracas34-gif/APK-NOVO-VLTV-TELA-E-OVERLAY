@@ -119,7 +119,7 @@ class VodActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ FUNÇÃO NOVA: DOUBLE PRELOAD (POSTER + LOGO TMDB)
+    // ✅ FUNÇÃO ATUALIZADA: DOUBLE PRELOAD (POSTER + LOGO TMDB)
     private fun preLoadImages(filmes: List<VodStream>) {
         CoroutineScope(Dispatchers.IO).launch {
             // 1. Pré-carrega os posters (Até 40)
@@ -137,7 +137,7 @@ class VodActivity : AppCompatActivity() {
                 }
             }
 
-            // 2. Pré-carrega as Logos do TMDB (Somente as primeiras 15 para não travar a API)
+            // 2. ✅ NOVIDADE: Pré-carrega as Logos do TMDB (Somente as primeiras 15)
             val limitLogos = if (filmes.size > 15) 15 else filmes.size
             for (i in 0 until limitLogos) {
                 preLoadTmdbLogo(filmes[i].name)
@@ -145,7 +145,7 @@ class VodActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ FUNÇÃO AUXILIAR PARA PRELOAD DA LOGO TMDB
+    // ✅ FUNÇÃO AUXILIAR: BUSCA LOGO ANTES DE EXIBIR
     private suspend fun preLoadTmdbLogo(rawName: String) {
         val TMDB_API_KEY = "9b73f5dd15b8165b1b57419be2f29128"
         var cleanName = rawName.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")

@@ -2,18 +2,13 @@ package com.vltv.play
 
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager // ADICIONADO PARA DETECTAR TV
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.util.Base64
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ImageButton // ADICIONADO PARA O BOTÃO
 import android.widget.ImageView
-import android.widget.LinearLayout // ADICIONADO PARA O CONTAINER
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
@@ -24,14 +19,8 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata // ADICIONADO PARA O HUD
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.ui.PlayerView
-import androidx.media3.ui.AspectRatioFrameLayout // ADICIONADO PARA RESIZE
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
-import com.bumptech.glide.Priority
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -44,18 +33,8 @@ class LiveTvActivity : AppCompatActivity() {
     private lateinit var progressBar: ProgressBar
     private lateinit var tvCategoryTitle: TextView
 
-    // Novas Views para o Preview (Conforme o novo Layout)
-    private lateinit var pvPreview: PlayerView
-    private lateinit var tvPreviewName: TextView
-    private lateinit var tvPreviewEpg: TextView
-    private lateinit var tvPreviewNext: TextView // ADICIONADO PARA O PRÓXIMO PROGRAMA
-    private var miniPlayer: ExoPlayer? = null
-    private lateinit var layoutPreviewContainer: LinearLayout // ADICIONADO PARA O CONTAINER
-
     private var username = ""
     private var password = ""
-    private var isFullscreen = false // ✅ ADICIONADO PARA CONTROLE
-    private var zoomIndex = 0 // ✅ ADICIONADO PARA AS 5 OPÇÕES DE ZOOM
 
     // Mantendo a estrutura original do seu cache
     private var cachedCategories: List<LiveCategory>? = null
@@ -70,45 +49,14 @@ class LiveTvActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_live_tv)
 
-        // Esconder barras iniciais
-        hideSystemUI()
+        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+        windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
 
         rvCategories = findViewById(R.id.rvCategories)
         rvChannels = findViewById(R.id.rvChannels)
         progressBar = findViewById(R.id.progressBar)
         tvCategoryTitle = findViewById(R.id.tvCategoryTitle)
-
-        // Inicializar as Views do Preview que adicionamos no XML
-        pvPreview = findViewById(R.id.pvPreview)
-        tvPreviewName = findViewById(R.id.tvPreviewName)
-        tvPreviewEpg = findViewById(R.id.tvPreviewEpg)
-        tvPreviewNext = findViewById(R.id.tvPreviewNext) // INICIALIZADO
-        layoutPreviewContainer = findViewById(R.id.layoutPreviewContainer) // ADICIONADO PARA O CONTAINER
-
-        // Inicializa o player vazio aqui para evitar erros de null
-        if (miniPlayer == null) {
-            miniPlayer = ExoPlayer.Builder(this).build()
-            pvPreview.player = miniPlayer
-        }
-
-        // ✅ RECONHECIMENTO AUTOMÁTICO DE TV (INSERIDO)
-        val isTV = packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
-        if (isTV) {
-            // Na TV, o padrão é sempre FIT para não cortar
-            pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-        } else {
-            // No Celular, o padrão é FILL (preencher)
-            pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
-        }
-
-        // --- LÓGICA DE RECEPÇÃO DA HOME ---
-        val showPreview = intent.getBooleanExtra("SHOW_PREVIEW", true)
-        if (showPreview) {
-            layoutPreviewContainer.visibility = View.VISIBLE
-        } else {
-            layoutPreviewContainer.visibility = View.GONE
-        }
-        // ----------------------------------
 
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         username = prefs.getString("username", "") ?: ""
@@ -123,8 +71,8 @@ class LiveTvActivity : AppCompatActivity() {
         rvCategories.isFocusable = true
         rvCategories.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
 
-        // Trocado para LinearLayoutManager para modo Lista Vertical
-        rvChannels.layoutManager = LinearLayoutManager(this)
+        // Mantendo o GridLayoutManager (5 colunas) como você pediu
+        rvChannels.layoutManager = GridLayoutManager(this, 4)
         rvChannels.isFocusable = true
         rvChannels.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
         rvChannels.setHasFixedSize(true)
@@ -132,64 +80,6 @@ class LiveTvActivity : AppCompatActivity() {
         rvCategories.requestFocus()
 
         carregarCategorias()
-
-        // ✅ LIGA O BOTÃO DE ASPECTO (ZOOM) COM PROTEÇÃO PARA TV
-        // Usamos postDelayed para garantir que o layout do player carregou
-        pvPreview.postDelayed({
-            val btnAspect = pvPreview.findViewById<ImageButton>(R.id.btnAspect)
-            if (isTV) {
-                // Se for TV, remove o botão para não atrapalhar
-                btnAspect?.visibility = View.GONE
-            } else {
-                // Se for Celular, ativa o botão
-                btnAspect?.visibility = View.VISIBLE
-                btnAspect?.setOnClickListener {
-                    alternarZoom()
-                }
-            }
-        }, 1000)
-    }
-
-    // ✅ FUNÇÃO PARA ALTERNAR ENTRE AS 5 OPÇÕES DE ZOOM
-    private fun alternarZoom() {
-        zoomIndex = (zoomIndex + 1) % 5
-        val labels = arrayOf("Preencher", "Original", "Zoom (Corte)", "Largura Fixa", "Altura Fixa")
-        
-        when (zoomIndex) {
-            0 -> pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
-            1 -> pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-            2 -> pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-            3 -> pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIXED_WIDTH
-            4 -> pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIXED_HEIGHT
-        }
-        Toast.makeText(this, "Modo: ${labels[zoomIndex]}", Toast.LENGTH_SHORT).show()
-    }
-
-    // ✅ ADICIONADO PARA RESOLVER O MINI PLAYER PRETO AO VOLTAR
-    override fun onResume() {
-        super.onResume()
-        hideSystemUI()
-        // Garante que o player esteja ativo ao voltar
-        if (miniPlayer == null) {
-            miniPlayer = ExoPlayer.Builder(this).build()
-            pvPreview.player = miniPlayer
-        }
-        miniPlayer?.playWhenReady = true
-    }
-
-    // Função para forçar a barra de bateria e relógio a sumirem
-    private fun hideSystemUI() {
-        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
-        windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
-    }
-
-    // Garante que as barras sumam sempre que a tela for focada
-    override fun onWindowFocusChanged(hasFocus: Boolean) {
-        super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) {
-            hideSystemUI()
-        }
     }
 
     private fun setupRecyclerFocus() {
@@ -204,53 +94,6 @@ class LiveTvActivity : AppCompatActivity() {
                 rvChannels.smoothScrollToPosition(0)
             }
         }
-    }
-
-    // Lógica para carregar o Preview no quadro da direita
-    private fun carregarPreview(canal: LiveStream) {
-        val categoriaAtual = tvCategoryTitle.text.toString().lowercase()
-
-        // ✅ TRAVA REMOVIDA: Agora o preview carrega em todas as categorias (Filmes/Séries/Canais)
-        
-        // Se for TV ao Vivo, mostra a tela (VISIBLE) e inicia o player
-        layoutPreviewContainer.visibility = View.VISIBLE // ADICIONADO
-        pvPreview.visibility = View.VISIBLE
-        
-        // ALTERAÇÃO CRÍTICA: Não destruir o player, apenas reutilizar (Resolve lentidão)
-        // miniPlayer?.stop()
-        // miniPlayer?.release()
-        
-        tvPreviewName.text = canal.name
-        
-        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
-        val dns = prefs.getString("dns", "http://tvblack.shop") ?: "http://tvblack.shop"
-        val cleanDns = if (dns.endsWith("/")) dns.dropLast(1) else dns
-        
-        val url = "$cleanDns/live/$username/$password/${canal.id}.ts"
-
-        // Só cria se for nulo, senão reutiliza o mesmo (Mais rápido)
-        if (miniPlayer == null) {
-            miniPlayer = ExoPlayer.Builder(this).build()
-            pvPreview.player = miniPlayer
-        }
-        
-        // Garante controles corretos
-        pvPreview.useController = isFullscreen // Só usa controle se for tela cheia
-        
-        // ✅ GARANTE O AJUSTE DE PROPORÇÃO INICIAL NA MINI TELA
-        if (!isFullscreen) {
-            pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-        }
-
-        // ✅ INJETA O NOME DO CANAL PARA APARECER NO HUD AO CLICAR
-        val mediaItem = MediaItem.Builder()
-            .setUri(url)
-            .setMediaMetadata(MediaMetadata.Builder().setTitle(canal.name).build())
-            .build()
-
-        miniPlayer?.setMediaItem(mediaItem)
-        miniPlayer?.prepare()
-        miniPlayer?.playWhenReady = true
     }
 
     private fun isAdultName(name: String?): Boolean {
@@ -332,17 +175,18 @@ class LiveTvActivity : AppCompatActivity() {
 
     private fun carregarCanais(categoria: LiveCategory) {
         tvCategoryTitle.text = categoria.name
-        // miniPlayer?.stop() // REMOVIDO PARA EVITAR PISCAR AO TROCAR CATEGORIA
 
+        // Correção aqui: Converter ID para String para usar no Cache corretamente
         val catIdStr = categoria.id.toString()
 
-        channelsCache[catIdStr]?.let { canaisCacheadas ->
-            aplicarCanais(categoria, canaisCacheadas)
+        channelsCache[catIdStr]?.let { canaisCacheados ->
+            aplicarCanais(categoria, canaisCacheados)
             return
         }
 
         progressBar.visibility = View.VISIBLE
 
+        // Correção aqui: Passar categoryId como String
         XtreamApi.service.getLiveStreams(username, password, categoryId = catIdStr)
             .enqueue(object : Callback<List<LiveStream>> {
                 override fun onResponse(
@@ -373,6 +217,11 @@ class LiveTvActivity : AppCompatActivity() {
 
                 override fun onFailure(call: Call<List<LiveStream>>, t: Throwable) {
                     progressBar.visibility = View.GONE
+                    Toast.makeText(
+                        this@LiveTvActivity,
+                        "Falha de conexão",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             })
     }
@@ -381,76 +230,14 @@ class LiveTvActivity : AppCompatActivity() {
         tvCategoryTitle.text = categoria.name
 
         channelAdapter = ChannelAdapter(canais, username, password) { canal ->
-            // ✅ MUDANÇA AQUI: Em vez de ir para PlayerActivity, apenas expande
-            toggleFullscreen(true)
+            val intent = Intent(this@LiveTvActivity, PlayerActivity::class.java)
+            intent.putExtra("stream_id", canal.id)
+            intent.putExtra("stream_ext", "ts")
+            intent.putExtra("stream_type", "live")
+            intent.putExtra("channel_name", canal.name)
+            startActivity(intent)
         }
         rvChannels.adapter = channelAdapter
-
-        // ✅ ADICIONADO: FOCO AUTOMÁTICO NO PRIMEIRO CANAL E AUTO-PLAY
-        if (canais.isNotEmpty()) {
-            rvChannels.post {
-                val firstView = rvChannels.layoutManager?.findViewByPosition(0)
-                firstView?.requestFocus()
-                carregarPreview(canais[0])
-            }
-        }
-    }
-
-    // ✅ FUNÇÃO CORRIGIDA: Alterna com preenchimento total e estabiliza retorno
-    private fun toggleFullscreen(full: Boolean) {
-        isFullscreen = full
-        val isTV = packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
-
-        if (full) {
-            // Esconde TUDO o que é fixo
-            rvCategories.visibility = View.GONE
-            rvChannels.visibility = View.GONE
-            tvCategoryTitle.visibility = View.GONE
-            tvPreviewName.visibility = View.GONE
-            tvPreviewEpg.visibility = View.GONE
-            tvPreviewNext.visibility = View.GONE
-            
-            val params = layoutPreviewContainer.layoutParams
-            params.width = ViewGroup.LayoutParams.MATCH_PARENT
-            params.height = ViewGroup.LayoutParams.MATCH_PARENT
-            layoutPreviewContainer.layoutParams = params
-            
-            // ✅ TRAVA DE TV (INSERIDA): TV FIT / CELULAR FILL
-            if (isTV) {
-                pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                pvPreview.findViewById<View>(R.id.btnAspect)?.visibility = View.GONE
-            } else {
-                pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
-                pvPreview.findViewById<View>(R.id.btnAspect)?.visibility = View.VISIBLE
-            }
-            
-            pvPreview.useController = true // Nome do canal aparece ao clicar
-            pvPreview.requestFocus()
-            hideSystemUI()
-        } else {
-            rvCategories.visibility = View.VISIBLE
-            rvChannels.visibility = View.VISIBLE
-            tvCategoryTitle.visibility = View.VISIBLE
-            tvPreviewName.visibility = View.VISIBLE
-            tvPreviewEpg.visibility = View.VISIBLE
-            tvPreviewNext.visibility = View.VISIBLE
-
-            val params = layoutPreviewContainer.layoutParams
-            params.width = 0 
-            params.height = ViewGroup.LayoutParams.MATCH_PARENT 
-            layoutPreviewContainer.layoutParams = params
-            
-            // ✅ VOLTA PARA PROPORÇÃO NORMAL NA MINI TELA
-            pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-            pvPreview.useController = false
-            
-            // ✅ CORREÇÃO TELA PRETA: Reconecta a View ao Player
-            // Isso força o redesenho da imagem instantaneamente (sem esperar 4s)
-            pvPreview.player = null
-            pvPreview.player = miniPlayer
-            
-            rvChannels.requestFocus()
-        }
     }
 
     // --------------------
@@ -512,7 +299,7 @@ class LiveTvActivity : AppCompatActivity() {
     }
 
     // --------------------
-    // ADAPTER DOS CANAIS + PREVIEW DINÂMICO
+    // ADAPTER DOS CANAIS + EPG (CORRIGIDO COM A LÓGICA DO ARQUIVO ANTIGO)
     // --------------------
     inner class ChannelAdapter(
         private val list: List<LiveStream>,
@@ -522,8 +309,6 @@ class LiveTvActivity : AppCompatActivity() {
     ) : RecyclerView.Adapter<ChannelAdapter.VH>() {
 
         private val epgCache = mutableMapOf<Int, List<EpgResponseItem>>()
-        private val handler = Handler(Looper.getMainLooper())
-        private var pendingRunnable: Runnable? = null
 
         inner class VH(v: View) : RecyclerView.ViewHolder(v) {
             val tvName: TextView = v.findViewById(R.id.tvName)
@@ -545,15 +330,13 @@ class LiveTvActivity : AppCompatActivity() {
 
             Glide.with(holder.itemView.context)
                 .load(item.icon)
-                .diskCacheStrategy(DiskCacheStrategy.ALL)
-                .override(160, 160)
-                .priority(Priority.HIGH)
-                .thumbnail(0.1f)
+                .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
                 .placeholder(R.drawable.bg_logo_placeholder)
                 .error(R.drawable.bg_logo_placeholder)
-                .centerInside()
+                .centerCrop()
                 .into(holder.imgLogo)
 
+            // Chamada do EPG corrigida
             carregarEpg(holder, item)
 
             holder.itemView.isFocusable = true
@@ -561,31 +344,17 @@ class LiveTvActivity : AppCompatActivity() {
 
             holder.itemView.setOnFocusChangeListener { _, hasFocus ->
                 holder.itemView.alpha = if (hasFocus) 1.0f else 0.8f
-                
-                if (hasFocus) {
-                    // Atualiza texto do EPG no Preview (Agora e A Seguir)
-                    tvPreviewEpg.text = "Agora: ${holder.tvNow.text}"
-                    tvPreviewNext.text = "A seguir: ${holder.tvNext.text}"
-                    
-                    // Delay para carregar o vídeo (Evita travar ao navegar rápido)
-                    pendingRunnable?.let { handler.removeCallbacks(it) }
-                    val r = Runnable { carregarPreview(item) }
-                    pendingRunnable = r
-                    handler.postDelayed(r, 800)
-                }
             }
 
-            holder.itemView.setOnClickListener { 
-                pendingRunnable?.let { handler.removeCallbacks(it) }
-                onClick(item) 
-            }
+            holder.itemView.setOnClickListener { onClick(item) }
         }
 
+        // Esta é a função decodeBase64 ROBUSTA do seu arquivo antigo
         private fun decodeBase64(text: String?): String {
             return try {
                 if (text.isNullOrEmpty()) "" else String(
                     Base64.decode(text, Base64.DEFAULT),
-                    Charset.forName("UTF-8")
+                    Charset.forName("UTF-8") // Garante compatibilidade de acentos
                 )
             } catch (e: Exception) {
                 text ?: ""
@@ -598,6 +367,7 @@ class LiveTvActivity : AppCompatActivity() {
                 return
             }
 
+            // AQUI ESTÁ A MÁGICA: Convertendo explicitamente para String como no arquivo antigo
             val epgId = canal.id.toString()
 
             XtreamApi.service.getShortEpg(
@@ -647,26 +417,8 @@ class LiveTvActivity : AppCompatActivity() {
         override fun getItemCount() = list.size
     }
 
-    override fun onStop() {
-        super.onStop()
-        // ✅ APENAS PAUSA PARA RETOMADA RÁPIDA NO ONRESUME
-        miniPlayer?.playWhenReady = false
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        miniPlayer?.stop()
-        miniPlayer?.release()
-        miniPlayer = null
-    }
-
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
-            // ✅ TRAVA DO BOTÃO VOLTAR PARA SAIR DA TELA CHEIA
-            if (isFullscreen) {
-                toggleFullscreen(false)
-                return true
-            }
             finish()
             return true
         }

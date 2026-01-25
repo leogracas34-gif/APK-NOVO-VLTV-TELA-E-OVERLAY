@@ -94,8 +94,10 @@ class LiveTvActivity : AppCompatActivity() {
         // ✅ RECONHECIMENTO AUTOMÁTICO DE TV (INSERIDO)
         val isTV = packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
         if (isTV) {
+            // Na TV, o padrão é sempre FIT para não cortar
             pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
         } else {
+            // No Celular, o padrão é FILL (preencher)
             pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
         }
 
@@ -131,18 +133,24 @@ class LiveTvActivity : AppCompatActivity() {
 
         carregarCategorias()
 
-        // ✅ LIGA O BOTÃO DE ASPECTO APENAS SE NÃO FOR TV (INSERIDO)
+        // ✅ LIGA O BOTÃO DE ASPECTO (ZOOM) COM PROTEÇÃO PARA TV
+        // Usamos postDelayed para garantir que o layout do player carregou
         pvPreview.postDelayed({
             val btnAspect = pvPreview.findViewById<ImageButton>(R.id.btnAspect)
             if (isTV) {
+                // Se for TV, remove o botão para não atrapalhar
                 btnAspect?.visibility = View.GONE
             } else {
-                btnAspect?.setOnClickListener { alternarZoom() }
+                // Se for Celular, ativa o botão
+                btnAspect?.visibility = View.VISIBLE
+                btnAspect?.setOnClickListener {
+                    alternarZoom()
+                }
             }
         }, 1000)
     }
 
-    // ✅ FUNÇÃO DAS 5 OPÇÕES DE ZOOM (INSERIDA)
+    // ✅ FUNÇÃO PARA ALTERNAR ENTRE AS 5 OPÇÕES DE ZOOM
     private fun alternarZoom() {
         zoomIndex = (zoomIndex + 1) % 5
         val labels = arrayOf("Preencher", "Original", "Zoom (Corte)", "Largura Fixa", "Altura Fixa")
@@ -408,7 +416,13 @@ class LiveTvActivity : AppCompatActivity() {
             layoutPreviewContainer.layoutParams = params
             
             // ✅ TRAVA DE TV (INSERIDA): TV FIT / CELULAR FILL
-            pvPreview.resizeMode = if (isTV) AspectRatioFrameLayout.RESIZE_MODE_FIT else AspectRatioFrameLayout.RESIZE_MODE_FILL
+            if (isTV) {
+                pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                pvPreview.findViewById<View>(R.id.btnAspect)?.visibility = View.GONE
+            } else {
+                pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
+                pvPreview.findViewById<View>(R.id.btnAspect)?.visibility = View.VISIBLE
+            }
             
             pvPreview.useController = true // Nome do canal aparece ao clicar
             pvPreview.requestFocus()

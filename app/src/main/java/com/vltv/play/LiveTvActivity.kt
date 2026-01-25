@@ -91,7 +91,7 @@ class LiveTvActivity : AppCompatActivity() {
             pvPreview.player = miniPlayer
         }
 
-        // ✅ RECONHECIMENTO AUTOMÁTICO DE TV
+        // ✅ RECONHECIMENTO AUTOMÁTICO DE TV (INSERIDO)
         val isTV = packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
         if (isTV) {
             pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
@@ -131,14 +131,18 @@ class LiveTvActivity : AppCompatActivity() {
 
         carregarCategorias()
 
-        // ✅ LIGA O BOTÃO DE ASPECTO (ZOOM) DO SEU XML DE CONTROLES
-        val btnAspect = pvPreview.findViewById<ImageButton>(R.id.btnAspect)
-        btnAspect?.setOnClickListener {
-            alternarZoom()
-        }
+        // ✅ LIGA O BOTÃO DE ASPECTO APENAS SE NÃO FOR TV (INSERIDO)
+        pvPreview.postDelayed({
+            val btnAspect = pvPreview.findViewById<ImageButton>(R.id.btnAspect)
+            if (isTV) {
+                btnAspect?.visibility = View.GONE
+            } else {
+                btnAspect?.setOnClickListener { alternarZoom() }
+            }
+        }, 1000)
     }
 
-    // ✅ FUNÇÃO PARA ALTERNAR ENTRE AS 5 OPÇÕES DE ZOOM
+    // ✅ FUNÇÃO DAS 5 OPÇÕES DE ZOOM (INSERIDA)
     private fun alternarZoom() {
         zoomIndex = (zoomIndex + 1) % 5
         val labels = arrayOf("Preencher", "Original", "Zoom (Corte)", "Largura Fixa", "Altura Fixa")
@@ -387,6 +391,8 @@ class LiveTvActivity : AppCompatActivity() {
     // ✅ FUNÇÃO CORRIGIDA: Alterna com preenchimento total e estabiliza retorno
     private fun toggleFullscreen(full: Boolean) {
         isFullscreen = full
+        val isTV = packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
+
         if (full) {
             // Esconde TUDO o que é fixo
             rvCategories.visibility = View.GONE
@@ -401,8 +407,8 @@ class LiveTvActivity : AppCompatActivity() {
             params.height = ViewGroup.LayoutParams.MATCH_PARENT
             layoutPreviewContainer.layoutParams = params
             
-            // ✅ TELA CHEIA: Começa com FILL por padrão no celular
-            pvPreview.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
+            // ✅ TRAVA DE TV (INSERIDA): TV FIT / CELULAR FILL
+            pvPreview.resizeMode = if (isTV) AspectRatioFrameLayout.RESIZE_MODE_FIT else AspectRatioFrameLayout.RESIZE_MODE_FILL
             
             pvPreview.useController = true // Nome do canal aparece ao clicar
             pvPreview.requestFocus()

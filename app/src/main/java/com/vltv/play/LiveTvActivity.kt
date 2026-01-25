@@ -21,10 +21,17 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.Priority
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
 import java.nio.charset.Charset
+
+// --- AS ÚNICAS IMPORTAÇÕES ADICIONADAS ---
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class LiveTvActivity : AppCompatActivity() {
 
@@ -80,6 +87,25 @@ class LiveTvActivity : AppCompatActivity() {
         rvCategories.requestFocus()
 
         carregarCategorias()
+    }
+
+    // ✅ FUNÇÃO DE VELOCIDADE ADICIONADA
+    private fun preLoadChannelLogos(canais: List<LiveStream>) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val limit = if (canais.size > 40) 40 else canais.size
+            for (i in 0 until limit) {
+                val url = canais[i].icon
+                if (!url.isNullOrEmpty()) {
+                    withContext(Dispatchers.Main) {
+                        Glide.with(this@LiveTvActivity)
+                            .load(url)
+                            .diskCacheStrategy(DiskCacheStrategy.ALL)
+                            .priority(Priority.LOW)
+                            .preload()
+                    }
+                }
+            }
+        }
     }
 
     private fun setupRecyclerFocus() {
@@ -179,8 +205,9 @@ class LiveTvActivity : AppCompatActivity() {
         // Correção aqui: Converter ID para String para usar no Cache corretamente
         val catIdStr = categoria.id.toString()
 
-        channelsCache[catIdStr]?.let { canaisCacheados ->
-            aplicarCanais(categoria, canaisCacheados)
+        channelsCache[catIdStr]?.let { canaisCacheadas ->
+            aplicarCanais(categoria, canaisCacheadas)
+            preLoadChannelLogos(canaisCacheadas) // ✅ CHAMADA ADICIONADA NO CACHE
             return
         }
 
@@ -206,6 +233,7 @@ class LiveTvActivity : AppCompatActivity() {
                         }
 
                         aplicarCanais(categoria, canais)
+                        preLoadChannelLogos(canais) // ✅ CHAMADA ADICIONADA NA API
                     } else {
                         Toast.makeText(
                             this@LiveTvActivity,
@@ -299,7 +327,7 @@ class LiveTvActivity : AppCompatActivity() {
     }
 
     // --------------------
-    // ADAPTER DOS CANAIS + EPG (CORRIGIDO COM A LÓGICA DO ARQUIVO ANTIGO)
+    // ADAPTER DOS CANAIS + EPG
     // --------------------
     inner class ChannelAdapter(
         private val list: List<LiveStream>,
@@ -328,9 +356,11 @@ class LiveTvActivity : AppCompatActivity() {
 
             holder.tvName.text = item.name
 
+            // ✅ AJUSTADO PARA USAR O CACHE DO PRELOAD
             Glide.with(holder.itemView.context)
                 .load(item.icon)
-                .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .priority(Priority.HIGH)
                 .placeholder(R.drawable.bg_logo_placeholder)
                 .error(R.drawable.bg_logo_placeholder)
                 .centerCrop()
@@ -354,7 +384,7 @@ class LiveTvActivity : AppCompatActivity() {
             return try {
                 if (text.isNullOrEmpty()) "" else String(
                     Base64.decode(text, Base64.DEFAULT),
-                    Charset.forName("UTF-8") // Garante compatibilidade de acentos
+                    Charset.forName("UTF-8") 
                 )
             } catch (e: Exception) {
                 text ?: ""
@@ -367,7 +397,6 @@ class LiveTvActivity : AppCompatActivity() {
                 return
             }
 
-            // AQUI ESTÁ A MÁGICA: Convertendo explicitamente para String como no arquivo antigo
             val epgId = canal.id.toString()
 
             XtreamApi.service.getShortEpg(

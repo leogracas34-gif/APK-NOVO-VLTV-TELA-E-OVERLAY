@@ -119,12 +119,12 @@ class VodActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ FUNÇÃO NOVA: PRÉ-CARREGAMENTO PARA VELOCIDADE ULTRA
+    // ✅ FUNÇÃO NOVA: DOUBLE PRELOAD (POSTER + LOGO TMDB)
     private fun preLoadImages(filmes: List<VodStream>) {
         CoroutineScope(Dispatchers.IO).launch {
-            // Pré-carrega os primeiros 40 posters da lista em background
-            val limit = if (filmes.size > 40) 40 else filmes.size
-            for (i in 0 until limit) {
+            // 1. Pré-carrega os posters (Até 40)
+            val limitPosters = if (filmes.size > 40) 40 else filmes.size
+            for (i in 0 until limitPosters) {
                 val url = filmes[i].icon
                 if (!url.isNullOrEmpty()) {
                     withContext(Dispatchers.Main) {
@@ -136,7 +136,43 @@ class VodActivity : AppCompatActivity() {
                     }
                 }
             }
+
+            // 2. Pré-carrega as Logos do TMDB (Somente as primeiras 15 para não travar a API)
+            val limitLogos = if (filmes.size > 15) 15 else filmes.size
+            for (i in 0 until limitLogos) {
+                preLoadTmdbLogo(filmes[i].name)
+            }
         }
+    }
+
+    // ✅ FUNÇÃO AUXILIAR PARA PRELOAD DA LOGO TMDB
+    private suspend fun preLoadTmdbLogo(rawName: String) {
+        val TMDB_API_KEY = "9b73f5dd15b8165b1b57419be2f29128"
+        var cleanName = rawName.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
+            .replace(Regex("\\b\\d{4}\\b"), "").trim()
+            .replace(Regex("\\s+"), " ")
+
+        try {
+            val query = URLEncoder.encode(cleanName, "UTF-8")
+            val searchJson = URL("https://api.themoviedb.org/3/search/movie?api_key=$TMDB_API_KEY&query=$query&language=pt-BR").readText()
+            val results = JSONObject(searchJson).getJSONArray("results")
+
+            if (results.length() > 0) {
+                val movieId = results.getJSONObject(0).getString("id")
+                val imagesJson = URL("https://api.themoviedb.org/3/movie/$movieId/images?api_key=$TMDB_API_KEY&include_image_language=pt,en,null").readText()
+                val logos = JSONObject(imagesJson).getJSONArray("logos")
+                
+                if (logos.length() > 0) {
+                    val fullLogoUrl = "https://image.tmdb.org/t/p/w500${logos.getJSONObject(0).getString("file_path")}"
+                    withContext(Dispatchers.Main) {
+                        Glide.with(this@VodActivity)
+                            .load(fullLogoUrl)
+                            .diskCacheStrategy(DiskCacheStrategy.ALL)
+                            .preload()
+                    }
+                }
+            }
+        } catch (e: Exception) { }
     }
 
     // -------- helper p/ detectar adulto --------

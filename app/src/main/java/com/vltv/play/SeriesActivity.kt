@@ -44,7 +44,6 @@ class SeriesActivity : AppCompatActivity() {
     private lateinit var rvSeries: RecyclerView
     private lateinit var progressBar: View
     private lateinit var tvCategoryTitle: TextView
-    private lateinit var btnSearch: ImageView // Conectando a lupa
 
     private var username = ""
     private var password = ""
@@ -78,10 +77,9 @@ class SeriesActivity : AppCompatActivity() {
         rvSeries = findViewById(R.id.rvChannels) // O ID bate com o XML novo (activity_vod)
         progressBar = findViewById(R.id.progressBar)
         tvCategoryTitle = findViewById(R.id.tvCategoryTitle)
-        btnSearch = findViewById(R.id.btnSearch) // ID padrão da lupa no activity_vod
 
-        // CONEXÃO DA BUSCA DIRETA
-        btnSearch.setOnClickListener {
+        // ✅ CONEXÃO DA BUSCA (LUPA)
+        findViewById<View>(R.id.btnSearch)?.setOnClickListener {
             val intent = Intent(this, SearchActivity::class.java)
             intent.putExtra("initial_query", "")
             startActivity(intent)
@@ -288,8 +286,11 @@ class SeriesActivity : AppCompatActivity() {
     private fun carregarSeriesFavoritas() {
         tvCategoryTitle.text = "FAVORITOS"
 
-        // Limpa o cache de favoritos para forçar atualização se o usuário desfavoritou algo
-        favSeriesCache = null
+        favSeriesCache?.let { cacheadas ->
+            aplicarSeries(cacheadas)
+            preLoadImages(cacheadas) // ✅ PRELOAD FAVORITOS CACHE
+            return
+        }
 
         progressBar.visibility = View.VISIBLE
 
@@ -352,7 +353,7 @@ class SeriesActivity : AppCompatActivity() {
         return set.mapNotNull { it.toIntOrNull() }.toMutableSet()
     }
 
-    // ✅ FUNÇÃO PARA SALVAR/REMOVER FAVORITOS
+    // ✅ FUNÇÃO PARA SALVAR/REMOVER FAVORITO
     private fun toggleFavorite(seriesId: Int) {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val favSet = prefs.getStringSet("fav_series", emptySet())?.toMutableSet() ?: mutableSetOf()
@@ -365,11 +366,11 @@ class SeriesActivity : AppCompatActivity() {
             favSet.add(idString)
             Toast.makeText(this, "Adicionado aos favoritos", Toast.LENGTH_SHORT).show()
         }
-
         prefs.edit().putStringSet("fav_series", favSet).apply()
         
-        // Se estiver na aba de favoritos, atualiza a lista na hora
+        // Atualiza a aba se estiver nela
         if (tvCategoryTitle.text == "FAVORITOS") {
+            favSeriesCache = null
             carregarSeriesFavoritas()
         }
     }
@@ -446,7 +447,7 @@ class SeriesActivity : AppCompatActivity() {
             val tvName: TextView = v.findViewById(R.id.tvName)
             val imgPoster: ImageView = v.findViewById(R.id.imgPoster)
             val imgLogo: ImageView = v.findViewById(R.id.imgLogo)
-            val imgFavorite: ImageView = v.findViewById(R.id.imgFavorite) // Conectando a estrela no item_vod
+            val imgDownload: ImageView = v.findViewById(R.id.imgDownload)
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
@@ -462,18 +463,22 @@ class SeriesActivity : AppCompatActivity() {
             holder.imgLogo.setImageDrawable(null)
             holder.imgLogo.visibility = View.INVISIBLE
 
-            val context = holder.itemView.context
-            
-            // LÓGICA VISUAL DA ESTRELA (FAVORITOS)
-            val favIds = getFavSeries(context)
+            // ✅ LOGICA DA ESTRELA (FAVORITOS)
+            val favIds = getFavSeries(this@SeriesActivity)
+            holder.imgDownload.visibility = View.VISIBLE
             if (favIds.contains(item.id)) {
-                holder.imgFavorite.setImageResource(R.drawable.ic_star_filled)
-                holder.imgFavorite.setColorFilter(0xFFFFD700.toInt()) // Dourado
+                holder.imgDownload.setImageResource(android.R.drawable.btn_star_big_on)
             } else {
-                holder.imgFavorite.setImageResource(R.drawable.ic_star_border)
-                holder.imgFavorite.setColorFilter(0xFFFFFFFF.toInt()) // Branco
+                holder.imgDownload.setImageResource(android.R.drawable.btn_star_big_off)
             }
 
+            holder.imgDownload.setOnClickListener {
+                toggleFavorite(item.id)
+                notifyItemChanged(position)
+            }
+
+            val context = holder.itemView.context
+            
             Glide.with(context)
                 .load(item.icon)
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
@@ -506,12 +511,6 @@ class SeriesActivity : AppCompatActivity() {
             }
 
             holder.itemView.setOnClickListener { onClick(item) }
-
-            // CONEXÃO DO CLIQUE NA ESTRELA PARA SALVAR
-            holder.imgFavorite.setOnClickListener {
-                toggleFavorite(item.id)
-                notifyItemChanged(position)
-            }
         }
 
         override fun getItemCount() = list.size

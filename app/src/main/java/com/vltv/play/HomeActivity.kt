@@ -81,8 +81,16 @@ class HomeActivity : AppCompatActivity() {
                    Configuration.UI_MODE_TYPE_TELEVISION
         }
 
+        // AJUSTE: Transformando o campo de busca em um botão que abre a SearchActivity diretamente
         binding.etSearch.isFocusable = true
-        binding.etSearch.isFocusableInTouchMode = true
+        binding.etSearch.isFocusableInTouchMode = false // Impede abrir o teclado na Home
+        
+        binding.etSearch.setOnClickListener {
+            val intent = Intent(this, SearchActivity::class.java)
+            intent.putExtra("initial_query", "")
+            startActivity(intent)
+        }
+
         binding.etSearch.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus) {
                 binding.etSearch.setBackgroundResource(R.drawable.bg_login_input_premium)
@@ -186,18 +194,18 @@ class HomeActivity : AppCompatActivity() {
                     true
                 } else false
             }
-        }
-        
-        binding.etSearch.setOnEditorActionListener { v, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
-                val texto = v.text.toString().trim()
-                if (texto.isNotEmpty()) {
-                    val intent = Intent(this, SearchActivity::class.java)
-                    intent.putExtra("initial_query", texto)
-                    startActivity(intent)
-                }
-                true
-            } else false
+            
+            // Suporte ao clique do controle remoto na busca
+            binding.etSearch.setOnKeyListener { _, keyCode, event ->
+                if (keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_DPAD_CENTER) {
+                    if (event.action == KeyEvent.ACTION_UP) {
+                        val intent = Intent(this, SearchActivity::class.java)
+                        intent.putExtra("initial_query", "")
+                        startActivity(intent)
+                    }
+                    true
+                } else false
+            }
         }
 
         binding.btnSettings.setOnClickListener {
@@ -215,11 +223,6 @@ class HomeActivity : AppCompatActivity() {
         }
 
         binding.cardBanner.requestFocus()
-    }
-
-    private fun showKeyboard() {
-        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        imm.showSoftInput(binding.etSearch, InputMethodManager.SHOW_IMPLICIT)
     }
 
     private fun mostrarDialogoSair() {
@@ -278,8 +281,6 @@ class HomeActivity : AppCompatActivity() {
                                 .placeholder(android.R.color.black)
                                 .into(binding.imgBanner)
                         }
-                        
-                        // ✅ Chama a vassoura e busca a Logo Overlay para o Banner
                         buscarLogoOverlayHome(tmdbId, tipoAtual, tituloOriginal)
                     }
                 }
@@ -289,9 +290,7 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ NOVA FUNÇÃO: VASSOURA DE NOMES + BUSCA DE LOGO OVERLAY PARA O BANNER
     private fun buscarLogoOverlayHome(tmdbId: String, tipo: String, rawName: String) {
-        // 1. A VASSOURA (Limpeza Rigorosa do Título)
         var cleanName = rawName
         cleanName = cleanName.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
         cleanName = cleanName.replace(Regex("\\b\\d{4}\\b"), "")
@@ -302,7 +301,6 @@ class HomeActivity : AppCompatActivity() {
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // Tenta buscar as logos usando o ID já obtido no trending (mais preciso)
                 val imagesUrl = "https://api.themoviedb.org/3/$tipo/$tmdbId/images?api_key=$TMDB_API_KEY&include_image_language=pt,en,null"
                 val imagesJson = URL(imagesUrl).readText()
                 val imagesObj = JSONObject(imagesJson)
@@ -322,7 +320,6 @@ class HomeActivity : AppCompatActivity() {
                     }
                 }
                 
-                // Fallback: Se não achar logo, volta para o texto
                 withContext(Dispatchers.Main) {
                     binding.tvBannerTitle.visibility = View.VISIBLE
                     binding.imgBannerLogo.visibility = View.GONE

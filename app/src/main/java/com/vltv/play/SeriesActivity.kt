@@ -498,6 +498,7 @@ class SeriesActivity : AppCompatActivity() {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val query = URLEncoder.encode(cleanName, "UTF-8")
+                    // ✅ TRAVA DE SEGURANÇA: Usando obrigatoriamente /search/tv para evitar conflitos com filmes
                     val searchJson = URL("https://api.themoviedb.org/3/search/tv?api_key=$TMDB_API_KEY&query=$query&language=pt-BR").readText()
                     val results = JSONObject(searchJson).getJSONArray("results")
 

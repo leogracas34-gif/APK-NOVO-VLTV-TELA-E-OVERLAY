@@ -14,6 +14,7 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -39,7 +40,7 @@ class KidsActivity : AppCompatActivity() {
     private var user = ""
     private var pass = ""
 
-    // ✅ FILTRO DE SEGURANÇA REFORÇADO (Bloqueia 007 e termos inadequados)
+    // ✅ FILTRO DE SEGURANÇA REFORÇADO
     private val termosProibidos = listOf(
         "adulto", "xxx", "sexo", "sexy", "porn", "18+", "erótico", "violência", 
         "007", "terror", "horror", "assassinato", "guerra", "pânico", "morte"
@@ -70,7 +71,7 @@ class KidsActivity : AppCompatActivity() {
             it.setOnClickListener { finish() }
         }
 
-        // ✅ ABRE O TECLADO DIRETO (Fim da "Ponte")
+        // ✅ TECLADO DIRETO
         configurarFoco(etSearchKids)
         etSearchKids.isFocusableInTouchMode = true 
         etSearchKids.setOnClickListener {
@@ -82,8 +83,6 @@ class KidsActivity : AppCompatActivity() {
         etSearchKids.setOnEditorActionListener { v, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEARCH || actionId == EditorInfo.IME_ACTION_DONE || actionId == EditorInfo.IME_ACTION_GO) {
                 val query = v.text.toString().trim()
-                
-                // ✅ VERIFICAÇÃO DE SEGURANÇA KIDS
                 val contemProibido = termosProibidos.any { query.contains(it, ignoreCase = true) }
                 
                 if (query.isNotEmpty() && !contemProibido) {
@@ -98,7 +97,7 @@ class KidsActivity : AppCompatActivity() {
                     }
                     startActivity(intent)
                 } else if (contemProibido) {
-                    Toast.makeText(this, "Acesso negado: Este conteúdo não é infantil 🛡️", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "Acesso negado: Conteúdo impróprio 🛡️", Toast.LENGTH_LONG).show()
                     etSearchKids.setText("")
                 }
                 true
@@ -140,22 +139,17 @@ class KidsActivity : AppCompatActivity() {
     }
 
     private fun setupHubChannels() {
-        val nomesDesejados = listOf(
-            "Cartoon Network", "Discovery Kids", "Gloob", "Cartoonito", "Nickelodeon"
-        )
-
+        val nomesDesejados = listOf("Cartoon Network", "Discovery Kids", "Gloob", "Cartoonito", "Nickelodeon")
         XtreamApi.service.getLiveStreams(user, pass, categoryId = "0").enqueue(object : Callback<List<LiveStream>> {
             override fun onResponse(call: Call<List<LiveStream>>, response: Response<List<LiveStream>>) {
                 if (response.isSuccessful && response.body() != null) {
                     val todosCanais = response.body()!!
                     val listaHub = mutableListOf<LiveStream>()
-
                     nomesDesejados.forEach { nomeBusca ->
                         todosCanais.firstOrNull { it.name.contains(nomeBusca, ignoreCase = true) }?.let {
                             listaHub.add(it)
                         }
                     }
-
                     rvHubChannels.adapter = HubAdapter(listaHub) { canal ->
                         val intent = Intent(this@KidsActivity, PlayerActivity::class.java).apply {
                             putExtra("stream_id", canal.id)
@@ -177,7 +171,7 @@ class KidsActivity : AppCompatActivity() {
                 if (response.isSuccessful) {
                     val kidsCats = response.body()?.filter {
                         val n = it.name.lowercase()
-                        n.contains("kids") || n.contains("infantil") || n.contains("desenho") || n.contains("animação") || n.contains("disney")
+                        n.contains("kids") || n.contains("infantil") || n.contains("desenho") || n.contains("disney")
                     }
                     kidsCats?.forEach { cat ->
                         XtreamApi.service.getVodStreams(user, pass, categoryId = cat.id).enqueue(object : Callback<List<VodStream>> {
@@ -319,44 +313,36 @@ class KidsActivity : AppCompatActivity() {
 
     data class KidsRecentItem(val id: String, val nome: String, val capa: String, val tipo: String, val filmeObj: VodStream?, val serieObj: SeriesStream?)
 
-    // ✅ HUB ADAPTER ATUALIZADO: Formato horizontal de botão/texto para evitar erros do XML
+    // ✅ HUB ADAPTER: NOVO LAYOUT COM LOGO E CORES
     inner class HubAdapter(val list: List<LiveStream>, val onClick: (LiveStream) -> Unit) : RecyclerView.Adapter<HubAdapter.VH>() {
         inner class VH(v: View) : RecyclerView.ViewHolder(v) {
-            val img: ImageView = v.findViewById(R.id.imgPoster)
-            val txt: TextView = v.findViewById(R.id.tvName)
+            val img: ImageView = v.findViewById(R.id.imgLogoHub)
+            val txt: TextView = v.findViewById(R.id.tvNameHub)
+            val container: LinearLayout = v.findViewById(R.id.containerHub)
         }
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = VH(LayoutInflater.from(parent.context).inflate(R.layout.item_vod, parent, false))
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = 
+            VH(LayoutInflater.from(parent.context).inflate(R.layout.item_hub_kids, parent, false))
+
         override fun onBindViewHolder(holder: VH, position: Int) {
             val item = list[position]
             val nomeUpper = item.name.uppercase()
-            
-            holder.img.visibility = View.GONE
-            
-            holder.txt.apply {
-                text = nomeUpper
-                textSize = 16f
-                setTypeface(null, Typeface.BOLD)
-                setTextColor(Color.WHITE)
-                gravity = Gravity.CENTER
-                
-                // Ajusta o tamanho do botão para o conteúdo (Texto)
-                val params = holder.itemView.layoutParams
-                params.width = ViewGroup.LayoutParams.WRAP_CONTENT
-                params.height = 100 // Altura confortável para TV e Celular
-                holder.itemView.layoutParams = params
-                
-                setPadding(30, 0, 30, 0)
-                
-                when {
-                    nomeUpper.contains("CARTOON") -> setBackgroundColor(Color.parseColor("#000000"))
-                    nomeUpper.contains("DISCOVERY") -> setBackgroundColor(Color.parseColor("#00AEEF"))
-                    nomeUpper.contains("NICK") -> setBackgroundColor(Color.parseColor("#FF6600"))
-                    nomeUpper.contains("GLOOB") -> setBackgroundColor(Color.parseColor("#E30613"))
-                    nomeUpper.contains("DISNEY") -> setBackgroundColor(Color.parseColor("#FF007F"))
-                    else -> setBackgroundColor(Color.parseColor("#4A148C")) 
-                }
+            holder.txt.text = nomeUpper
+
+            Glide.with(holder.itemView.context)
+                .load(item.icon) // Use .icon ou .stream_icon conforme seu modelo
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .into(holder.img)
+
+            val corFundo = when {
+                nomeUpper.contains("CARTOON") -> "#000000"
+                nomeUpper.contains("DISCOVERY") -> "#00AEEF"
+                nomeUpper.contains("NICK") -> "#FF6600"
+                nomeUpper.contains("GLOOB") -> "#E30613"
+                nomeUpper.contains("DISNEY") -> "#FF007F"
+                else -> "#4A148C"
             }
-            
+            holder.container.setBackgroundColor(Color.parseColor(corFundo))
+
             configurarFoco(holder.itemView)
             holder.itemView.setOnClickListener { onClick(item) }
         }
@@ -391,7 +377,9 @@ class KidsActivity : AppCompatActivity() {
             Glide.with(holder.itemView.context).load(item.icon).diskCacheStrategy(DiskCacheStrategy.ALL).override(200, 300).centerCrop().into(holder.img)
             configurarFoco(holder.itemView)
             holder.itemView.setOnClickListener { onClick(item) }
-        } override fun getItemCount() = list.size }
+        }
+        override fun getItemCount() = list.size
+    }
 
     inner class KidsSeriesAdapter(val list: List<SeriesStream>, val onClick: (SeriesStream) -> Unit) : RecyclerView.Adapter<KidsSeriesAdapter.VH>() {
         inner class VH(v: View) : RecyclerView.ViewHolder(v) {

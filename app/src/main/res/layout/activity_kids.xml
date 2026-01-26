@@ -40,7 +40,7 @@
             android:paddingStart="15dp"
             android:textSize="14sp"
             android:inputType="text"
-            android:imeOptions="actionSearch"
+            android:imeOptions="actionSearch|flagNoExtractUi"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:clickable="true"/>

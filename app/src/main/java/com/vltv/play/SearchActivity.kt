@@ -171,7 +171,8 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
     private fun filtrarNaMemoria(query: String) {
         if (catalogoCompleto.isEmpty()) return
 
-        if (query.length < 2) {
+        // AJUSTE: Agora com apenas 1 letra já começa a mostrar os resultados
+        if (query.length < 1) {
             adapter.submitList(emptyList())
             tvEmpty.text = "Digite para buscar..."
             tvEmpty.visibility = View.VISIBLE
@@ -184,7 +185,7 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
         val resultadosFiltrados = catalogoCompleto.filter { item ->
             // Verifica se o título contém o texto digitado (ignora maiúsculas/minúsculas)
             item.title.lowercase().contains(qNorm)
-        } // Limite de 100 resultados para não travar a lista visual se a busca for genérica "a"
+        } 
         .take(100) 
 
         adapter.submitList(resultadosFiltrados)
@@ -235,9 +236,8 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
 
     private fun buscarCanais(u: String, p: String): List<SearchResultItem> {
         return try {
-            // categoryId="0" ou similar para pegar todos, depende da sua API. 
-            // Se "0" falhar, tente sem categoryId ou implemente lógica de pegar categorias primeiro.
-            val response = XtreamApi.service.getLiveStreams(u, p, categoryId = "0").execute()
+            // AJUSTE: Removido categoryId="0" para buscar a lista global de canais sem restrição
+            val response = XtreamApi.service.getLiveStreams(u, p).execute()
             if (response.isSuccessful && response.body() != null) {
                 response.body()!!.map {
                     SearchResultItem(
@@ -245,7 +245,7 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
                         title = it.name ?: "Sem Nome",
                         type = "live",
                         extraInfo = null,
-                        iconUrl = it.icon // Verifique se na sua API é 'icon' ou 'stream_icon'
+                        iconUrl = it.icon 
                     )
                 }
             } else emptyList()

@@ -109,10 +109,12 @@ class PlayerActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_player)
 
+        // ✅ CORREÇÃO AQUI: Mudança para TRANSIENT_BARS_BY_SWIPE para a barra sumir sozinha
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
-        windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_BARS_BY_TOUCH
+        windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
 
+        // Mantendo as flags de compatibilidade antigas para TV Boxes que não usam InsetsController
         window.decorView.systemUiVisibility =
             View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
             View.SYSTEM_UI_FLAG_FULLSCREEN or
@@ -129,7 +131,6 @@ class PlayerActivity : AppCompatActivity() {
         tvNextEpisodeTitle = findViewById(R.id.tvNextEpisodeTitle)
         btnPlayNextEpisode = findViewById(R.id.btnPlayNextEpisode)
 
-        // ✅ CORREÇÃO: Foco no botão de próximo
         btnPlayNextEpisode.isFocusable = true
         btnPlayNextEpisode.isFocusableInTouchMode = true
         btnPlayNextEpisode.setOnFocusChangeListener { view, hasFocus ->
@@ -148,13 +149,11 @@ class PlayerActivity : AppCompatActivity() {
         nextStreamId = intent.getIntExtra("next_stream_id", 0)
         nextChannelName = intent.getStringExtra("next_channel_name")
 
-        // Pega a mochila
         val listaExtra = intent.getIntegerArrayListExtra("episode_list")
         if (listaExtra != null) {
             episodeList = listaExtra
         }
 
-        // Tenta descobrir o ID do próximo se não tiver
         calcularProximoEpisodioAutomaticamente()
 
         offlineUri = intent.getStringExtra("offline_uri")
@@ -219,7 +218,6 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ INÍCIO DA INCLUSÃO DA MINI TELA (PIP) - SEM ALTERAR LÓGICA
     override fun onUserLeaveHint() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && player?.isPlaying == true) {
             val params = PictureInPictureParams.Builder()
@@ -242,7 +240,6 @@ class PlayerActivity : AppCompatActivity() {
             topBar.visibility = if (playerView.isControllerFullyVisible) View.VISIBLE else View.GONE
         }
     }
-    // ✅ FIM DA INCLUSÃO DA MINI TELA
 
     private fun setupServerList() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
@@ -279,6 +276,11 @@ class PlayerActivity : AppCompatActivity() {
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) {
+            // ✅ Garante que ao voltar para a Activity o modo imersivo seja reaplicado
+            val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+            windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
+            
             window.decorView.systemUiVisibility =
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
                 View.SYSTEM_UI_FLAG_FULLSCREEN or
@@ -609,7 +611,6 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        // ✅ Mantido conforme original, agora com trava para PiP
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && !isInPictureInPictureMode) {
             val p = player ?: return
             if (streamType == "movie") {

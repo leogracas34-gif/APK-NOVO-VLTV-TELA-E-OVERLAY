@@ -388,7 +388,9 @@ class VodActivity : AppCompatActivity() {
     }
 
     private fun getFavMovies(context: Context): MutableSet<Int> {
-        val set = prefs.getStringSet("fav_movies", emptySet()) ?: emptySet()
+        // ✅ CORREÇÃO: Lendo do caderninho correto 'vltv_favoritos' e da lista 'favoritos'
+        val prefsFav = context.getSharedPreferences("vltv_favoritos", Context.MODE_PRIVATE)
+        val set = prefsFav.getStringSet("favoritos", emptySet()) ?: emptySet()
         return set.mapNotNull { it.toIntOrNull() }.toMutableSet()
     }
 

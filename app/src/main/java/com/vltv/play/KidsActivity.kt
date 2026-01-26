@@ -64,13 +64,14 @@ class KidsActivity : AppCompatActivity() {
             it.setOnClickListener { finish() }
         }
 
-        // AJUSTE DE CLIQUE PARA CELULAR E TV
+        // ✅ AJUSTE FINAL: Clique direto para evitar a "ponte" do teclado
         configurarFoco(etSearchKids)
-        etSearchKids.isFocusableInTouchMode = true // Permite clique direto no celular
+        etSearchKids.isFocusableInTouchMode = true 
         etSearchKids.setOnClickListener {
             etSearchKids.requestFocus()
             val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.showSoftInput(etSearchKids, InputMethodManager.SHOW_IMPLICIT)
+            // Força a exibição sem a interface de extração do sistema
+            imm.showSoftInput(etSearchKids, InputMethodManager.SHOW_FORCED)
         }
 
         etSearchKids.setOnEditorActionListener { v, actionId, _ ->
@@ -115,7 +116,6 @@ class KidsActivity : AppCompatActivity() {
 
     private fun configurarFoco(view: View) {
         view.isFocusable = true
-        // Removido o false fixo para aceitar toques de celular
         view.setOnFocusChangeListener { v, hasFocus ->
             if (hasFocus) {
                 v.animate().scaleX(1.1f).scaleY(1.1f).setDuration(150).start()
@@ -325,16 +325,17 @@ class KidsActivity : AppCompatActivity() {
             val item = list[position]
             holder.txt.text = item.name
             
-            // AJUSTE ESPECIAL PARA LOGO KIDS: Centralizado com respiro
+            // ✅ AJUSTE FINAL: Aumentado padding e forçado ScaleType FIT_CENTER via Glide
             holder.img.layoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT
             holder.img.layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
             holder.img.scaleType = ImageView.ScaleType.FIT_CENTER 
-            holder.img.setPadding(12, 12, 12, 12) // Dá o espaço necessário para a logo não ser cortada
+            holder.img.setPadding(18, 18, 18, 18) 
             holder.img.requestLayout()
 
             Glide.with(holder.itemView.context)
                 .load(item.icon)
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .fitCenter() // Garante que o Glide não tente preencher tudo
                 .placeholder(R.drawable.bg_selector_kids)
                 .into(holder.img)
             

@@ -79,7 +79,7 @@
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/rvHubChannels"
                 android:layout_width="match_parent"
-                android:layout_height="100dp"
+                android:layout_height="60dp" 
                 android:orientation="horizontal"
                 android:clipToPadding="false"
                 android:layout_marginBottom="24dp"/>

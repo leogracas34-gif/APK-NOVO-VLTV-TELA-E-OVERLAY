@@ -287,23 +287,30 @@ class SeriesActivity : AppCompatActivity() {
 
     private fun carregarSeriesFavoritas() {
         tvCategoryTitle.text = "FAVORITOS"
-
-        favSeriesCache?.let { cacheadas ->
-            aplicarSeries(cacheadas)
-            preLoadImages(cacheadas) // ✅ PRELOAD FAVORITOS CACHE
-            return
-        }
-
-        progressBar.visibility = View.VISIBLE
-
         val favIds = getFavSeries(this)
+
         if (favIds.isEmpty()) {
-            progressBar.visibility = View.GONE
             rvSeries.adapter = SeriesAdapter(emptyList()) {}
             Toast.makeText(this, "Nenhuma série favorita.", Toast.LENGTH_SHORT).show()
             return
         }
 
+        // ✅ ACELERAÇÃO: Tenta encontrar as séries já carregadas na memória (todas as abas)
+        val listaFavoritosInstantanea = mutableListOf<SeriesStream>()
+        seriesCache.values.flatten().distinctBy { it.id }.forEach { serie ->
+            if (favIds.contains(serie.id)) {
+                listaFavoritosInstantanea.add(serie)
+            }
+        }
+
+        // Se encontrou as séries no cache, exibe instantaneamente sem chamar a API
+        if (listaFavoritosInstantanea.size >= favIds.size) {
+            aplicarSeries(listaFavoritosInstantanea)
+            return
+        }
+
+        // Caso não estejam no cache, faz a busca padrão (Categoria 0)
+        progressBar.visibility = View.VISIBLE
         XtreamApi.service.getSeries(username, password, categoryId = "0")
             .enqueue(object : Callback<List<SeriesStream>> {
                 override fun onResponse(
@@ -316,14 +323,11 @@ class SeriesActivity : AppCompatActivity() {
                         todas = todas.filter { favIds.contains(it.id) }
 
                         if (ParentalControlManager.isEnabled(this@SeriesActivity)) {
-                            todas = todas.filterNot { s ->
-                                isAdultName(s.name)
-                            }
+                            todas = todas.filterNot { s -> isAdultName(s.name) }
                         }
 
                         favSeriesCache = todas
                         aplicarSeries(todas)
-                        preLoadImages(todas) // ✅ PRELOAD FAVORITOS API
                     }
                 }
 

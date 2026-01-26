@@ -323,47 +323,45 @@ class VodActivity : AppCompatActivity() {
 
     private fun carregarFilmesFavoritos() {
         tvCategoryTitle.text = "FAVORITOS"
-        
-        // ✅ LIMPA O CACHE PARA SEMPRE PEGAR OS FAVORITOS ATUALIZADOS DO BANCO
-        favMoviesCache = null
-
-        progressBar.visibility = View.VISIBLE
-
         val favIds = getFavMovies(this)
+
         if (favIds.isEmpty()) {
-            progressBar.visibility = View.GONE
             aplicarFilmes(emptyList())
             Toast.makeText(this, "Nenhum filme favorito.", Toast.LENGTH_SHORT).show()
             return
         }
 
-        // Busca todos os filmes (categoria 0) e filtra apenas pelos IDs favoritados
+        // ✅ ACELERAÇÃO: Tenta encontrar os filmes já carregados na memória antes de ir na API
+        val listaFavoritosInstantanea = mutableListOf<VodStream>()
+        moviesCache.values.flatten().distinctBy { it.id }.forEach { filme ->
+            if (favIds.contains(filme.id)) {
+                listaFavoritosInstantanea.add(filme)
+            }
+        }
+
+        // Se encontrou todos os favoritos no cache, exibe na hora!
+        if (listaFavoritosInstantanea.size >= favIds.size) {
+            aplicarFilmes(listaFavoritosInstantanea)
+            return
+        }
+
+        // Caso falte algum, faz a busca leve
+        progressBar.visibility = View.VISIBLE
         XtreamApi.service.getVodStreams(username, password, categoryId = "0")
             .enqueue(object : Callback<List<VodStream>> {
-                override fun onResponse(
-                    call: Call<List<VodStream>>,
-                    response: Response<List<VodStream>>
-                ) {
+                override fun onResponse(call: Call<List<VodStream>>, response: Response<List<VodStream>>) {
                     progressBar.visibility = View.GONE
                     if (response.isSuccessful && response.body() != null) {
                         var todos = response.body()!!
                         todos = todos.filter { favIds.contains(it.id) }
-
                         if (ParentalControlManager.isEnabled(this@VodActivity)) {
-                            todos = todos.filterNot { vod ->
-                                isAdultName(vod.name) || isAdultName(vod.title)
-                            }
+                            todos = todos.filterNot { isAdultName(it.name) }
                         }
-
                         favMoviesCache = todos
                         aplicarFilmes(todos)
-                        preLoadImages(todos) // ✅ PRELOAD FAVORITOS API
                     }
                 }
-
-                override fun onFailure(call: Call<List<VodStream>>, t: Throwable) {
-                    progressBar.visibility = View.GONE
-                }
+                override fun onFailure(call: Call<List<VodStream>>, t: Throwable) { progressBar.visibility = View.GONE }
             })
     }
 

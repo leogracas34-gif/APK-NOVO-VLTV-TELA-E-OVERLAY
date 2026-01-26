@@ -78,8 +78,8 @@ class SeriesActivity : AppCompatActivity() {
         progressBar = findViewById(R.id.progressBar)
         tvCategoryTitle = findViewById(R.id.tvCategoryTitle)
 
-        // ✅ CONEXÃO DA BUSCA (LUPA)
-        findViewById<View>(R.id.btnSearch)?.setOnClickListener {
+        // ✅ INSERÇÃO 1: CONEXÃO DA BUSCA DIRETA (Usando o ID etSearchContent do seu XML)
+        findViewById<View>(R.id.etSearchContent)?.setOnClickListener {
             val intent = Intent(this, SearchActivity::class.java)
             intent.putExtra("initial_query", "")
             startActivity(intent)
@@ -353,10 +353,10 @@ class SeriesActivity : AppCompatActivity() {
         return set.mapNotNull { it.toIntOrNull() }.toMutableSet()
     }
 
-    // ✅ FUNÇÃO PARA SALVAR/REMOVER FAVORITO
+    // ✅ INSERÇÃO 2: LÓGICA PARA SALVAR/REMOVER FAVORITOS
     private fun toggleFavorite(seriesId: Int) {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
-        val favSet = prefs.getStringSet("fav_series", emptySet())?.toMutableSet() ?: mutableSetOf()
+        val favSet = (prefs.getStringSet("fav_series", emptySet()) ?: emptySet()).toMutableSet()
         val idString = seriesId.toString()
 
         if (favSet.contains(idString)) {
@@ -368,7 +368,6 @@ class SeriesActivity : AppCompatActivity() {
         }
         prefs.edit().putStringSet("fav_series", favSet).apply()
         
-        // Atualiza a aba se estiver nela
         if (tvCategoryTitle.text == "FAVORITOS") {
             favSeriesCache = null
             carregarSeriesFavoritas()
@@ -463,7 +462,7 @@ class SeriesActivity : AppCompatActivity() {
             holder.imgLogo.setImageDrawable(null)
             holder.imgLogo.visibility = View.INVISIBLE
 
-            // ✅ LOGICA DA ESTRELA (FAVORITOS)
+            // ✅ INSERÇÃO 3: CONTROLE VISUAL DA ESTRELA NO BOTÃO imgDownload
             val favIds = getFavSeries(this@SeriesActivity)
             holder.imgDownload.visibility = View.VISIBLE
             if (favIds.contains(item.id)) {

@@ -3,7 +3,10 @@ package com.vltv.play
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.graphics.Color
+import android.graphics.Typeface
 import android.os.Bundle
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -36,8 +39,11 @@ class KidsActivity : AppCompatActivity() {
     private var user = ""
     private var pass = ""
 
-    // LISTA DE SEGURANÇA KIDS
-    private val termosProibidos = listOf("adulto", "xxx", "sexo", "sexy", "porn", "18+", "erótico", "violência")
+    // ✅ FILTRO REFORÇADO: Bloqueia termos adultos e gêneros não-kids (como 007/Ação)
+    private val termosProibidos = listOf(
+        "adulto", "xxx", "sexo", "sexy", "porn", "18+", "erótico", "violência", 
+        "007", "terror", "horror", "assassinato", "guerra", "pânico"
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,13 +70,11 @@ class KidsActivity : AppCompatActivity() {
             it.setOnClickListener { finish() }
         }
 
-        // ✅ AJUSTE FINAL: Clique direto para evitar a "ponte" do teclado
         configurarFoco(etSearchKids)
         etSearchKids.isFocusableInTouchMode = true 
         etSearchKids.setOnClickListener {
             etSearchKids.requestFocus()
             val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-            // Força a exibição sem a interface de extração do sistema
             imm.showSoftInput(etSearchKids, InputMethodManager.SHOW_FORCED)
         }
 
@@ -78,7 +82,7 @@ class KidsActivity : AppCompatActivity() {
             if (actionId == EditorInfo.IME_ACTION_SEARCH || actionId == EditorInfo.IME_ACTION_DONE || actionId == EditorInfo.IME_ACTION_GO) {
                 val query = v.text.toString().trim()
                 
-                // FILTRO DE SEGURANÇA
+                // ✅ VERIFICAÇÃO DE SEGURANÇA KIDS
                 val contemProibido = termosProibidos.any { query.contains(it, ignoreCase = true) }
                 
                 if (query.isNotEmpty() && !contemProibido) {
@@ -93,7 +97,7 @@ class KidsActivity : AppCompatActivity() {
                     }
                     startActivity(intent)
                 } else if (contemProibido) {
-                    Toast.makeText(this, "Busca não permitida na Área Kids 🛡️", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Acesso negado: Conteúdo não infantil 🛡️", Toast.LENGTH_LONG).show()
                     etSearchKids.setText("")
                 }
                 true
@@ -167,6 +171,8 @@ class KidsActivity : AppCompatActivity() {
     }
 
     private fun carregarConteudoKids() {
+        // ... (Lógica de carregar VOD e Séries mantida conforme original)
+        // [Mantido seu código original de carregamento por segurança]
         XtreamApi.service.getVodCategories(user, pass).enqueue(object : Callback<List<LiveCategory>> {
             override fun onResponse(call: Call<List<LiveCategory>>, response: Response<List<LiveCategory>>) {
                 if (response.isSuccessful) {
@@ -314,7 +320,7 @@ class KidsActivity : AppCompatActivity() {
 
     data class KidsRecentItem(val id: String, val nome: String, val capa: String, val tipo: String, val filmeObj: VodStream?, val serieObj: SeriesStream?)
 
-    // --- HUB ADAPTER: CENTRALIZAÇÃO TOTAL DAS LOGOS DOS CANAIS ---
+    // ✅ HUB ADAPTER TRANSFORMADO: Agora usa botões coloridos com texto gigante
     inner class HubAdapter(val list: List<LiveStream>, val onClick: (LiveStream) -> Unit) : RecyclerView.Adapter<HubAdapter.VH>() {
         inner class VH(v: View) : RecyclerView.ViewHolder(v) {
             val img: ImageView = v.findViewById(R.id.imgPoster)
@@ -323,21 +329,31 @@ class KidsActivity : AppCompatActivity() {
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = VH(LayoutInflater.from(parent.context).inflate(R.layout.item_vod, parent, false))
         override fun onBindViewHolder(holder: VH, position: Int) {
             val item = list[position]
-            holder.txt.text = item.name
+            val nome = item.name.uppercase()
             
-            // ✅ AJUSTE FINAL: Aumentado padding e forçado ScaleType FIT_CENTER via Glide
-            holder.img.layoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT
-            holder.img.layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
-            holder.img.scaleType = ImageView.ScaleType.FIT_CENTER 
-            holder.img.setPadding(18, 18, 18, 18) 
-            holder.img.requestLayout()
-
-            Glide.with(holder.itemView.context)
-                .load(item.icon)
-                .diskCacheStrategy(DiskCacheStrategy.ALL)
-                .fitCenter() // Garante que o Glide não tente preencher tudo
-                .placeholder(R.drawable.bg_selector_kids)
-                .into(holder.img)
+            // 1. Esconde a ImageView problemática
+            holder.img.visibility = View.GONE
+            
+            // 2. Transforma o TextView em um Botão Colorido Gigante
+            holder.txt.apply {
+                text = nome
+                textSize = 18f
+                setTypeface(null, Typeface.BOLD)
+                gravity = Gravity.CENTER
+                setTextColor(Color.WHITE)
+                layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
+                setPadding(10, 10, 10, 10)
+                
+                // Cores por Canal para facilitar a identificação da criança
+                when {
+                    nome.contains("CARTOON") -> setBackgroundColor(Color.parseColor("#000000"))
+                    nome.contains("DISCOVERY") -> setBackgroundColor(Color.parseColor("#00AEEF"))
+                    nome.contains("NICK") -> setBackgroundColor(Color.parseColor("#FF6600"))
+                    nome.contains("GLOOB") -> setBackgroundColor(Color.parseColor("#E30613"))
+                    nome.contains("DISNEY") -> setBackgroundColor(Color.parseColor("#FF007F"))
+                    else -> setBackgroundColor(Color.parseColor("#4A148C")) // Roxo para outros
+                }
+            }
             
             configurarFoco(holder.itemView)
             holder.itemView.setOnClickListener { onClick(item) }
@@ -345,6 +361,7 @@ class KidsActivity : AppCompatActivity() {
         override fun getItemCount() = list.size
     }
 
+    // (Adaptadores de VOD e Séries continuam usando as capas originais pois são VODs)
     inner class KidsUnifiedAdapter(val list: List<KidsRecentItem>, val onClick: (KidsRecentItem) -> Unit) : RecyclerView.Adapter<KidsUnifiedAdapter.VH>() {
         inner class VH(v: View) : RecyclerView.ViewHolder(v) {
             val img: ImageView = v.findViewById(R.id.imgPoster)

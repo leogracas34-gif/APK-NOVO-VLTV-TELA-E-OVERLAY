@@ -16,6 +16,7 @@ import android.widget.EditText
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.LinearLayout
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -39,7 +40,6 @@ class KidsActivity : AppCompatActivity() {
     private var user = ""
     private var pass = ""
 
-    // ✅ FILTRO DE SEGURANÇA REFORÇADO (Bloqueia 007 e termos inadequados)
     private val termosProibidos = listOf(
         "adulto", "xxx", "sexo", "sexy", "porn", "18+", "erótico", "violência", 
         "007", "terror", "horror", "assassinato", "guerra", "pânico", "morte"
@@ -70,7 +70,6 @@ class KidsActivity : AppCompatActivity() {
             it.setOnClickListener { finish() }
         }
 
-        // ✅ ABRE O TECLADO DIRETO (Fim da "Ponte")
         configurarFoco(etSearchKids)
         etSearchKids.isFocusableInTouchMode = true 
         etSearchKids.setOnClickListener {
@@ -82,8 +81,6 @@ class KidsActivity : AppCompatActivity() {
         etSearchKids.setOnEditorActionListener { v, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEARCH || actionId == EditorInfo.IME_ACTION_DONE || actionId == EditorInfo.IME_ACTION_GO) {
                 val query = v.text.toString().trim()
-                
-                // ✅ VERIFICAÇÃO DE SEGURANÇA KIDS
                 val contemProibido = termosProibidos.any { query.contains(it, ignoreCase = true) }
                 
                 if (query.isNotEmpty() && !contemProibido) {
@@ -98,7 +95,7 @@ class KidsActivity : AppCompatActivity() {
                     }
                     startActivity(intent)
                 } else if (contemProibido) {
-                    Toast.makeText(this, "Acesso negado: Este conteúdo não é infantil 🛡️", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "Acesso negado: Conteúdo impróprio para crianças 🛡️", Toast.LENGTH_LONG).show()
                     etSearchKids.setText("")
                 }
                 true
@@ -140,22 +137,15 @@ class KidsActivity : AppCompatActivity() {
     }
 
     private fun setupHubChannels() {
-        val nomesDesejados = listOf(
-            "Cartoon Network", "Discovery Kids", "Gloob", "Cartoonito", "Nickelodeon"
-        )
-
+        val nomesDesejados = listOf("Cartoon Network", "Discovery Kids", "Gloob", "Cartoonito", "Nickelodeon")
         XtreamApi.service.getLiveStreams(user, pass, categoryId = "0").enqueue(object : Callback<List<LiveStream>> {
             override fun onResponse(call: Call<List<LiveStream>>, response: Response<List<LiveStream>>) {
                 if (response.isSuccessful && response.body() != null) {
                     val todosCanais = response.body()!!
                     val listaHub = mutableListOf<LiveStream>()
-
                     nomesDesejados.forEach { nomeBusca ->
-                        todosCanais.firstOrNull { it.name.contains(nomeBusca, ignoreCase = true) }?.let {
-                            listaHub.add(it)
-                        }
+                        todosCanais.firstOrNull { it.name.contains(nomeBusca, ignoreCase = true) }?.let { listaHub.add(it) }
                     }
-
                     rvHubChannels.adapter = HubAdapter(listaHub) { canal ->
                         val intent = Intent(this@KidsActivity, PlayerActivity::class.java).apply {
                             putExtra("stream_id", canal.id)
@@ -172,7 +162,6 @@ class KidsActivity : AppCompatActivity() {
     }
 
     private fun carregarConteudoKids() {
-        // ... (Lógica de carregar VOD e Séries mantida do seu original)
         XtreamApi.service.getVodCategories(user, pass).enqueue(object : Callback<List<LiveCategory>> {
             override fun onResponse(call: Call<List<LiveCategory>>, response: Response<List<LiveCategory>>) {
                 if (response.isSuccessful) {
@@ -320,7 +309,7 @@ class KidsActivity : AppCompatActivity() {
 
     data class KidsRecentItem(val id: String, val nome: String, val capa: String, val tipo: String, val filmeObj: VodStream?, val serieObj: SeriesStream?)
 
-    // ✅ HUB ADAPTER: Agora os canais são botões coloridos com o nome em destaque
+    // ✅ HUB ADAPTER: CORREÇÃO PARA O TEXTO CENTRALIZAR NO CARD
     inner class HubAdapter(val list: List<LiveStream>, val onClick: (LiveStream) -> Unit) : RecyclerView.Adapter<HubAdapter.VH>() {
         inner class VH(v: View) : RecyclerView.ViewHolder(v) {
             val img: ImageView = v.findViewById(R.id.imgPoster)
@@ -330,26 +319,25 @@ class KidsActivity : AppCompatActivity() {
         override fun onBindViewHolder(holder: VH, position: Int) {
             val item = list[position]
             val nomeUpper = item.name.uppercase()
-            
-            // 1. Esconde a imagem (já que as logos do servidor estão com erro)
             holder.img.visibility = View.GONE
             
-            // 2. Transforma o TextView em um Botão Colorido e Intuitivo
+            // ✅ FORÇA O TEXTO A OCUPAR O CARD INTEIRO E CENTRALIZAR
             holder.txt.apply {
                 text = nomeUpper
                 textSize = 18f
                 setTypeface(null, Typeface.BOLD)
-                gravity = Gravity.CENTER
                 setTextColor(Color.WHITE)
+                gravity = Gravity.CENTER // Centraliza horizontal e verticalmente
                 
-                // Força o preenchimento total do card
-                val params = layoutParams
-                params.height = ViewGroup.LayoutParams.MATCH_PARENT
+                // Redefine as margens do XML para ele não ficar "preso" embaixo
+                val params = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.MATCH_PARENT
+                )
+                params.setMargins(0, 0, 0, 0)
                 layoutParams = params
                 
-                setPadding(10, 10, 10, 10)
-                
-                // ✅ Cores Fixas por Canal para facilitar a vida da criança
+                // Cores vibrantes
                 when {
                     nomeUpper.contains("CARTOON") -> setBackgroundColor(Color.parseColor("#000000"))
                     nomeUpper.contains("DISCOVERY") -> setBackgroundColor(Color.parseColor("#00AEEF"))

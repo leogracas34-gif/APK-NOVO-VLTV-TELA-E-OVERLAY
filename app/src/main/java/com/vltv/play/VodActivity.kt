@@ -634,6 +634,7 @@ class VodActivity : AppCompatActivity() {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val query = URLEncoder.encode(cleanName, "UTF-8")
+                    // ✅ TRAVA DE SEGURANÇA: Usando obrigatoriamente /search/movie para evitar conflitos com séries
                     val searchUrl = "https://api.themoviedb.org/3/search/movie?api_key=$TMDB_API_KEY&query=$query&language=pt-BR"
                     val searchJson = URL(searchUrl).readText()
                     val results = JSONObject(searchJson).getJSONArray("results")

@@ -81,6 +81,15 @@ class VodActivity : AppCompatActivity() {
         progressBar = findViewById(R.id.progressBar)
         tvCategoryTitle = findViewById(R.id.tvCategoryTitle)
 
+        // ✅ BUSCA DIRETA (PULA A PONTE DO TECLADO)
+        val searchInput = findViewById<View>(R.id.etSearchContent)
+        searchInput?.isFocusableInTouchMode = false // Impede abrir teclado aqui
+        searchInput?.setOnClickListener {
+            val intent = Intent(this, SearchActivity::class.java)
+            intent.putExtra("initial_query", "")
+            startActivity(intent)
+        }
+
         prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         username = prefs.getString("username", "") ?: ""
         password = prefs.getString("password", "") ?: ""
@@ -549,6 +558,9 @@ class VodActivity : AppCompatActivity() {
             holder.tvName.visibility = View.GONE
             holder.imgLogo.setImageDrawable(null) // Limpa logo antiga (reciclagem)
             holder.imgLogo.visibility = View.INVISIBLE
+            
+            // ✅ REMOVIDO: ESTRELA/DOWNLOAD NA CAPA
+            holder.imgDownload.visibility = View.GONE
 
             // 2. Carrega o Pôster do IPTV (Fundo)
             val context = holder.itemView.context

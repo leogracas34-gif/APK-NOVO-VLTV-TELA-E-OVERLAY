@@ -236,8 +236,8 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
 
     private fun buscarCanais(u: String, p: String): List<SearchResultItem> {
         return try {
-            // AJUSTE: Removido categoryId="0" para buscar a lista global de canais sem restrição
-            val response = XtreamApi.service.getLiveStreams(u, p).execute()
+            // CORREÇÃO: Adicionado novamente o parâmetro "0" para atender a exigência da interface da API
+            val response = XtreamApi.service.getLiveStreams(u, p, "0").execute()
             if (response.isSuccessful && response.body() != null) {
                 response.body()!!.map {
                     SearchResultItem(

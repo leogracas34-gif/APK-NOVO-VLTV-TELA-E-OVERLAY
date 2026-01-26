@@ -27,6 +27,9 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 import java.util.ArrayList
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 
 // Importante: Certifique-se de que CastAdapter e CastMember estão no projeto
 import com.vltv.play.CastAdapter
@@ -80,6 +83,12 @@ class SeriesDetailsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_series_details)
+
+        // ✅ ADICIONE O CÓDIGO EXATAMENTE AQUI:
+        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+        windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
+        // ------------------------------------------
 
         seriesId = intent.getIntExtra("series_id", 0)
         seriesName = intent.getStringExtra("name") ?: ""
@@ -396,6 +405,12 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+
+        // Repetir aqui garante que a barra suma ao VOLTAR do player
+        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+        windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
+        
         restaurarEstadoDownload()
     }
     

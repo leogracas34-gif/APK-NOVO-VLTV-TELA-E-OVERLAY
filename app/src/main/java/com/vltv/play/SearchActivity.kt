@@ -64,7 +64,7 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
         progressBar = findViewById(R.id.progressBar)
         tvEmpty = findViewById(R.id.tvEmpty)
 
-        // CONFIGURAÇÃO DO TECLADO: Impede que ele ocupe a tela toda (Modo TV)
+        // AJUSTE PARA O TECLADO NÃO COBRIR A TELA
         etQuery.imeOptions = EditorInfo.IME_ACTION_SEARCH or EditorInfo.IME_FLAG_NO_EXTRACT_UI
     }
 
@@ -174,7 +174,7 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
     private fun filtrarNaMemoria(query: String) {
         if (catalogoCompleto.isEmpty()) return
 
-        // AJUSTE: Mudado para 1 para busca ser imediata ao digitar
+        // AJUSTE PARA BUSCA IMEDIATA COM 1 LETRA
         if (query.length < 1) {
             adapter.submitList(emptyList())
             tvEmpty.text = "Digite para buscar..."
@@ -205,11 +205,11 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
     
     private fun buscarFilmes(u: String, p: String): List<SearchResultItem> {
         return try {
-            val response = XtreamApi.service.getAllVodStreams(u, p).execute()
+            val response = XtreamApi.service.getAllVodStreams(user = u, pass = p).execute()
             if (response.isSuccessful && response.body() != null) {
                 response.body()!!.map {
                     SearchResultItem(
-                        id = it.id.toString(),
+                        id = it.id,
                         title = it.name ?: "Sem Título",
                         type = "movie",
                         extraInfo = it.rating,
@@ -222,11 +222,11 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
 
     private fun buscarSeries(u: String, p: String): List<SearchResultItem> {
         return try {
-            val response = XtreamApi.service.getAllSeries(u, p).execute()
+            val response = XtreamApi.service.getAllSeries(user = u, pass = p).execute()
             if (response.isSuccessful && response.body() != null) {
                 response.body()!!.map {
                     SearchResultItem(
-                        id = it.id.toString(),
+                        id = it.id,
                         title = it.name ?: "Sem Título",
                         type = "series",
                         extraInfo = it.rating,
@@ -239,12 +239,11 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
 
     private fun buscarCanais(u: String, p: String): List<SearchResultItem> {
         return try {
-            // AJUSTE: Usando os nomes dos parâmetros da sua interface para compilar sem erro
             val response = XtreamApi.service.getLiveStreams(user = u, pass = p, categoryId = "0").execute()
             if (response.isSuccessful && response.body() != null) {
                 response.body()!!.map {
                     SearchResultItem(
-                        id = it.id.toString(),
+                        id = it.id,
                         title = it.name ?: "Sem Nome",
                         type = "live",
                         extraInfo = null,
@@ -257,11 +256,10 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
 
     // --- NAVEGAÇÃO ---
     private fun abrirDetalhes(item: SearchResultItem) {
-        val streamIdInt = item.id.toIntOrNull() ?: 0
         when (item.type) {
             "movie" -> {
                 val i = Intent(this, DetailsActivity::class.java)
-                i.putExtra("stream_id", streamIdInt)
+                i.putExtra("stream_id", item.id)
                 i.putExtra("name", item.title)
                 i.putExtra("icon", item.iconUrl ?: "")
                 i.putExtra("rating", item.extraInfo ?: "0.0")
@@ -269,7 +267,7 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
             }
             "series" -> {
                 val i = Intent(this, SeriesDetailsActivity::class.java)
-                i.putExtra("series_id", streamIdInt)
+                i.putExtra("series_id", item.id)
                 i.putExtra("name", item.title)
                 i.putExtra("icon", item.iconUrl ?: "")
                 i.putExtra("rating", item.extraInfo ?: "0.0")
@@ -277,7 +275,7 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
             }
             "live" -> {
                 val i = Intent(this, PlayerActivity::class.java)
-                i.putExtra("stream_id", streamIdInt)
+                i.putExtra("stream_id", item.id)
                 i.putExtra("stream_type", "live")
                 i.putExtra("channel_name", item.title)
                 startActivity(i)

@@ -78,8 +78,10 @@ class SeriesActivity : AppCompatActivity() {
         progressBar = findViewById(R.id.progressBar)
         tvCategoryTitle = findViewById(R.id.tvCategoryTitle)
 
-        // ✅ INSERÇÃO 1: CONEXÃO DA BUSCA DIRETA (Usando o ID etSearchContent do seu XML)
-        findViewById<View>(R.id.etSearchContent)?.setOnClickListener {
+        // ✅ BUSCA DIRETA (PULA A PONTE)
+        val searchInput = findViewById<View>(R.id.etSearchContent)
+        searchInput?.isFocusableInTouchMode = false // Impede abrir teclado aqui
+        searchInput?.setOnClickListener {
             val intent = Intent(this, SearchActivity::class.java)
             intent.putExtra("initial_query", "")
             startActivity(intent)
@@ -353,27 +355,6 @@ class SeriesActivity : AppCompatActivity() {
         return set.mapNotNull { it.toIntOrNull() }.toMutableSet()
     }
 
-    // ✅ INSERÇÃO 2: LÓGICA PARA SALVAR/REMOVER FAVORITOS
-    private fun toggleFavorite(seriesId: Int) {
-        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
-        val favSet = (prefs.getStringSet("fav_series", emptySet()) ?: emptySet()).toMutableSet()
-        val idString = seriesId.toString()
-
-        if (favSet.contains(idString)) {
-            favSet.remove(idString)
-            Toast.makeText(this, "Removido dos favoritos", Toast.LENGTH_SHORT).show()
-        } else {
-            favSet.add(idString)
-            Toast.makeText(this, "Adicionado aos favoritos", Toast.LENGTH_SHORT).show()
-        }
-        prefs.edit().putStringSet("fav_series", favSet).apply()
-        
-        if (tvCategoryTitle.text == "FAVORITOS") {
-            favSeriesCache = null
-            carregarSeriesFavoritas()
-        }
-    }
-
     // ================= ADAPTERS =================
 
     inner class SeriesCategoryAdapter(
@@ -461,20 +442,9 @@ class SeriesActivity : AppCompatActivity() {
             holder.tvName.visibility = View.GONE
             holder.imgLogo.setImageDrawable(null)
             holder.imgLogo.visibility = View.INVISIBLE
-
-            // ✅ INSERÇÃO 3: CONTROLE VISUAL DA ESTRELA NO BOTÃO imgDownload
-            val favIds = getFavSeries(this@SeriesActivity)
-            holder.imgDownload.visibility = View.VISIBLE
-            if (favIds.contains(item.id)) {
-                holder.imgDownload.setImageResource(android.R.drawable.btn_star_big_on)
-            } else {
-                holder.imgDownload.setImageResource(android.R.drawable.btn_star_big_off)
-            }
-
-            holder.imgDownload.setOnClickListener {
-                toggleFavorite(item.id)
-                notifyItemChanged(position)
-            }
+            
+            // ✅ REMOVIDO: ESTRELA NA CAPA (Limpando o layout conforme pedido)
+            holder.imgDownload.visibility = View.GONE
 
             val context = holder.itemView.context
             

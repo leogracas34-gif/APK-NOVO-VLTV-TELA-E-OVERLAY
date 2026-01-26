@@ -41,7 +41,9 @@
             android:textSize="14sp"
             android:inputType="text"
             android:imeOptions="actionSearch"
-            android:focusable="true"/>
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:clickable="true"/>
 
         <TextView
             android:layout_width="wrap_content"
@@ -79,6 +81,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="100dp"
                 android:orientation="horizontal"
+                android:clipToPadding="false"
                 android:layout_marginBottom="24dp"/>
 
             <TextView
@@ -98,6 +101,7 @@
                 android:layout_height="150dp"
                 android:orientation="horizontal"
                 android:visibility="gone"
+                android:clipToPadding="false"
                 android:layout_marginBottom="24dp"/>
 
             <TextView
@@ -114,6 +118,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="180dp"
                 android:orientation="horizontal"
+                android:clipToPadding="false"
                 android:layout_marginBottom="24dp"/>
 
             <TextView
@@ -130,6 +135,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="180dp"
                 android:orientation="horizontal"
+                android:clipToPadding="false"
                 android:layout_marginBottom="24dp"/>
 
         </LinearLayout>

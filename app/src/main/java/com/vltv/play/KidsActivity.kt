@@ -36,6 +36,9 @@ class KidsActivity : AppCompatActivity() {
     private var user = ""
     private var pass = ""
 
+    // LISTA DE SEGURANÇA KIDS
+    private val termosProibidos = listOf("adulto", "xxx", "sexo", "sexy", "porn", "18+", "erótico", "violência")
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -61,11 +64,23 @@ class KidsActivity : AppCompatActivity() {
             it.setOnClickListener { finish() }
         }
 
+        // AJUSTE DE CLIQUE PARA CELULAR E TV
         configurarFoco(etSearchKids)
+        etSearchKids.isFocusableInTouchMode = true // Permite clique direto no celular
+        etSearchKids.setOnClickListener {
+            etSearchKids.requestFocus()
+            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.showSoftInput(etSearchKids, InputMethodManager.SHOW_IMPLICIT)
+        }
+
         etSearchKids.setOnEditorActionListener { v, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEARCH || actionId == EditorInfo.IME_ACTION_DONE || actionId == EditorInfo.IME_ACTION_GO) {
                 val query = v.text.toString().trim()
-                if (query.isNotEmpty()) {
+                
+                // FILTRO DE SEGURANÇA
+                val contemProibido = termosProibidos.any { query.contains(it, ignoreCase = true) }
+                
+                if (query.isNotEmpty() && !contemProibido) {
                     val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
                     imm.hideSoftInputFromWindow(v.windowToken, 0)
                     etSearchKids.clearFocus()
@@ -76,6 +91,9 @@ class KidsActivity : AppCompatActivity() {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
                     startActivity(intent)
+                } else if (contemProibido) {
+                    Toast.makeText(this, "Busca não permitida na Área Kids 🛡️", Toast.LENGTH_SHORT).show()
+                    etSearchKids.setText("")
                 }
                 true
             } else false
@@ -97,7 +115,7 @@ class KidsActivity : AppCompatActivity() {
 
     private fun configurarFoco(view: View) {
         view.isFocusable = true
-        view.isFocusableInTouchMode = false 
+        // Removido o false fixo para aceitar toques de celular
         view.setOnFocusChangeListener { v, hasFocus ->
             if (hasFocus) {
                 v.animate().scaleX(1.1f).scaleY(1.1f).setDuration(150).start()
@@ -296,7 +314,7 @@ class KidsActivity : AppCompatActivity() {
 
     data class KidsRecentItem(val id: String, val nome: String, val capa: String, val tipo: String, val filmeObj: VodStream?, val serieObj: SeriesStream?)
 
-    // --- HUB ADAPTER: CENTRALIZAÇÃO TOTAL DAS LOGOS DO SERVIDOR ---
+    // --- HUB ADAPTER: CENTRALIZAÇÃO TOTAL DAS LOGOS DOS CANAIS ---
     inner class HubAdapter(val list: List<LiveStream>, val onClick: (LiveStream) -> Unit) : RecyclerView.Adapter<HubAdapter.VH>() {
         inner class VH(v: View) : RecyclerView.ViewHolder(v) {
             val img: ImageView = v.findViewById(R.id.imgPoster)
@@ -307,11 +325,11 @@ class KidsActivity : AppCompatActivity() {
             val item = list[position]
             holder.txt.text = item.name
             
-            // Força o componente a ser um quadrado perfeito e centraliza o conteúdo via FIT_CENTER
+            // AJUSTE ESPECIAL PARA LOGO KIDS: Centralizado com respiro
             holder.img.layoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT
             holder.img.layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
             holder.img.scaleType = ImageView.ScaleType.FIT_CENTER 
-            holder.img.setPadding(0, 0, 0, 0)
+            holder.img.setPadding(12, 12, 12, 12) // Dá o espaço necessário para a logo não ser cortada
             holder.img.requestLayout()
 
             Glide.with(holder.itemView.context)

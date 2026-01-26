@@ -16,18 +16,16 @@
         android:orientation="vertical"
         android:padding="8dp">
 
-        <!-- LOGO CANAL com bordas arredondadas -->
         <ImageView
             android:id="@+id/imgLogo"
             android:layout_width="match_parent"
             android:layout_height="56dp"
-            android:scaleType="centerCrop"
+            android:scaleType="fitCenter"
             android:adjustViewBounds="true"
             android:background="@drawable/bg_logo_round"
-            android:padding="4dp"
+            android:padding="6dp"
             android:layout_marginBottom="4dp" />
 
-        <!-- NOME CANAL -->
         <TextView
             android:id="@+id/tvName"
             android:layout_width="match_parent"
@@ -40,7 +38,6 @@
             android:maxLines="1"
             android:ellipsize="end" />
 
-        <!-- AGORA NO AR -->
         <TextView
             android:id="@+id/tvNow"
             android:layout_width="match_parent"
@@ -53,7 +50,6 @@
             android:maxLines="1"
             android:ellipsize="end" />
 
-        <!-- PRÓXIMO PROGRAMA -->
         <TextView
             android:id="@+id/tvNext"
             android:layout_width="match_parent"

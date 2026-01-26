@@ -323,13 +323,9 @@ class VodActivity : AppCompatActivity() {
 
     private fun carregarFilmesFavoritos() {
         tvCategoryTitle.text = "FAVORITOS"
-
-        // usa cache se já montou uma vez
-        favMoviesCache?.let { favoritosCacheadas ->
-            aplicarFilmes(favoritosCacheadas)
-            preLoadImages(favoritosCacheadas) // ✅ PRELOAD FAVORITOS CACHE
-            return
-        }
+        
+        // ✅ LIMPA O CACHE PARA SEMPRE PEGAR OS FAVORITOS ATUALIZADOS DO BANCO
+        favMoviesCache = null
 
         progressBar.visibility = View.VISIBLE
 
@@ -341,6 +337,7 @@ class VodActivity : AppCompatActivity() {
             return
         }
 
+        // Busca todos os filmes (categoria 0) e filtra apenas pelos IDs favoritados
         XtreamApi.service.getVodStreams(username, password, categoryId = "0")
             .enqueue(object : Callback<List<VodStream>> {
                 override fun onResponse(
@@ -559,7 +556,7 @@ class VodActivity : AppCompatActivity() {
             holder.imgLogo.setImageDrawable(null) // Limpa logo antiga (reciclagem)
             holder.imgLogo.visibility = View.INVISIBLE
             
-            // ✅ REMOVIDO: ESTRELA/DOWNLOAD NA CAPA
+            // ✅ REMOVIDO: ESTRELA/DOWNLOAD NA CAPA (Grade limpa)
             holder.imgDownload.visibility = View.GONE
 
             // 2. Carrega o Pôster do IPTV (Fundo)

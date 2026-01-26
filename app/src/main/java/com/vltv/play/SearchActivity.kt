@@ -171,7 +171,7 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
     private fun filtrarNaMemoria(query: String) {
         if (catalogoCompleto.isEmpty()) return
 
-        // AJUSTE: Agora com apenas 1 letra já começa a mostrar os resultados
+        // Ajustado para 1 letra para ser imediato
         if (query.length < 1) {
             adapter.submitList(emptyList())
             tvEmpty.text = "Digite para buscar..."
@@ -183,9 +183,8 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
 
         // Filtragem Super Rápida na CPU
         val resultadosFiltrados = catalogoCompleto.filter { item ->
-            // Verifica se o título contém o texto digitado (ignora maiúsculas/minúsculas)
             item.title.lowercase().contains(qNorm)
-        } 
+        }
         .take(100) 
 
         adapter.submitList(resultadosFiltrados)
@@ -198,7 +197,7 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
         }
     }
 
-    // --- FUNÇÕES DE API (BAIXAM TUDO SEM FILTRO) ---
+    // --- FUNÇÕES DE API ---
     
     private fun buscarFilmes(u: String, p: String): List<SearchResultItem> {
         return try {
@@ -236,7 +235,7 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
 
     private fun buscarCanais(u: String, p: String): List<SearchResultItem> {
         return try {
-            // CORREÇÃO: Adicionado novamente o parâmetro "0" para atender a exigência da interface da API
+            // Corrigido para passar o parâmetro "0" conforme exigido pela sua interface
             val response = XtreamApi.service.getLiveStreams(u, p, "0").execute()
             if (response.isSuccessful && response.body() != null) {
                 response.body()!!.map {
@@ -245,7 +244,7 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
                         title = it.name ?: "Sem Nome",
                         type = "live",
                         extraInfo = null,
-                        iconUrl = it.icon 
+                        iconUrl = it.icon
                     )
                 }
             } else emptyList()

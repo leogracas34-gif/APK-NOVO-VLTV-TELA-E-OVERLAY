@@ -3,7 +3,6 @@ package com.vltv.play
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
-import android.content.res.Configuration
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -31,12 +30,6 @@ import okhttp3.*
 import org.json.JSONObject
 import java.io.IOException
 import java.net.URLEncoder
-import com.vltv.play.CastMember
-import com.vltv.play.CastAdapter
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 data class EpisodeData(
     val streamId: Int,
@@ -98,8 +91,8 @@ class DetailsActivity : AppCompatActivity() {
         setupEventos()
         setupEpisodesRecycler()
 
-        // ✅ Lógica Netflix: Carrega o cache completo (Logo + Textos) antes de ir na internet
-        tentarCarregarTudoCache()
+        // ✅ ACELERAÇÃO: Carrega Sinopse e Elenco salvos imediatamente
+        tentarCarregarTextoCache()
 
         sincronizarDadosTMDB()
     }
@@ -119,6 +112,7 @@ class DetailsActivity : AppCompatActivity() {
         imgPoster = findViewById(R.id.imgPoster)
         tvTitle = findViewById(R.id.tvTitle)
         
+        // Título em Texto: Sempre visível e com o nome do seu servidor
         tvTitle.visibility = View.VISIBLE 
         tvTitle.text = name
 
@@ -151,18 +145,22 @@ class DetailsActivity : AppCompatActivity() {
 
     private fun carregarConteudo() {
         tvRating.text = "⭐ $rating"
-        if (tvPlot.text.isNullOrEmpty() || tvPlot.text == "...") tvPlot.text = "Carregando..."
+        // Se não houver cache, mostra o estado de carregamento inicial
+        if (tvPlot.text.isNullOrEmpty() || tvPlot.text == "Carregando...") {
+            tvPlot.text = "Buscando detalhes..."
+        }
+        
+        tvGenre.text = "Gênero: ..."
+        tvCast.text = "Elenco:"
         tvYear?.text = "" 
 
-        Glide.with(this).load(icon).placeholder(android.R.drawable.ic_menu_gallery).into(imgPoster)
-        Glide.with(this).load(icon).centerCrop().into(imgBackground)
+        // Poster e Background do seu servidor (Rápido)
+        Glide.with(this).load(icon).diskCacheStrategy(DiskCacheStrategy.ALL).into(imgPoster)
+        Glide.with(this).load(icon).centerCrop().diskCacheStrategy(DiskCacheStrategy.ALL).into(imgBackground)
 
-        val isFavInicial = getFavMovies(this).contains(streamId)
-        atualizarIconeFavorito(isFavInicial)
+        atualizarIconeFavorito(getFavMovies(this).contains(streamId))
 
-        if (isSeries) {
-            carregarEpisodios()
-        } else {
+        if (isSeries) { carregarEpisodios() } else {
             tvEpisodesTitle.visibility = View.GONE
             recyclerEpisodes.visibility = View.GONE
         }
@@ -171,52 +169,26 @@ class DetailsActivity : AppCompatActivity() {
         restaurarEstadoDownload()
     }
 
-    // ✅ NOVO: Tenta carregar TUDO o que já foi salvo para este StreamId (Instantâneo)
-    private fun tentarCarregarTudoCache() {
-        val prefs = getSharedPreferences("vltv_data_cache", Context.MODE_PRIVATE)
-        val cachedUrl = prefs.getString("logo_$streamId", null)
-        val cachedTitle = prefs.getString("title_$streamId", null)
+    // ✅ MÉTODO DE VELOCIDADE: Mostra os textos salvos no celular sem delay
+    private fun tentarCarregarTextoCache() {
+        val prefs = getSharedPreferences("vltv_text_cache", Context.MODE_PRIVATE)
         val cachedPlot = prefs.getString("plot_$streamId", null)
         val cachedCast = prefs.getString("cast_$streamId", null)
         val cachedGenre = prefs.getString("genre_$streamId", null)
         val cachedYear = prefs.getString("year_$streamId", null)
+        val cachedTitle = prefs.getString("title_$streamId", null)
 
-        val imgLogo = findViewById<ImageView>(R.id.imgTitleLogo)
-
-        if (cachedTitle != null) {
-            tvTitle.text = cachedTitle
-            tvPlot.text = cachedPlot
-            tvCast.text = cachedCast
-            tvGenre.text = cachedGenre
-            tvYear?.text = cachedYear
-        }
-
-        if (cachedUrl != null && imgLogo != null) {
-            imgLogo.visibility = View.VISIBLE
-            tvTitle.visibility = View.GONE
-            Glide.with(this)
-                .load(cachedUrl)
-                .diskCacheStrategy(DiskCacheStrategy.ALL)
-                .priority(Priority.IMMEDIATE)
-                .dontAnimate()
-                .placeholder(imgLogo.drawable)
-                .into(imgLogo)
-        }
+        if (cachedTitle != null) tvTitle.text = cachedTitle
+        if (cachedPlot != null) tvPlot.text = cachedPlot
+        if (cachedCast != null) tvCast.text = cachedCast
+        if (cachedGenre != null) tvGenre.text = cachedGenre
+        if (cachedYear != null) tvYear?.text = cachedYear
     }
 
     private fun sincronizarDadosTMDB() {
-        val prefs = getSharedPreferences("vltv_data_cache", Context.MODE_PRIVATE)
-        val tmdbId = prefs.getInt("tmdb_id_$streamId", -1)
-        val type = if (isSeries) "tv" else "movie"
         val apiKey = "9b73f5dd15b8165b1b57419be2f29128"
-
-        // ✅ Atalho: Se já conhecemos o ID, pula a pesquisa e vai direto nos dados
-        if (tmdbId != -1) {
-            buscarLogoOverlayTraduzida(tmdbId, type, apiKey)
-            buscarDetalhesCompletos(tmdbId, type, apiKey)
-            return
-        }
-
+        val type = if (isSeries) "tv" else "movie"
+        
         var cleanName = name
         cleanName = cleanName.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
         cleanName = cleanName.replace(Regex("\\b\\d{4}\\b"), "")
@@ -224,148 +196,89 @@ class DetailsActivity : AppCompatActivity() {
         lixo.forEach { cleanName = cleanName.replace(it, "", ignoreCase = true) }
         val searchName = cleanName.trim().replace(Regex("\\s+"), " ")
         
-        val encodedName = try { URLEncoder.encode(searchName, "UTF-8") } catch(e:Exception) { searchName }
-        val url = "https://api.themoviedb.org/3/search/$type?api_key=$apiKey&query=$encodedName&language=pt-BR"
+        val url = "https://api.themoviedb.org/3/search/$type?api_key=$apiKey&query=${URLEncoder.encode(searchName, "UTF-8")}&language=pt-BR"
 
-        val request = Request.Builder().url(url).build()
-
-        client.newCall(request).enqueue(object : Callback {
+        client.newCall(Request.Builder().url(url).build()).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {}
             override fun onResponse(call: Call, response: Response) {
-                val body = response.body()?.string()
-                if (body != null) {
-                    try {
-                        val jsonObject = JSONObject(body)
-                        val results = jsonObject.optJSONArray("results")
-                        if (results != null && results.length() > 0) {
-                            
-                            var selectedMovie = results.getJSONObject(0)
-                            for (i in 0 until results.length()) {
-                                val item = results.getJSONObject(i)
-                                val tmdbTitle = if (type == "movie") item.optString("title") else item.optString("name")
-                                if (tmdbTitle.equals(searchName, ignoreCase = true)) {
-                                    selectedMovie = item
-                                    break
-                                }
-                            }
-
-                            val idTmdb = selectedMovie.getInt("id")
-                            prefs.edit().putInt("tmdb_id_$streamId", idTmdb).apply()
-
-                            buscarLogoOverlayTraduzida(idTmdb, type, apiKey)
-                            buscarDetalhesCompletos(idTmdb, type, apiKey)
-
-                            runOnUiThread {
-                                val tituloOficial = if (selectedMovie.has("title")) selectedMovie.getString("title") else selectedMovie.optString("name")
-                                if (tituloOficial.isNotEmpty()) {
-                                    tvTitle.text = tituloOficial
-                                    prefs.edit().putString("title_$streamId", tituloOficial).apply()
-                                }
-                                
-                                val date = if (isSeries) selectedMovie.optString("first_air_date") else selectedMovie.optString("release_date")
-                                if (date.length >= 4) {
-                                    val yr = date.substring(0, 4)
-                                    tvYear?.text = yr
-                                    prefs.edit().putString("year_$streamId", yr).apply()
-                                }
-                                val sinopse = selectedMovie.optString("overview")
-                                if (sinopse.isNotEmpty()) {
-                                    tvPlot.text = sinopse
-                                    prefs.edit().putString("plot_$streamId", sinopse).apply()
-                                }
-                                val vote = selectedMovie.optDouble("vote_average", 0.0)
-                                if (vote > 0) tvRating.text = "⭐ ${String.format("%.1f", vote)}"
+                val body = response.body()?.string() ?: return
+                try {
+                    val results = JSONObject(body).optJSONArray("results")
+                    if (results != null && results.length() > 0) {
+                        
+                        var selectedMovie = results.getJSONObject(0)
+                        for (i in 0 until results.length()) {
+                            val item = results.getJSONObject(i)
+                            val tmdbTitle = if (type == "movie") item.optString("title") else item.optString("name")
+                            if (tmdbTitle.equals(searchName, ignoreCase = true)) {
+                                selectedMovie = item
+                                break
                             }
                         }
-                    } catch (e: Exception) { e.printStackTrace() }
-                }
-            }
-        })
-    }
 
-    private fun buscarLogoOverlayTraduzida(id: Int, type: String, key: String) {
-        val imagesUrl = "https://api.themoviedb.org/3/$type/$id/images?api_key=$key&include_image_language=pt,en,null"
-        client.newCall(Request.Builder().url(imagesUrl).build()).enqueue(object : Callback {
-            override fun onResponse(call: Call, response: Response) {
-                val body = response.body()?.string()
-                if (body != null) {
-                    try {
-                        val obj = JSONObject(body)
-                        val logos = obj.optJSONArray("logos")
-                        if (logos != null && logos.length() > 0) {
-                            var logoPath: String? = null
-                            for (i in 0 until logos.length()) {
-                                val logo = logos.getJSONObject(i)
-                                if (logo.optString("iso_639_1") == "pt") {
-                                    logoPath = logo.getString("file_path")
-                                    break
-                                }
-                            }
-                            if (logoPath == null) logoPath = logos.getJSONObject(0).getString("file_path")
-                            val finalUrl = "https://image.tmdb.org/t/p/w500$logoPath"
+                        val idTmdb = selectedMovie.getInt("id")
+                        
+                        // Chamamos apenas os detalhes (Texto), nada de Logos
+                        buscarDetalhesCompletos(idTmdb, type, apiKey)
+
+                        runOnUiThread {
+                            val tOficial = if (selectedMovie.has("title")) selectedMovie.getString("title") else selectedMovie.optString("name")
+                            val sinopse = selectedMovie.optString("overview")
+                            val date = if (isSeries) selectedMovie.optString("first_air_date") else selectedMovie.optString("release_date")
                             
-                            getSharedPreferences("vltv_data_cache", Context.MODE_PRIVATE)
-                                .edit().putString("logo_$streamId", finalUrl).apply()
+                            tvTitle.text = tOficial
+                            if (sinopse.isNotEmpty()) tvPlot.text = sinopse
+                            if (date.length >= 4) tvYear?.text = date.substring(0, 4)
 
-                            runOnUiThread {
-                                val imgLogo = findViewById<ImageView>(R.id.imgTitleLogo)
-                                if (imgLogo != null) {
-                                    tvTitle.visibility = View.GONE
-                                    imgLogo.visibility = View.VISIBLE
-                                    Glide.with(this@DetailsActivity)
-                                        .load(finalUrl)
-                                        .diskCacheStrategy(DiskCacheStrategy.ALL)
-                                        .dontAnimate()
-                                        .placeholder(imgLogo.drawable) 
-                                        .into(imgLogo)
-                                }
-                            }
+                            // Salva no cache para a próxima vez ser instantâneo
+                            getSharedPreferences("vltv_text_cache", Context.MODE_PRIVATE).edit()
+                                .putString("title_$streamId", tOficial)
+                                .putString("plot_$streamId", sinopse)
+                                .putString("year_$streamId", if (date.length >= 4) date.substring(0, 4) else "")
+                                .apply()
                         }
-                    } catch (e: Exception) { e.printStackTrace() }
-                }
+                    }
+                } catch (e: Exception) {}
             }
-            override fun onFailure(call: Call, e: IOException) {}
         })
     }
 
     private fun buscarDetalhesCompletos(id: Int, type: String, key: String) {
-        val detailUrl = "https://api.themoviedb.org/3/$type/$id?api_key=$key&append_to_response=credits&language=pt-BR"
-        client.newCall(Request.Builder().url(detailUrl).build()).enqueue(object : Callback {
+        val url = "https://api.themoviedb.org/3/$type/$id?api_key=$key&append_to_response=credits&language=pt-BR"
+        client.newCall(Request.Builder().url(url).build()).enqueue(object : Callback {
             override fun onResponse(call: Call, response: Response) {
-                val body = response.body()?.string()
-                if (body != null) {
-                    try {
-                        val d = JSONObject(body)
-                        val gs = d.optJSONArray("genres")
-                        val genresList = mutableListOf<String>()
-                        if (gs != null) {
-                            for (i in 0 until gs.length()) genresList.add(gs.getJSONObject(i).getString("name"))
+                val body = response.body()?.string() ?: return
+                try {
+                    val d = JSONObject(body)
+                    val gs = d.optJSONArray("genres")
+                    val genresList = mutableListOf<String>()
+                    if (gs != null) {
+                        for (i in 0 until gs.length()) genresList.add(gs.getJSONObject(i).getString("name"))
+                    }
+                    
+                    val castArray = d.optJSONObject("credits")?.optJSONArray("cast")
+                    val castNamesList = mutableListOf<String>()
+                    if (castArray != null) {
+                        val limit = if (castArray.length() > 15) 15 else castArray.length()
+                        for (i in 0 until limit) {
+                            castNamesList.add(castArray.getJSONObject(i).getString("name"))
                         }
+                    }
+                    
+                    runOnUiThread {
+                        val g = "Gênero: ${if (genresList.isEmpty()) "Diversos" else genresList.joinToString(", ")}"
+                        val e = if (castNamesList.isEmpty()) "Elenco: Indisponível" else "Elenco: " + castNamesList.joinToString(", ")
                         
-                        val castArray = d.optJSONObject("credits")?.optJSONArray("cast")
-                        val castNamesList = mutableListOf<String>()
-                        if (castArray != null) {
-                            val limit = if (castArray.length() > 15) 15 else castArray.length()
-                            for (i in 0 until limit) {
-                                castNamesList.add(castArray.getJSONObject(i).getString("name"))
-                            }
-                        }
-                        
-                        runOnUiThread {
-                            val gn = "Gênero: ${if (genresList.isEmpty()) "Diversos" else genresList.joinToString(", ")}"
-                            tvGenre.text = gn
-                            val el = if (castNamesList.isEmpty()) "Elenco: Indisponível" else "Elenco: " + castNamesList.joinToString(", ")
-                            tvCast.text = el
-                            
-                            getSharedPreferences("vltv_data_cache", Context.MODE_PRIVATE).edit()
-                                .putString("genre_$streamId", gn)
-                                .putString("cast_$streamId", el)
-                                .apply()
+                        tvGenre.text = g
+                        tvCast.text = e
 
-                            findViewById<RecyclerView>(R.id.recyclerCast).adapter = null
-                        }
-                    } catch (e: Exception) { e.printStackTrace() }
-                }
+                        // Salva no cache
+                        getSharedPreferences("vltv_text_cache", Context.MODE_PRIVATE).edit()
+                            .putString("genre_$streamId", g)
+                            .putString("cast_$streamId", e)
+                            .apply()
+                    }
+                } catch (e: Exception) {}
             }
             override fun onFailure(call: Call, e: IOException) {}
         })
@@ -519,13 +432,6 @@ class DetailsActivity : AppCompatActivity() {
                 Glide.with(v.context).load(e.thumb).centerCrop().into(v.findViewById(R.id.imgEpisodeThumb))
                 v.setOnClickListener { onEpisodeClick(e) }
             }
-        }
-    }
-
-    companion object {
-        private object DiffCallback : DiffUtil.ItemCallback<EpisodeData>() {
-            override fun areItemsTheSame(o: EpisodeData, n: EpisodeData) = o.streamId == n.streamId
-            override fun areContentsTheSame(o: EpisodeData, n: EpisodeData) = o == n
         }
     }
 

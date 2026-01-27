@@ -149,9 +149,11 @@ class KidsActivity : AppCompatActivity() {
                         }
                     }
                     rvHubChannels.adapter = HubAdapter(listaHub) { canal ->
+                        // ✅ ATUALIZADO: Enviando Nome e EPG para o Player não ficar genérico
                         val intent = Intent(this@KidsActivity, PlayerActivity::class.java).apply {
                             putExtra("stream_id", canal.id)
                             putExtra("name", canal.name)
+                            putExtra("title", canal.name)
                             putExtra("type", "live")
                             putExtra("epg_channel_id", canal.epg_channel_id)
                         }

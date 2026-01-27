@@ -456,8 +456,6 @@ class SeriesActivity : AppCompatActivity() {
             holder.tvName.visibility = View.GONE
             holder.imgLogo.setImageDrawable(null)
             holder.imgLogo.visibility = View.INVISIBLE
-            
-            // ✅ REMOVIDO: ESTRELA NA CAPA (Limpando o layout conforme pedido)
             holder.imgDownload.visibility = View.GONE
 
             val context = holder.itemView.context
@@ -466,13 +464,13 @@ class SeriesActivity : AppCompatActivity() {
                 .load(item.icon)
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .priority(if (isTelevision(context)) Priority.HIGH else Priority.IMMEDIATE)
-                .thumbnail(0.1f)
+                .dontAnimate() // ✅ EVITA PISCAR NO SCROLL
                 .placeholder(R.drawable.bg_logo_placeholder)
                 .error(R.drawable.bg_logo_placeholder)
                 .centerCrop()
                 .into(holder.imgPoster)
 
-            searchTmdbLogo(item.name, holder.imgLogo)
+            searchTmdbLogo(item.name, holder.imgLogo, holder.tvName)
 
             holder.itemView.isFocusable = true
             holder.itemView.isClickable = true
@@ -481,7 +479,8 @@ class SeriesActivity : AppCompatActivity() {
                 if (hasFocus) {
                     view.animate().scaleX(1.1f).scaleY(1.1f).setDuration(150).start()
                     view.elevation = 10f
-                    if (holder.imgLogo.drawable == null) holder.tvName.visibility = View.VISIBLE
+                    // ✅ TRAVA: Só mostra o nome se o logo ainda não tiver carregado
+                    if (holder.imgLogo.visibility != View.VISIBLE) holder.tvName.visibility = View.VISIBLE
                     holder.tvName.setTextColor(0xFF00C6FF.toInt()) 
                     view.alpha = 1.0f
                 } else {
@@ -498,7 +497,7 @@ class SeriesActivity : AppCompatActivity() {
 
         override fun getItemCount() = list.size
 
-        private fun searchTmdbLogo(rawName: String, targetView: ImageView) {
+        private fun searchTmdbLogo(rawName: String, targetView: ImageView, textBackup: TextView) {
             var cleanName = rawName.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
             cleanName = cleanName.replace(Regex("\\b\\d{4}\\b"), "")
             val sujeiras = listOf("FHD", "HD", "SD", "4K", "8K", "H265", "LEG", "DUB", "MKV", "MP4", "COMPLETE", "S01", "S02", "E01")
@@ -508,12 +507,10 @@ class SeriesActivity : AppCompatActivity() {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val query = URLEncoder.encode(cleanName, "UTF-8")
-                    // ✅ TRAVA DE SEGURANÇA: Usando obrigatoriamente /search/tv para evitar conflitos com filmes
                     val searchJson = URL("https://api.themoviedb.org/3/search/tv?api_key=$TMDB_API_KEY&query=$query&language=pt-BR").readText()
                     val results = JSONObject(searchJson).getJSONArray("results")
 
                     if (results.length() > 0) {
-                        // ✅ FILTRO DE MATCH EXATO NA BUSCA DA LOGO
                         var bestResult = results.getJSONObject(0)
                         for (i in 0 until results.length()) {
                             val obj = results.getJSONObject(i)
@@ -530,9 +527,13 @@ class SeriesActivity : AppCompatActivity() {
                         if (logos.length() > 0) {
                             val logoPath = logos.getJSONObject(0).getString("file_path")
                             withContext(Dispatchers.Main) {
+                                // ✅ TRAVA: Esconde o texto no exato momento que mostra a logo
+                                textBackup.visibility = View.GONE
                                 targetView.visibility = View.VISIBLE
-                                Glide.with(targetView.context).load("https://image.tmdb.org/t/p/w500$logoPath")
+                                Glide.with(targetView.context)
+                                    .load("https://image.tmdb.org/t/p/w500$logoPath")
                                     .diskCacheStrategy(DiskCacheStrategy.ALL)
+                                    .dontAnimate() // ✅ EVITA PISCAR
                                     .into(targetView)
                             }
                         }

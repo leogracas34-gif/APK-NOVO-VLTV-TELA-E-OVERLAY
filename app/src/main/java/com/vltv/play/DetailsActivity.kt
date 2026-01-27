@@ -202,9 +202,9 @@ class DetailsActivity : AppCompatActivity() {
         cleanName = cleanName.replace(Regex("\\b\\d{4}\\b"), "")
         val lixo = listOf("FHD", "HD", "SD", "4K", "8K", "H265", "LEG", "DUBLADO", "DUB", "|", "-", "_", ".")
         lixo.forEach { cleanName = cleanName.replace(it, "", ignoreCase = true) }
-        cleanName = cleanName.trim().replace(Regex("\\s+"), " ")
+        val searchName = cleanName.trim().replace(Regex("\\s+"), " ")
         
-        val encodedName = try { URLEncoder.encode(cleanName, "UTF-8") } catch(e:Exception) { cleanName }
+        val encodedName = try { URLEncoder.encode(searchName, "UTF-8") } catch(e:Exception) { searchName }
         val url = "https://api.themoviedb.org/3/search/$type?api_key=$apiKey&query=$encodedName&language=pt-BR"
 
         val request = Request.Builder().url(url).build()
@@ -213,7 +213,7 @@ class DetailsActivity : AppCompatActivity() {
             override fun onFailure(call: Call, e: IOException) {
                 runOnUiThread { 
                     tvPlot.text = "Falha na conexão." 
-                    tvTitle.visibility = View.VISIBLE // Mostra texto se falhar
+                    tvTitle.visibility = View.VISIBLE 
                 }
             }
 
@@ -224,27 +224,37 @@ class DetailsActivity : AppCompatActivity() {
                         val jsonObject = JSONObject(body)
                         val results = jsonObject.optJSONArray("results")
                         if (results != null && results.length() > 0) {
-                            val movie = results.getJSONObject(0)
-                            val idTmdb = movie.getInt("id")
                             
+                            // ✅ MATCH INTELIGENTE: Procura o filme certo na lista
+                            var selectedMovie = results.getJSONObject(0)
+                            for (i in 0 until results.length()) {
+                                val item = results.getJSONObject(i)
+                                val tmdbTitle = if (type == "movie") item.optString("title") else item.optString("name")
+                                if (tmdbTitle.equals(searchName, ignoreCase = true)) {
+                                    selectedMovie = item
+                                    break
+                                }
+                            }
+
+                            val idTmdb = selectedMovie.getInt("id")
                             buscarLogoOverlayTraduzida(idTmdb, type, apiKey)
                             buscarDetalhesCompletos(idTmdb, type, apiKey)
 
                             runOnUiThread {
-                                val tituloOficial = if (movie.has("title")) movie.getString("title") else movie.optString("name")
+                                val tituloOficial = if (selectedMovie.has("title")) selectedMovie.getString("title") else selectedMovie.optString("name")
                                 if (tituloOficial.isNotEmpty()) tvTitle.text = tituloOficial
                                 
-                                val date = if (isSeries) movie.optString("first_air_date") else movie.optString("release_date")
+                                val date = if (isSeries) selectedMovie.optString("first_air_date") else selectedMovie.optString("release_date")
                                 if (date.length >= 4) tvYear?.text = date.substring(0, 4)
-                                val sinopse = movie.optString("overview")
+                                val sinopse = selectedMovie.optString("overview")
                                 tvPlot.text = if (sinopse.isNotEmpty()) sinopse else "Sinopse indisponível."
-                                val vote = movie.optDouble("vote_average", 0.0)
+                                val vote = selectedMovie.optDouble("vote_average", 0.0)
                                 if (vote > 0) tvRating.text = "⭐ ${String.format("%.1f", vote)}"
                             }
                         } else {
                             runOnUiThread { 
                                 tvPlot.text = "Informações não encontradas." 
-                                tvTitle.visibility = View.VISIBLE // Mostra texto se nada for achado
+                                tvTitle.visibility = View.VISIBLE 
                                 tvTitle.text = name
                             }
                         }
@@ -275,7 +285,6 @@ class DetailsActivity : AppCompatActivity() {
                             if (logoPath == null) logoPath = logos.getJSONObject(0).getString("file_path")
                             val finalUrl = "https://image.tmdb.org/t/p/w500$logoPath"
                             
-                            // ✅ SALVA NO CACHE INTERNO PARA A PRÓXIMA VEZ
                             getSharedPreferences("vltv_logos_cache", Context.MODE_PRIVATE)
                                 .edit().putString("logo_$streamId", finalUrl).apply()
 
@@ -285,12 +294,11 @@ class DetailsActivity : AppCompatActivity() {
                                     tvTitle.visibility = View.GONE
                                     imgLogo.visibility = View.VISIBLE
                                     
-                                    // AQUI ESTÁ A TRAVA PARA NÃO PISCAR
                                     Glide.with(this@DetailsActivity)
                                         .load(finalUrl)
                                         .diskCacheStrategy(DiskCacheStrategy.ALL)
                                         .dontAnimate()
-                                        .placeholder(imgLogo.drawable) // SEGURA A IMAGEM ATUAL
+                                        .placeholder(imgLogo.drawable) 
                                         .into(imgLogo)
                                 }
                             }
@@ -322,12 +330,10 @@ class DetailsActivity : AppCompatActivity() {
                             for (i in 0 until gs.length()) genresList.add(gs.getJSONObject(i).getString("name"))
                         }
                         
-                        // --- ALTERAÇÃO AQUI: ELENCO COMO TEXTO ---
                         val castArray = d.optJSONObject("credits")?.optJSONArray("cast")
                         val castNamesList = mutableListOf<String>()
                         
                         if (castArray != null) {
-                            // Pegamos até 15 nomes (sem baixar imagens)
                             val limit = if (castArray.length() > 15) 15 else castArray.length()
                             for (i in 0 until limit) {
                                 val actorJson = castArray.getJSONObject(i)
@@ -337,12 +343,9 @@ class DetailsActivity : AppCompatActivity() {
                         
                         runOnUiThread {
                             tvGenre.text = "Gênero: ${if (genresList.isEmpty()) "Diversos" else genresList.joinToString(", ")}"
-                            
-                            // Escreve os nomes no TextView tvCast
                             val textoElenco = if (castNamesList.isEmpty()) "Indisponível" else "Elenco: " + castNamesList.joinToString(", ")
                             tvCast.text = textoElenco
                             
-                            // Deixa a lista de bolinhas vazia (sem dar erro de layout)
                             findViewById<RecyclerView>(R.id.recyclerCast).adapter = null
                         }
                     } catch (e: Exception) { e.printStackTrace() }

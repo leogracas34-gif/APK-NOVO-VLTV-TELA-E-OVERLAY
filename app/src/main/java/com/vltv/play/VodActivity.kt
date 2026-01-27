@@ -26,18 +26,13 @@ import com.bumptech.glide.Priority
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
+
 import kotlinx.coroutines.*
 import org.json.JSONObject
 import java.net.URL
 import java.net.URLEncoder
 
-data class EpisodeData(
-    val streamId: Int,
-    val season: Int,
-    val episode: Int,
-    val title: String,
-    val thumb: String
-)
+// ✅ CORREÇÃO: EpisodeData removido daqui para evitar "Redeclaration" (já existe no Details)
 
 class VodActivity : AppCompatActivity() {
 
@@ -49,10 +44,10 @@ class VodActivity : AppCompatActivity() {
     private var username = ""
     private var password = ""
     private lateinit var prefs: SharedPreferences
-    private lateinit var logoCachePrefs: SharedPreferences // ✅ Cache para logos
+    private lateinit var gridCachePrefs: SharedPreferences // ✅ Cache para logos da grade
 
     private var cachedCategories: List<LiveCategory>? = null
-    private val moviesCache = mutableMapOf<String, List<VodStream>>()
+    private val moviesCache = mutableMapOf<String, List<VodStream>>() 
     private var favMoviesCache: List<VodStream>? = null
 
     private var categoryAdapter: VodCategoryAdapter? = null
@@ -77,12 +72,14 @@ class VodActivity : AppCompatActivity() {
         progressBar = findViewById(R.id.progressBar)
         tvCategoryTitle = findViewById(R.id.tvCategoryTitle)
 
-        logoCachePrefs = getSharedPreferences("vltv_logo_links", Context.MODE_PRIVATE) // ✅ Inicializa cache de logos
+        gridCachePrefs = getSharedPreferences("vltv_grid_cache", Context.MODE_PRIVATE)
 
         val searchInput = findViewById<View>(R.id.etSearchContent)
         searchInput?.isFocusableInTouchMode = false
         searchInput?.setOnClickListener {
-            startActivity(Intent(this, SearchActivity::class.java).putExtra("initial_query", ""))
+            val intent = Intent(this, SearchActivity::class.java)
+            intent.putExtra("initial_query", "")
+            startActivity(intent)
         }
 
         prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
@@ -92,8 +89,16 @@ class VodActivity : AppCompatActivity() {
         setupRecyclerFocus()
 
         rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
-        rvMovies.layoutManager = GridLayoutManager(this, 5)
+        rvCategories.setHasFixedSize(true)
+        rvCategories.isFocusable = true
+        rvCategories.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
 
+        rvMovies.layoutManager = GridLayoutManager(this, 5)
+        rvMovies.isFocusable = true
+        rvMovies.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
+        rvMovies.setHasFixedSize(true)
+
+        rvCategories.requestFocus()
         carregarCategorias()
     }
 
@@ -102,11 +107,10 @@ class VodActivity : AppCompatActivity() {
         rvMovies.setOnFocusChangeListener { _, hasFocus -> if (hasFocus) rvMovies.smoothScrollToPosition(0) }
     }
 
-    // ✅ PRELOAD OTIMIZADO: Evita gargalo de rede
     private fun preLoadImages(filmes: List<VodStream>) {
         CoroutineScope(Dispatchers.IO).launch {
-            val limit = if (filmes.size > 25) 25 else filmes.size
-            for (i in 0 until limit) {
+            val limitPosters = if (filmes.size > 40) 40 else filmes.size
+            for (i in 0 until limitPosters) {
                 val url = filmes[i].icon
                 if (!url.isNullOrEmpty()) {
                     withContext(Dispatchers.Main) {
@@ -126,19 +130,25 @@ class VodActivity : AppCompatActivity() {
     private fun carregarCategorias() {
         cachedCategories?.let { aplicarCategorias(it); return }
         progressBar.visibility = View.VISIBLE
-        XtreamApi.service.getVodCategories(username, password).enqueue(object : Callback<List<LiveCategory>> {
-            override fun onResponse(call: Call<List<LiveCategory>>, response: Response<List<LiveCategory>>) {
-                progressBar.visibility = View.GONE
-                if (response.isSuccessful && response.body() != null) {
-                    val categorias = mutableListOf<LiveCategory>()
-                    categorias.add(LiveCategory(category_id = "FAV", category_name = "FAVORITOS"))
-                    categorias.addAll(response.body()!!)
-                    cachedCategories = categorias
-                    aplicarCategorias(if (ParentalControlManager.isEnabled(this@VodActivity)) categorias.filterNot { isAdultName(it.name) } else categorias)
+
+        XtreamApi.service.getVodCategories(username, password)
+            .enqueue(object : retrofit2.Callback<List<LiveCategory>> {
+                override fun onResponse(call: retrofit2.Call<List<LiveCategory>>, response: retrofit2.Response<List<LiveCategory>>) {
+                    progressBar.visibility = View.GONE
+                    if (response.isSuccessful && response.body() != null) {
+                        val originais = response.body()!!
+                        var categorias = mutableListOf<LiveCategory>()
+                        categorias.add(LiveCategory(category_id = "FAV", category_name = "FAVORITOS"))
+                        categorias.addAll(originais)
+                        cachedCategories = categorias
+                        if (ParentalControlManager.isEnabled(this@VodActivity)) {
+                            categorias = categorias.filterNot { isAdultName(it.name) }.toMutableList()
+                        }
+                        aplicarCategorias(categorias)
+                    }
                 }
-            }
-            override fun onFailure(call: Call, t: Throwable) { progressBar.visibility = View.GONE }
-        })
+                override fun onFailure(call: retrofit2.Call<List<LiveCategory>>, t: Throwable) { progressBar.visibility = View.GONE }
+            })
     }
 
     private fun aplicarCategorias(categorias: List<LiveCategory>) {
@@ -153,25 +163,30 @@ class VodActivity : AppCompatActivity() {
         tvCategoryTitle.text = categoria.name
         moviesCache[categoria.id]?.let { aplicarFilmes(it); preLoadImages(it); return }
         progressBar.visibility = View.VISIBLE
-        XtreamApi.service.getVodStreams(username, password, categoryId = categoria.id).enqueue(object : Callback<List<VodStream>> {
-            override fun onResponse(call: Call<List<VodStream>>, response: Response<List<VodStream>>) {
-                progressBar.visibility = View.GONE
-                if (response.isSuccessful && response.body() != null) {
-                    val filmes = if (ParentalControlManager.isEnabled(this@VodActivity)) response.body()!!.filterNot { isAdultName(it.name) } else response.body()!!
-                    moviesCache[categoria.id] = filmes
-                    aplicarFilmes(filmes)
-                    preLoadImages(filmes)
+
+        XtreamApi.service.getVodStreams(username, password, categoryId = categoria.id)
+            .enqueue(object : retrofit2.Callback<List<VodStream>> {
+                override fun onResponse(call: retrofit2.Call<List<VodStream>>, response: retrofit2.Response<List<VodStream>>) {
+                    progressBar.visibility = View.GONE
+                    if (response.isSuccessful && response.body() != null) {
+                        var filmes = response.body()!!
+                        moviesCache[categoria.id] = filmes
+                        if (ParentalControlManager.isEnabled(this@VodActivity)) {
+                            filmes = filmes.filterNot { isAdultName(it.name) || isAdultName(it.title) }
+                        }
+                        aplicarFilmes(filmes)
+                        preLoadImages(filmes)
+                    }
                 }
-            }
-            override fun onFailure(call: Call, t: Throwable) { progressBar.visibility = View.GONE }
-        })
+                override fun onFailure(call: retrofit2.Call<List<VodStream>>, t: Throwable) { progressBar.visibility = View.GONE }
+            })
     }
 
     private fun carregarFilmesFavoritos() {
         tvCategoryTitle.text = "FAVORITOS"
         val favIds = getFavMovies(this)
-        val lista = moviesCache.values.flatten().distinctBy { it.id }.filter { favIds.contains(it.id) }
-        aplicarFilmes(lista)
+        val listaFavoritosInstantanea = moviesCache.values.flatten().distinctBy { it.id }.filter { favIds.contains(it.id) }
+        aplicarFilmes(listaFavoritosInstantanea)
     }
 
     private fun aplicarFilmes(filmes: List<VodStream>) {
@@ -180,25 +195,30 @@ class VodActivity : AppCompatActivity() {
     }
 
     private fun abrirDetalhes(filme: VodStream) {
-        val intent = Intent(this, DetailsActivity::class.java)
-        intent.putExtra("stream_id", filme.id).putExtra("name", filme.name).putExtra("icon", filme.icon).putExtra("rating", filme.rating ?: "0.0")
+        val intent = Intent(this@VodActivity, DetailsActivity::class.java)
+        intent.putExtra("stream_id", filme.id)
+        intent.putExtra("name", filme.name)
+        intent.putExtra("icon", filme.icon)
+        intent.putExtra("rating", filme.rating ?: "0.0")
         startActivity(intent)
     }
 
     private fun getFavMovies(context: Context): MutableSet<Int> {
-        return context.getSharedPreferences("vltv_favoritos", Context.MODE_PRIVATE).getStringSet("favoritos", emptySet())?.mapNotNull { it.toIntOrNull() }?.toMutableSet() ?: mutableSetOf()
+        val prefsFav = context.getSharedPreferences("vltv_favoritos", Context.MODE_PRIVATE)
+        return prefsFav.getStringSet("favoritos", emptySet())?.mapNotNull { it.toIntOrNull() }?.toMutableSet() ?: mutableSetOf()
     }
 
     private fun mostrarMenuDownload(filme: VodStream) {
         val popup = PopupMenu(this, findViewById(android.R.id.content))
         menuInflater.inflate(R.menu.menu_download, popup.menu)
         popup.setOnMenuItemClickListener { item ->
-            if (item.itemId == R.id.action_download) { Toast.makeText(this, "Baixando...", Toast.LENGTH_SHORT).show() }; true
+            if (item.itemId == R.id.action_download) {
+                val dns = prefs.getString("dns", "") ?: ""
+                Toast.makeText(this, "Baixando: ${filme.name}", Toast.LENGTH_LONG).show()
+            }; true
         }
         popup.show()
     }
-
-    // ================= ADAPTERS =================
 
     inner class VodCategoryAdapter(private val list: List<LiveCategory>, private val onClick: (LiveCategory) -> Unit) : RecyclerView.Adapter<VodCategoryAdapter.VH>() {
         private var selectedPos = 0
@@ -209,47 +229,51 @@ class VodActivity : AppCompatActivity() {
             h.tvName.text = item.name
             val isSel = selectedPos == p
             h.tvName.setTextColor(getColor(if (isSel) R.color.red_primary else R.color.gray_text))
+            h.tvName.setBackgroundColor(if (isSel) 0xFF252525.toInt() else 0x00000000)
+            h.itemView.setOnFocusChangeListener { _, hasFocus ->
+                if (hasFocus) h.tvName.setTextColor(getColor(R.color.red_primary))
+                else if (selectedPos != h.adapterPosition) h.tvName.setTextColor(getColor(R.color.gray_text))
+            }
             h.itemView.setOnClickListener { notifyItemChanged(selectedPos); selectedPos = h.adapterPosition; notifyItemChanged(selectedPos); onClick(item) }
         }
         override fun getItemCount() = list.size
     }
 
-    // ✅ ADAPTER TURBINADO: Resolve o pisca-pisca e a lentidão
     inner class VodAdapter(private val list: List<VodStream>, private val onClick: (VodStream) -> Unit, private val onDownloadClick: (VodStream) -> Unit) : RecyclerView.Adapter<VodAdapter.VH>() {
         inner class VH(v: View) : RecyclerView.ViewHolder(v) {
             val tvName: TextView = v.findViewById(R.id.tvName)
             val imgPoster: ImageView = v.findViewById(R.id.imgPoster)
             val imgLogo: ImageView = v.findViewById(R.id.imgLogo)
-            var job: Job? = null // Para cancelar buscas antigas no scroll
+            var job: Job? = null // ✅ Para controlar a busca da logo
         }
         override fun onCreateViewHolder(p: ViewGroup, t: Int) = VH(LayoutInflater.from(p.context).inflate(R.layout.item_vod, p, false))
         override fun onBindViewHolder(h: VH, p: Int) {
             val item = list[p]
-            h.job?.cancel() // ✅ CANCELA busca do item anterior (Essencial para parar o pisca)
+            h.job?.cancel() // ✅ Para o "pisca-pisca" ao dar scroll
 
             h.tvName.text = item.name
-            h.tvName.visibility = View.VISIBLE // Texto visível por padrão
+            h.tvName.visibility = View.VISIBLE 
             h.imgLogo.visibility = View.GONE
             h.imgLogo.setImageDrawable(null)
 
             Glide.with(h.itemView.context).load(item.icon)
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .placeholder(R.drawable.bg_logo_placeholder)
+                .centerCrop()
                 .into(h.imgPoster)
 
-            // ✅ LÓGICA DE CACHE DE LOGO: Se já buscou uma vez, carrega instantâneo
-            val cachedLogoUrl = logoCachePrefs.getString("logo_${item.name}", null)
-            if (cachedLogoUrl != null) {
+            // ✅ CACHE DE LOGO: Se já buscou, mostra na hora
+            val cachedUrl = gridCachePrefs.getString("logo_${item.name}", null)
+            if (cachedUrl != null) {
                 h.tvName.visibility = View.GONE
                 h.imgLogo.visibility = View.VISIBLE
-                Glide.with(h.itemView.context).load(cachedLogoUrl).diskCacheStrategy(DiskCacheStrategy.ALL).into(h.imgLogo)
+                Glide.with(h.itemView.context).load(cachedUrl).into(h.imgLogo)
             } else {
-                // Se não tem no cache, busca no fundo
                 h.job = CoroutineScope(Dispatchers.IO).launch {
                     val url = searchTmdbLogoSilently(item.name)
                     if (url != null) {
                         withContext(Dispatchers.Main) {
-                            if (h.adapterPosition == p) { // Confere se ainda é o mesmo item
+                            if (h.adapterPosition == p) {
                                 h.tvName.visibility = View.GONE
                                 h.imgLogo.visibility = View.VISIBLE
                                 Glide.with(h.itemView.context).load(url).into(h.imgLogo)
@@ -259,28 +283,28 @@ class VodActivity : AppCompatActivity() {
                 }
             }
 
-            h.itemView.setOnClickListener { onClick(item) }
-            h.itemView.setOnFocusChangeListener { v, hasFocus ->
-                v.animate().scaleX(if (hasFocus) 1.1f else 1.0f).scaleY(if (hasFocus) 1.1f else 1.0f).setDuration(150).start()
+            h.itemView.setOnFocusChangeListener { view, hasFocus ->
+                view.animate().scaleX(if (hasFocus) 1.1f else 1.0f).scaleY(if (hasFocus) 1.1f else 1.0f).setDuration(150).start()
+                if (hasFocus && h.imgLogo.visibility != View.VISIBLE) h.tvName.visibility = View.VISIBLE
+                else if (!hasFocus) h.tvName.visibility = View.GONE
             }
+            h.itemView.setOnClickListener { onClick(item) }
         }
         override fun getItemCount() = list.size
 
-        // ✅ BUSCA SILENCIOSA COM CACHE: Só vai na internet se precisar
         private suspend fun searchTmdbLogoSilently(rawName: String): String? {
-            val TMDB_API_KEY = "9b73f5dd15b8165b1b57419be2f29128"
+            val apiKey = "9b73f5dd15b8165b1b57419be2f29128"
             val cleanName = rawName.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "").replace(Regex("\\b\\d{4}\\b"), "").trim()
             try {
-                val query = URLEncoder.encode(cleanName, "UTF-8")
-                val searchJson = URL("https://api.themoviedb.org/3/search/movie?api_key=$TMDB_API_KEY&query=$query&language=pt-BR").readText()
+                val searchJson = URL("https://api.themoviedb.org/3/search/movie?api_key=$apiKey&query=${URLEncoder.encode(cleanName, "UTF-8")}&language=pt-BR").readText()
                 val results = JSONObject(searchJson).getJSONArray("results")
                 if (results.length() > 0) {
                     val id = results.getJSONObject(0).getString("id")
-                    val imgJson = URL("https://api.themoviedb.org/3/movie/$id/images?api_key=$TMDB_API_KEY&include_image_language=pt,en,null").readText()
+                    val imgJson = URL("https://api.themoviedb.org/3/movie/$id/images?api_key=$apiKey&include_image_language=pt,en,null").readText()
                     val logos = JSONObject(imgJson).getJSONArray("logos")
                     if (logos.length() > 0) {
                         val finalUrl = "https://image.tmdb.org/t/p/w500${logos.getJSONObject(0).getString("file_path")}"
-                        logoCachePrefs.edit().putString("logo_$rawName", finalUrl).apply() // ✅ SALVA NO CACHE
+                        gridCachePrefs.edit().putString("logo_$rawName", finalUrl).apply()
                         return finalUrl
                     }
                 }

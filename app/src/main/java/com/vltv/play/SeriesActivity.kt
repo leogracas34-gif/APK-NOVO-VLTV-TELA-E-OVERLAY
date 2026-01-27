@@ -29,7 +29,7 @@ import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
 
-// --- IMPORTAÇÕES PARA A API DO TMDB E PERFORMANCE ---
+// --- IMPORTAÃ‡Ã•ES PARA A API DO TMDB E PERFORMANCE ---
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -48,7 +48,7 @@ class SeriesActivity : AppCompatActivity() {
     private var username = ""
     private var password = ""
 
-    // Cache em memória
+    // Cache em memÃ³ria
     private var cachedCategories: List<LiveCategory>? = null
     private val seriesCache = mutableMapOf<String, List<SeriesStream>>() // key = categoryId
     private var favSeriesCache: List<SeriesStream>? = null
@@ -56,7 +56,7 @@ class SeriesActivity : AppCompatActivity() {
     private var categoryAdapter: SeriesCategoryAdapter? = null
     private var seriesAdapter: SeriesAdapter? = null
 
-    // ✅ FUNÇÃO PARA DETECTAR SE É TV BOX OU CELULAR
+    // âœ… FUNÃ‡ÃƒO PARA DETECTAR SE Ã‰ TV BOX OU CELULAR
     private fun isTelevision(context: Context): Boolean {
         val uiMode = context.resources.configuration.uiMode
         return (uiMode and Configuration.UI_MODE_TYPE_MASK) == Configuration.UI_MODE_TYPE_TELEVISION
@@ -78,7 +78,7 @@ class SeriesActivity : AppCompatActivity() {
         progressBar = findViewById(R.id.progressBar)
         tvCategoryTitle = findViewById(R.id.tvCategoryTitle)
 
-        // ✅ BUSCA DIRETA (PULA A PONTE)
+        // âœ… BUSCA DIRETA (PULA A PONTE)
         val searchInput = findViewById<View>(R.id.etSearchContent)
         searchInput?.isFocusableInTouchMode = false // Impede abrir teclado aqui
         searchInput?.setOnClickListener {
@@ -104,10 +104,10 @@ class SeriesActivity : AppCompatActivity() {
         carregarCategorias()
     }
 
-    // ✅ FUNÇÃO ATUALIZADA: DOUBLE PRELOAD (POSTER + LOGO TMDB)
+    // âœ… FUNÃ‡ÃƒO ATUALIZADA: DOUBLE PRELOAD (POSTER + LOGO TMDB)
     private fun preLoadImages(series: List<SeriesStream>) {
         CoroutineScope(Dispatchers.IO).launch {
-            // 1. Pré-carrega os posters (Até 40)
+            // 1. PrÃ©-carrega os posters (AtÃ© 40)
             val limitPosters = if (series.size > 40) 40 else series.size
             for (i in 0 until limitPosters) {
                 val url = series[i].icon
@@ -122,7 +122,7 @@ class SeriesActivity : AppCompatActivity() {
                 }
             }
 
-            // 2. Pré-carrega as logos do TMDB (Somente as primeiras 15 para não dar erro de limite)
+            // 2. PrÃ©-carrega as logos do TMDB (Somente as primeiras 15 para nÃ£o dar erro de limite)
             val limitLogos = if (series.size > 15) 15 else series.size
             for (i in 0 until limitLogos) {
                 preLoadTmdbLogo(series[i].name)
@@ -130,7 +130,7 @@ class SeriesActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ FUNÇÃO AUXILIAR PARA O PRELOAD DA LOGO
+    // âœ… FUNÃ‡ÃƒO AUXILIAR PARA O PRELOAD DA LOGO
     private suspend fun preLoadTmdbLogo(rawName: String) {
         val TMDB_API_KEY = "9b73f5dd15b8165b1b57419be2f29128"
         var cleanName = rawName.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
@@ -143,17 +143,7 @@ class SeriesActivity : AppCompatActivity() {
             val results = JSONObject(searchJson).getJSONArray("results")
 
             if (results.length() > 0) {
-                // ✅ FILTRO DE MATCH EXATO PARA O PRELOAD
-                var bestResult = results.getJSONObject(0)
-                for (j in 0 until results.length()) {
-                    val obj = results.getJSONObject(j)
-                    if (obj.optString("name", "").equals(cleanName, ignoreCase = true)) {
-                        bestResult = obj
-                        break
-                    }
-                }
-                val seriesId = bestResult.getString("id")
-                
+                val seriesId = results.getJSONObject(0).getString("id")
                 val imagesJson = URL("https://api.themoviedb.org/3/tv/$seriesId/images?api_key=$TMDB_API_KEY&include_image_language=pt,en,null").readText()
                 val logos = JSONObject(imagesJson).getJSONArray("logos")
                 
@@ -224,14 +214,14 @@ class SeriesActivity : AppCompatActivity() {
 
                 override fun onFailure(call: Call<List<LiveCategory>>, t: Throwable) {
                     progressBar.visibility = View.GONE
-                    Toast.makeText(this@SeriesActivity, "Falha de conexão", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@SeriesActivity, "Falha de conexÃ£o", Toast.LENGTH_SHORT).show()
                 }
             })
     }
 
     private fun aplicarCategorias(categorias: List<LiveCategory>) {
         if (categorias.isEmpty()) {
-            Toast.makeText(this, "Nenhuma categoria disponível.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Nenhuma categoria disponÃ­vel.", Toast.LENGTH_SHORT).show()
             rvCategories.adapter = SeriesCategoryAdapter(emptyList()) {}
             rvSeries.adapter = SeriesAdapter(emptyList()) {}
             return
@@ -260,7 +250,7 @@ class SeriesActivity : AppCompatActivity() {
 
         seriesCache[categoria.id]?.let { seriesCacheadas ->
             aplicarSeries(seriesCacheadas)
-            preLoadImages(seriesCacheadas) // ✅ PRELOAD DO CACHE
+            preLoadImages(seriesCacheadas) // âœ… PRELOAD DO CACHE
             return
         }
 
@@ -285,7 +275,7 @@ class SeriesActivity : AppCompatActivity() {
                         }
 
                         aplicarSeries(series)
-                        preLoadImages(series) // ✅ PRELOAD DA API
+                        preLoadImages(series) // âœ… PRELOAD DA API
                     }
                 }
 
@@ -301,11 +291,11 @@ class SeriesActivity : AppCompatActivity() {
 
         if (favIds.isEmpty()) {
             rvSeries.adapter = SeriesAdapter(emptyList()) {}
-            Toast.makeText(this, "Nenhuma série favorita.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Nenhuma sÃ©rie favorita.", Toast.LENGTH_SHORT).show()
             return
         }
 
-        // ✅ ACELERAÇÃO: Tenta encontrar as séries já carregadas na memória (todas as abas)
+        // âœ… ACELERAÃ‡ÃƒO: Tenta encontrar as sÃ©ries jÃ¡ carregadas na memÃ³ria (todas as abas)
         val listaFavoritosInstantanea = mutableListOf<SeriesStream>()
         seriesCache.values.flatten().distinctBy { it.id }.forEach { serie ->
             if (favIds.contains(serie.id)) {
@@ -313,13 +303,13 @@ class SeriesActivity : AppCompatActivity() {
             }
         }
 
-        // Se encontrou as séries no cache, exibe instantaneamente sem chamar a API
+        // Se encontrou as sÃ©ries no cache, exibe instantaneamente sem chamar a API
         if (listaFavoritosInstantanea.size >= favIds.size) {
             aplicarSeries(listaFavoritosInstantanea)
             return
         }
 
-        // Caso não estejam no cache, faz a busca padrão (Categoria 0)
+        // Caso nÃ£o estejam no cache, faz a busca padrÃ£o (Categoria 0)
         progressBar.visibility = View.VISIBLE
         XtreamApi.service.getSeries(username, password, categoryId = "0")
             .enqueue(object : Callback<List<SeriesStream>> {
@@ -456,6 +446,8 @@ class SeriesActivity : AppCompatActivity() {
             holder.tvName.visibility = View.GONE
             holder.imgLogo.setImageDrawable(null)
             holder.imgLogo.visibility = View.INVISIBLE
+            
+            // âœ… REMOVIDO: ESTRELA NA CAPA (Limpando o layout conforme pedido)
             holder.imgDownload.visibility = View.GONE
 
             val context = holder.itemView.context
@@ -464,13 +456,13 @@ class SeriesActivity : AppCompatActivity() {
                 .load(item.icon)
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .priority(if (isTelevision(context)) Priority.HIGH else Priority.IMMEDIATE)
-                .dontAnimate() // ✅ EVITA PISCAR NO SCROLL
+                .thumbnail(0.1f)
                 .placeholder(R.drawable.bg_logo_placeholder)
                 .error(R.drawable.bg_logo_placeholder)
                 .centerCrop()
                 .into(holder.imgPoster)
 
-            searchTmdbLogo(item.name, holder.imgLogo, holder.tvName)
+            searchTmdbLogo(item.name, holder.imgLogo)
 
             holder.itemView.isFocusable = true
             holder.itemView.isClickable = true
@@ -479,8 +471,7 @@ class SeriesActivity : AppCompatActivity() {
                 if (hasFocus) {
                     view.animate().scaleX(1.1f).scaleY(1.1f).setDuration(150).start()
                     view.elevation = 10f
-                    // ✅ TRAVA: Só mostra o nome se o logo ainda não tiver carregado
-                    if (holder.imgLogo.visibility != View.VISIBLE) holder.tvName.visibility = View.VISIBLE
+                    if (holder.imgLogo.drawable == null) holder.tvName.visibility = View.VISIBLE
                     holder.tvName.setTextColor(0xFF00C6FF.toInt()) 
                     view.alpha = 1.0f
                 } else {
@@ -497,7 +488,7 @@ class SeriesActivity : AppCompatActivity() {
 
         override fun getItemCount() = list.size
 
-        private fun searchTmdbLogo(rawName: String, targetView: ImageView, textBackup: TextView) {
+        private fun searchTmdbLogo(rawName: String, targetView: ImageView) {
             var cleanName = rawName.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
             cleanName = cleanName.replace(Regex("\\b\\d{4}\\b"), "")
             val sujeiras = listOf("FHD", "HD", "SD", "4K", "8K", "H265", "LEG", "DUB", "MKV", "MP4", "COMPLETE", "S01", "S02", "E01")
@@ -507,33 +498,21 @@ class SeriesActivity : AppCompatActivity() {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val query = URLEncoder.encode(cleanName, "UTF-8")
+                    // âœ… TRAVA DE SEGURANÃ‡A: Usando obrigatoriamente /search/tv para evitar conflitos com filmes
                     val searchJson = URL("https://api.themoviedb.org/3/search/tv?api_key=$TMDB_API_KEY&query=$query&language=pt-BR").readText()
                     val results = JSONObject(searchJson).getJSONArray("results")
 
                     if (results.length() > 0) {
-                        var bestResult = results.getJSONObject(0)
-                        for (i in 0 until results.length()) {
-                            val obj = results.getJSONObject(i)
-                            if (obj.optString("name", "").equals(cleanName, ignoreCase = true)) {
-                                bestResult = obj
-                                break
-                            }
-                        }
-                        val seriesId = bestResult.getString("id")
-                        
+                        val seriesId = results.getJSONObject(0).getString("id")
                         val imagesJson = URL("https://api.themoviedb.org/3/tv/$seriesId/images?api_key=$TMDB_API_KEY&include_image_language=pt,en,null").readText()
                         val logos = JSONObject(imagesJson).getJSONArray("logos")
                         
                         if (logos.length() > 0) {
                             val logoPath = logos.getJSONObject(0).getString("file_path")
                             withContext(Dispatchers.Main) {
-                                // ✅ TRAVA: Esconde o texto no exato momento que mostra a logo
-                                textBackup.visibility = View.GONE
                                 targetView.visibility = View.VISIBLE
-                                Glide.with(targetView.context)
-                                    .load("https://image.tmdb.org/t/p/w500$logoPath")
+                                Glide.with(targetView.context).load("https://image.tmdb.org/t/p/w500$logoPath")
                                     .diskCacheStrategy(DiskCacheStrategy.ALL)
-                                    .dontAnimate() // ✅ EVITA PISCAR
                                     .into(targetView)
                             }
                         }

@@ -143,7 +143,17 @@ class SeriesActivity : AppCompatActivity() {
             val results = JSONObject(searchJson).getJSONArray("results")
 
             if (results.length() > 0) {
-                val seriesId = results.getJSONObject(0).getString("id")
+                // ✅ FILTRO DE MATCH EXATO PARA O PRELOAD
+                var bestResult = results.getJSONObject(0)
+                for (j in 0 until results.length()) {
+                    val obj = results.getJSONObject(j)
+                    if (obj.optString("name", "").equals(cleanName, ignoreCase = true)) {
+                        bestResult = obj
+                        break
+                    }
+                }
+                val seriesId = bestResult.getString("id")
+                
                 val imagesJson = URL("https://api.themoviedb.org/3/tv/$seriesId/images?api_key=$TMDB_API_KEY&include_image_language=pt,en,null").readText()
                 val logos = JSONObject(imagesJson).getJSONArray("logos")
                 
@@ -503,7 +513,17 @@ class SeriesActivity : AppCompatActivity() {
                     val results = JSONObject(searchJson).getJSONArray("results")
 
                     if (results.length() > 0) {
-                        val seriesId = results.getJSONObject(0).getString("id")
+                        // ✅ FILTRO DE MATCH EXATO NA BUSCA DA LOGO
+                        var bestResult = results.getJSONObject(0)
+                        for (i in 0 until results.length()) {
+                            val obj = results.getJSONObject(i)
+                            if (obj.optString("name", "").equals(cleanName, ignoreCase = true)) {
+                                bestResult = obj
+                                break
+                            }
+                        }
+                        val seriesId = bestResult.getString("id")
+                        
                         val imagesJson = URL("https://api.themoviedb.org/3/tv/$seriesId/images?api_key=$TMDB_API_KEY&include_image_language=pt,en,null").readText()
                         val logos = JSONObject(imagesJson).getJSONArray("logos")
                         

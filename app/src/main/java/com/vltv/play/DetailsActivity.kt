@@ -1,4 +1,4 @@
-Package com.vltv.play
+package com.vltv.play
 
 import android.content.Context
 import android.content.Intent
@@ -174,7 +174,7 @@ class DetailsActivity : AppCompatActivity() {
         restaurarEstadoDownload()
     }
 
-    // ✅ Tenta carregar a logo do cache SharedPreferences IMEDIATAMENTE (TRAVADA)
+    // ✅ Tenta carregar a logo do cache SharedPreferences IMEDIATAMENTE
     private fun tentarCarregarLogoCache() {
         val prefs = getSharedPreferences("vltv_logos_cache", Context.MODE_PRIVATE)
         val cachedUrl = prefs.getString("logo_$streamId", null)
@@ -188,7 +188,7 @@ class DetailsActivity : AppCompatActivity() {
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .priority(Priority.IMMEDIATE)
                 .dontAnimate()
-                .placeholder(imgLogo.drawable) // Trava a imagem atual
+                .placeholder(imgLogo.drawable) // SEGURA A IMAGEM (TRAVA PISCAR)
                 .into(imgLogo)
         }
     }
@@ -254,7 +254,6 @@ class DetailsActivity : AppCompatActivity() {
         })
     }
 
-    // ✅ LOGO FIXA (SEM PISCAR)
     private fun buscarLogoOverlayTraduzida(id: Int, type: String, key: String) {
         val imagesUrl = "https://api.themoviedb.org/3/$type/$id/images?api_key=$key&include_image_language=pt,en,null"
         client.newCall(Request.Builder().url(imagesUrl).build()).enqueue(object : Callback {
@@ -286,12 +285,12 @@ class DetailsActivity : AppCompatActivity() {
                                     tvTitle.visibility = View.GONE
                                     imgLogo.visibility = View.VISIBLE
                                     
-                                    // AQUI ESTÁ O TRUQUE:
+                                    // AQUI ESTÁ A TRAVA PARA NÃO PISCAR
                                     Glide.with(this@DetailsActivity)
                                         .load(finalUrl)
                                         .diskCacheStrategy(DiskCacheStrategy.ALL)
-                                        .dontAnimate() // Não pisca
-                                        .placeholder(imgLogo.drawable) // Mantém a atual
+                                        .dontAnimate()
+                                        .placeholder(imgLogo.drawable) // SEGURA A IMAGEM ATUAL
                                         .into(imgLogo)
                                 }
                             }
@@ -309,7 +308,6 @@ class DetailsActivity : AppCompatActivity() {
         })
     }
 
-    // ✅ ELENCO EM TEXTO (SEM IMAGENS)
     private fun buscarDetalhesCompletos(id: Int, type: String, key: String) {
         val detailUrl = "https://api.themoviedb.org/3/$type/$id?api_key=$key&append_to_response=credits&language=pt-BR"
         client.newCall(Request.Builder().url(detailUrl).build()).enqueue(object : Callback {
@@ -324,29 +322,28 @@ class DetailsActivity : AppCompatActivity() {
                             for (i in 0 until gs.length()) genresList.add(gs.getJSONObject(i).getString("name"))
                         }
                         
-                        // Pegamos apenas os nomes
+                        // --- ALTERAÇÃO AQUI: ELENCO COMO TEXTO ---
                         val castArray = d.optJSONObject("credits")?.optJSONArray("cast")
-                        val nomesElenco = mutableListOf<String>()
+                        val castNamesList = mutableListOf<String>()
+                        
                         if (castArray != null) {
+                            // Pegamos até 15 nomes (sem baixar imagens)
                             val limit = if (castArray.length() > 15) 15 else castArray.length()
                             for (i in 0 until limit) {
                                 val actorJson = castArray.getJSONObject(i)
-                                nomesElenco.add(actorJson.getString("name"))
+                                castNamesList.add(actorJson.getString("name"))
                             }
                         }
                         
                         runOnUiThread {
                             tvGenre.text = "Gênero: ${if (genresList.isEmpty()) "Diversos" else genresList.joinToString(", ")}"
                             
-                            // Escrevemos os nomes no TextView
-                            val textoElenco = if (nomesElenco.isEmpty()) "Indisponível" else "Elenco: " + nomesElenco.joinToString(", ")
+                            // Escreve os nomes no TextView tvCast
+                            val textoElenco = if (castNamesList.isEmpty()) "Indisponível" else "Elenco: " + castNamesList.joinToString(", ")
                             tvCast.text = textoElenco
                             
-                            // Desativamos o RecyclerView (invisível) para não ocupar espaço
-                            findViewById<RecyclerView>(R.id.recyclerCast).apply {
-                                visibility = View.GONE
-                                adapter = null
-                            }
+                            // Deixa a lista de bolinhas vazia (sem dar erro de layout)
+                            findViewById<RecyclerView>(R.id.recyclerCast).adapter = null
                         }
                     } catch (e: Exception) { e.printStackTrace() }
                 }

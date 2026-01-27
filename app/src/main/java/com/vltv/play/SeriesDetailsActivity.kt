@@ -323,25 +323,14 @@ class SeriesDetailsActivity : AppCompatActivity() {
                                 .edit().putString("series_logo_$seriesId", finalUrl).apply()
 
                             runOnUiThread {
-                                val imgLogo = findViewById<ImageView>(R.id.imgTitleLogo)
-                                if (imgLogo != null) {
-                                    tvTitle.visibility = View.GONE
-                                    imgLogo.visibility = View.VISIBLE
-                                    
-                                    // ✅ CORREÇÃO CIRÚRGICA: Usa RequestOptions para evitar o erro de compilação
-                                    val options = com.bumptech.glide.request.RequestOptions()
-                                        .diskCacheStrategy(DiskCacheStrategy.ALL)
-                                        .priority(Priority.IMMEDIATE)
-                                        .dontAnimate()
-                                        .placeholder(imgLogo.drawable) // Trava a logo atual no placeholder
-
-                                    Glide.with(this@SeriesDetailsActivity)
-                                        .load(finalUrl)
-                                        .apply(options)
-                                        .into(imgLogo)
-                                        
-                                    imgLogo.alpha = 1.0f
-                                }
+                                tvTitle.visibility = View.GONE
+                                imgTitleLogo.visibility = View.VISIBLE
+                                Glide.with(this@SeriesDetailsActivity)
+                                    .load(finalUrl)
+                                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+                                    .priority(Priority.IMMEDIATE)
+                                    .dontAnimate()
+                                    .into(imgTitleLogo)
                             }
                         } else {
                             runOnUiThread { tvTitle.visibility = View.VISIBLE; tvTitle.text = seriesName }
@@ -370,25 +359,27 @@ class SeriesDetailsActivity : AppCompatActivity() {
                     val genresList = mutableListOf<String>()
                     if (gs != null) for (i in 0 until gs.length()) genresList.add(gs.getJSONObject(i).getString("name"))
 
-                    // ✅ ALTERAÇÃO: ELENCO APENAS EM TEXTO (MAIS RÁPIDO)
                     val credits = d.optJSONObject("credits")
                     val castArray = credits?.optJSONArray("cast")
-                    val castNamesList = mutableListOf<String>()
+                    val castMemberList = mutableListOf<CastMember>()
                     
                     if (castArray != null) {
                         val limit = if (castArray.length() > 10) 10 else castArray.length()
                         for (i in 0 until limit) {
                             val actor = castArray.getJSONObject(i)
-                            castNamesList.add(actor.getString("name"))
+                            castMemberList.add(CastMember(
+                                actor.getString("name"),
+                                actor.optString("profile_path")
+                            ))
                         }
                     }
 
                     runOnUiThread {
                         tvGenre.text = "Gênero: ${if (genresList.isEmpty()) "Variados" else genresList.joinToString(", ")}"
-                        
-                        // Exibe elenco no TextView e esconde o RecyclerView de fotos
-                        tvCast.text = "Elenco: ${if (castNamesList.isEmpty()) "Não disponível" else castNamesList.joinToString(", ")}"
-                        recyclerCast.visibility = View.GONE
+                        recyclerCast.apply {
+                            layoutManager = LinearLayoutManager(this@SeriesDetailsActivity, LinearLayoutManager.HORIZONTAL, false)
+                            adapter = CastAdapter(castMemberList)
+                        }
                     }
                 } catch(e: Exception) { e.printStackTrace() }
             }
@@ -403,15 +394,11 @@ class SeriesDetailsActivity : AppCompatActivity() {
         if (cachedUrl != null) {
             tvTitle.visibility = View.GONE
             imgTitleLogo.visibility = View.VISIBLE
-            
-            val options = com.bumptech.glide.request.RequestOptions()
+            Glide.with(this)
+                .load(cachedUrl)
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .priority(Priority.IMMEDIATE)
                 .dontAnimate()
-
-            Glide.with(this)
-                .load(cachedUrl)
-                .apply(options)
                 .into(imgTitleLogo)
         }
     }

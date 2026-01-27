@@ -188,6 +188,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         
         tvCast = findViewById(R.id.tvCast)
         recyclerCast = findViewById(R.id.recyclerCast)
+        recyclerCast.visibility = View.GONE // ✅ MUDANÇA: OCULTA O RECYCLERVIEW DE FOTOS
         
         btnSeasonSelector = findViewById(R.id.btnSeasonSelector)
         rvEpisodes = findViewById(R.id.recyclerEpisodes) 
@@ -341,20 +342,16 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
                     val credits = d.optJSONObject("credits")
                     val castArray = credits?.optJSONArray("cast")
-                    val castMemberList = mutableListOf<CastMember>()
+                    val castNames = mutableListOf<String>()
                     if (castArray != null) {
                         val limit = if (castArray.length() > 10) 10 else castArray.length()
                         for (i in 0 until limit) {
-                            val actor = castArray.getJSONObject(i)
-                            castMemberList.add(CastMember(actor.getString("name"), actor.optString("profile_path")))
+                            castNames.add(castArray.getJSONObject(i).getString("name"))
                         }
                     }
                     runOnUiThread {
                         tvGenre.text = "Gênero: ${if (genresList.isEmpty()) "Variados" else genresList.joinToString(", ")}"
-                        recyclerCast.apply {
-                            layoutManager = LinearLayoutManager(this@SeriesDetailsActivity, LinearLayoutManager.HORIZONTAL, false)
-                            adapter = CastAdapter(castMemberList)
-                        }
+                        tvCast.text = "Elenco: ${castNames.joinToString(", ")}" // ✅ MUDANÇA: ELENCO PARA TEXTO
                     }
                 } catch(e: Exception) { }
             }
@@ -408,8 +405,8 @@ class SeriesDetailsActivity : AppCompatActivity() {
         val password = prefs.getString("password", "") ?: ""
 
         XtreamApi.service.getSeriesInfoV2(username, password, seriesId = seriesId)
-            .enqueue(object : retrofit2.Callback<SeriesInfoResponse> {
-                override fun onResponse(call: retrofit2.Call<SeriesInfoResponse>, response: retrofit2.Response<SeriesInfoResponse>) {
+            .enqueue(object : Callback<SeriesInfoResponse> {
+                override fun onResponse(call: Call<SeriesInfoResponse>, response: Response<SeriesInfoResponse>) {
                     if (response.isSuccessful && response.body() != null) {
                         val body = response.body()!!
                         episodesBySeason = body.episodes ?: emptyMap()
@@ -418,7 +415,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         else btnSeasonSelector.text = "Indisponível"
                     }
                 }
-                override fun onFailure(call: retrofit2.Call<SeriesInfoResponse>, t: Throwable) {
+                override fun onFailure(call: Call<SeriesInfoResponse>, t: Throwable) {
                     Toast.makeText(this@SeriesDetailsActivity, "Erro de conexão", Toast.LENGTH_SHORT).show()
                 }
             })
@@ -516,11 +513,40 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private fun abrirPlayer(ep: EpisodeStream, usarResume: Boolean) {
         val streamId = ep.id.toIntOrNull() ?: 0
         val ext = ep.container_extension ?: "mp4"
+
+        // ✅ LÓGICA DE MOCHILA MANTIDA
+        val lista = episodesBySeason[currentSeason] ?: emptyList()
+        val posInList = lista.indexOfFirst { it.id == ep.id }
+        val nextEp = if (posInList + 1 < lista.size) lista[posInList + 1] else null
+        
+        val mochilaIds = ArrayList<Int>()
+        for (item in lista) {
+            val idInt = item.id.toIntOrNull() ?: 0
+            if (idInt != 0) mochilaIds.add(idInt)
+        }
+
+        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+        val pos = prefs.getLong("series_resume_${streamId}_pos", 0L)
+        val dur = prefs.getLong("series_resume_${streamId}_dur", 0L)
+        val existe = usarResume && pos > 30000L && pos < (dur * 0.95).toLong()
+
         val intent = Intent(this, PlayerActivity::class.java)
         intent.putExtra("stream_id", streamId)
         intent.putExtra("stream_ext", ext)
         intent.putExtra("stream_type", "series")
         intent.putExtra("channel_name", "T${currentSeason}E${ep.episode_num} - $seriesName")
+        
+        if (mochilaIds.isNotEmpty()) {
+            intent.putIntegerArrayListExtra("episode_list", mochilaIds) // ✅ MOCHILA
+        }
+
+        if (existe) intent.putExtra("start_position_ms", pos) // ✅ CONTINUAR
+        
+        if (nextEp != null) {
+            intent.putExtra("next_stream_id", nextEp.id.toIntOrNull() ?: 0) // ✅ PRÓXIMO
+            intent.putExtra("next_channel_name", "T${currentSeason}E${nextEp.episode_num} - $seriesName")
+        }
+        
         startActivity(intent)
     }
 
@@ -537,8 +563,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private fun baixarTemporadaAtual(lista: List<EpisodeStream>) {
         for (ep in lista) {
             val eid = ep.id.toIntOrNull() ?: continue
-            val url = montarUrlEpisodio(ep)
-            DownloadHelper.enqueueDownload(this, url, "${seriesName}_T${currentSeason}E${ep.episode_num}.mp4", logicalId = "series_$eid", type = "series")
+            DownloadHelper.enqueueDownload(this, montarUrlEpisodio(ep), "${seriesName}_T${currentSeason}E${ep.episode_num}.mp4", logicalId = "series_$eid", type = "series")
         }
         Toast.makeText(this, "Baixando episódios...", Toast.LENGTH_LONG).show()
     }

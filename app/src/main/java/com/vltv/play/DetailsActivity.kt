@@ -287,6 +287,8 @@ class DetailsActivity : AppCompatActivity() {
                                         .load(finalUrl)
                                         .diskCacheStrategy(DiskCacheStrategy.ALL)
                                         .dontAnimate()
+                                        .placeholder(null)
+                                        .priority(Priority.IMMEDIATE)
                                         .into(imgLogo)
                                 }
                             }

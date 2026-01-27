@@ -3,6 +3,7 @@ package com.vltv.play
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.res.Configuration
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -30,6 +31,12 @@ import okhttp3.*
 import org.json.JSONObject
 import java.io.IOException
 import java.net.URLEncoder
+import com.vltv.play.CastMember
+import com.vltv.play.CastAdapter
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class EpisodeData(
     val streamId: Int,
@@ -112,7 +119,7 @@ class DetailsActivity : AppCompatActivity() {
         imgPoster = findViewById(R.id.imgPoster)
         tvTitle = findViewById(R.id.tvTitle)
         
-        // Título em Texto: Sempre visível e com o nome do seu servidor
+        // Texto Sempre Visível: Acaba com o carregamento da Logo externa
         tvTitle.visibility = View.VISIBLE 
         tvTitle.text = name
 
@@ -145,7 +152,6 @@ class DetailsActivity : AppCompatActivity() {
 
     private fun carregarConteudo() {
         tvRating.text = "⭐ $rating"
-        // Se não houver cache, mostra o estado de carregamento inicial
         if (tvPlot.text.isNullOrEmpty() || tvPlot.text == "Carregando...") {
             tvPlot.text = "Buscando detalhes..."
         }
@@ -154,11 +160,12 @@ class DetailsActivity : AppCompatActivity() {
         tvCast.text = "Elenco:"
         tvYear?.text = "" 
 
-        // Poster e Background do seu servidor (Rápido)
+        // Imagens do seu servidor (Rápidas)
         Glide.with(this).load(icon).diskCacheStrategy(DiskCacheStrategy.ALL).into(imgPoster)
         Glide.with(this).load(icon).centerCrop().diskCacheStrategy(DiskCacheStrategy.ALL).into(imgBackground)
 
-        atualizarIconeFavorito(getFavMovies(this).contains(streamId))
+        val isFavInicial = getFavMovies(this).contains(streamId)
+        atualizarIconeFavorito(isFavInicial)
 
         if (isSeries) { carregarEpisodios() } else {
             tvEpisodesTitle.visibility = View.GONE
@@ -169,7 +176,7 @@ class DetailsActivity : AppCompatActivity() {
         restaurarEstadoDownload()
     }
 
-    // ✅ MÉTODO DE VELOCIDADE: Mostra os textos salvos no celular sem delay
+    // ✅ MÉTODO DE VELOCIDADE: Busca textos salvos no celular para não ter delay
     private fun tentarCarregarTextoCache() {
         val prefs = getSharedPreferences("vltv_text_cache", Context.MODE_PRIVATE)
         val cachedPlot = prefs.getString("plot_$streamId", null)
@@ -205,7 +212,6 @@ class DetailsActivity : AppCompatActivity() {
                 try {
                     val results = JSONObject(body).optJSONArray("results")
                     if (results != null && results.length() > 0) {
-                        
                         var selectedMovie = results.getJSONObject(0)
                         for (i in 0 until results.length()) {
                             val item = results.getJSONObject(i)
@@ -215,10 +221,7 @@ class DetailsActivity : AppCompatActivity() {
                                 break
                             }
                         }
-
                         val idTmdb = selectedMovie.getInt("id")
-                        
-                        // Chamamos apenas os detalhes (Texto), nada de Logos
                         buscarDetalhesCompletos(idTmdb, type, apiKey)
 
                         runOnUiThread {
@@ -230,7 +233,7 @@ class DetailsActivity : AppCompatActivity() {
                             if (sinopse.isNotEmpty()) tvPlot.text = sinopse
                             if (date.length >= 4) tvYear?.text = date.substring(0, 4)
 
-                            // Salva no cache para a próxima vez ser instantâneo
+                            // ✅ Salva no Cache de Texto
                             getSharedPreferences("vltv_text_cache", Context.MODE_PRIVATE).edit()
                                 .putString("title_$streamId", tOficial)
                                 .putString("plot_$streamId", sinopse)
@@ -252,27 +255,21 @@ class DetailsActivity : AppCompatActivity() {
                     val d = JSONObject(body)
                     val gs = d.optJSONArray("genres")
                     val genresList = mutableListOf<String>()
-                    if (gs != null) {
-                        for (i in 0 until gs.length()) genresList.add(gs.getJSONObject(i).getString("name"))
-                    }
+                    if (gs != null) for (i in 0 until gs.length()) genresList.add(gs.getJSONObject(i).getString("name"))
                     
                     val castArray = d.optJSONObject("credits")?.optJSONArray("cast")
                     val castNamesList = mutableListOf<String>()
                     if (castArray != null) {
                         val limit = if (castArray.length() > 15) 15 else castArray.length()
-                        for (i in 0 until limit) {
-                            castNamesList.add(castArray.getJSONObject(i).getString("name"))
-                        }
+                        for (i in 0 until limit) castNamesList.add(castArray.getJSONObject(i).getString("name"))
                     }
                     
                     runOnUiThread {
                         val g = "Gênero: ${if (genresList.isEmpty()) "Diversos" else genresList.joinToString(", ")}"
                         val e = if (castNamesList.isEmpty()) "Elenco: Indisponível" else "Elenco: " + castNamesList.joinToString(", ")
-                        
                         tvGenre.text = g
                         tvCast.text = e
 
-                        // Salva no cache
                         getSharedPreferences("vltv_text_cache", Context.MODE_PRIVATE).edit()
                             .putString("genre_$streamId", g)
                             .putString("cast_$streamId", e)
@@ -419,19 +416,21 @@ class DetailsActivity : AppCompatActivity() {
     inner class EpisodesAdapter(private val onEpisodeClick: (EpisodeData) -> Unit) : ListAdapter<EpisodeData, EpisodesAdapter.ViewHolder>(DiffCallback) {
         override fun onCreateViewHolder(p: ViewGroup, t: Int) = ViewHolder(LayoutInflater.from(p.context).inflate(R.layout.item_episode, p, false))
         override fun onBindViewHolder(h: ViewHolder, p: Int) = h.bind(getItem(p))
-        
         inner class ViewHolder(val v: View) : RecyclerView.ViewHolder(v) {
             fun bind(e: EpisodeData) {
                 v.isFocusable = true
-                v.setOnFocusChangeListener { _, hasFocus ->
-                    v.scaleX = if (hasFocus) 1.1f else 1.0f
-                    v.scaleY = if (hasFocus) 1.1f else 1.0f
-                }
-                
+                v.setOnFocusChangeListener { _, hasFocus -> v.scaleX = if (hasFocus) 1.1f else 1.0f; v.scaleY = if (hasFocus) 1.1f else 1.0f }
                 v.findViewById<TextView>(R.id.tvEpisodeTitle).text = "S${e.season}E${e.episode}: ${e.title}"
                 Glide.with(v.context).load(e.thumb).centerCrop().into(v.findViewById(R.id.imgEpisodeThumb))
                 v.setOnClickListener { onEpisodeClick(e) }
             }
+        }
+    }
+
+    companion object {
+        private object DiffCallback : DiffUtil.ItemCallback<EpisodeData>() {
+            override fun areItemsTheSame(o: EpisodeData, n: EpisodeData) = o.streamId == n.streamId
+            override fun areContentsTheSame(o: EpisodeData, n: EpisodeData) = o == n
         }
     }
 

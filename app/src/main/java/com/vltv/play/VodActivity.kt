@@ -167,7 +167,17 @@ class VodActivity : AppCompatActivity() {
             val results = JSONObject(searchJson).getJSONArray("results")
 
             if (results.length() > 0) {
-                val movieId = results.getJSONObject(0).getString("id")
+                // ✅ FILTRO DE MATCH EXATO NO PRELOAD
+                var bestResult = results.getJSONObject(0)
+                for (j in 0 until results.length()) {
+                    val obj = results.getJSONObject(j)
+                    if (obj.optString("title", "").equals(cleanName, ignoreCase = true)) {
+                        bestResult = obj
+                        break
+                    }
+                }
+                val movieId = bestResult.getString("id")
+                
                 val imagesJson = URL("https://api.themoviedb.org/3/movie/$movieId/images?api_key=$TMDB_API_KEY&include_image_language=pt,en,null").readText()
                 val logos = JSONObject(imagesJson).getJSONArray("logos")
                 
@@ -640,7 +650,16 @@ class VodActivity : AppCompatActivity() {
                     val results = JSONObject(searchJson).getJSONArray("results")
 
                     if (results.length() > 0) {
-                        val movieId = results.getJSONObject(0).getString("id")
+                        // ✅ FILTRO DE MATCH EXATO NA BUSCA DA LOGO
+                        var bestResult = results.getJSONObject(0)
+                        for (i in 0 until results.length()) {
+                            val obj = results.getJSONObject(i)
+                            if (obj.optString("title", "").equals(cleanName, ignoreCase = true)) {
+                                bestResult = obj
+                                break
+                            }
+                        }
+                        val movieId = bestResult.getString("id")
                         val imagesUrl = "https://api.themoviedb.org/3/movie/$movieId/images?api_key=$TMDB_API_KEY&include_image_language=pt,en,null"
                         val imagesJson = URL(imagesUrl).readText()
                         val imagesObj = JSONObject(imagesJson)

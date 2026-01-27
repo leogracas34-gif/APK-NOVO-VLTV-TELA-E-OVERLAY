@@ -1,4 +1,4 @@
-Package com.vltv.play
+package com.vltv.play
 
 import android.content.Context
 import android.content.Intent

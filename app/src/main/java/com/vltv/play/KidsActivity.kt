@@ -40,7 +40,6 @@ class KidsActivity : AppCompatActivity() {
     private var user = ""
     private var pass = ""
 
-    // ✅ FILTRO DE SEGURANÇA REFORÇADO
     private val termosProibidos = listOf(
         "adulto", "xxx", "sexo", "sexy", "porn", "18+", "erótico", "violência", 
         "007", "terror", "horror", "assassinato", "guerra", "pânico", "morte"
@@ -71,7 +70,6 @@ class KidsActivity : AppCompatActivity() {
             it.setOnClickListener { finish() }
         }
 
-        // ✅ ABRE O TECLADO DIRETO (SEM PONTE)
         configurarFoco(etSearchKids)
         etSearchKids.isFocusableInTouchMode = true 
         etSearchKids.setOnClickListener {
@@ -313,7 +311,6 @@ class KidsActivity : AppCompatActivity() {
 
     data class KidsRecentItem(val id: String, val nome: String, val capa: String, val tipo: String, val filmeObj: VodStream?, val serieObj: SeriesStream?)
 
-    // ✅ HUB ADAPTER: VOLTAMOS COM AS LOGOS SINCRONIZADAS E SEM CORTES
     inner class HubAdapter(val list: List<LiveStream>, val onClick: (LiveStream) -> Unit) : RecyclerView.Adapter<HubAdapter.VH>() {
         inner class VH(v: View) : RecyclerView.ViewHolder(v) {
             val img: ImageView = v.findViewById(R.id.imgLogoHub)
@@ -328,7 +325,6 @@ class KidsActivity : AppCompatActivity() {
             val nomeUpper = item.name.uppercase()
             holder.txt.text = nomeUpper
 
-            // ✅ Carrega a logo do canal usando fitCenter para não cortar
             Glide.with(holder.itemView.context)
                 .load(item.icon)
                 .diskCacheStrategy(DiskCacheStrategy.ALL)

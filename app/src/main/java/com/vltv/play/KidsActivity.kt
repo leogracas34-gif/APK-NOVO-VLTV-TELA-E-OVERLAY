@@ -71,7 +71,7 @@ class KidsActivity : AppCompatActivity() {
             it.setOnClickListener { finish() }
         }
 
-        // ✅ TECLADO DIRETO
+        // ✅ ABRE O TECLADO DIRETO (SEM PONTE)
         configurarFoco(etSearchKids)
         etSearchKids.isFocusableInTouchMode = true 
         etSearchKids.setOnClickListener {
@@ -97,7 +97,7 @@ class KidsActivity : AppCompatActivity() {
                     }
                     startActivity(intent)
                 } else if (contemProibido) {
-                    Toast.makeText(this, "Acesso negado: Conteúdo impróprio 🛡️", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "Busca bloqueada na Área Kids 🛡️", Toast.LENGTH_LONG).show()
                     etSearchKids.setText("")
                 }
                 true
@@ -313,7 +313,7 @@ class KidsActivity : AppCompatActivity() {
 
     data class KidsRecentItem(val id: String, val nome: String, val capa: String, val tipo: String, val filmeObj: VodStream?, val serieObj: SeriesStream?)
 
-    // ✅ HUB ADAPTER: NOVO LAYOUT COM LOGO E CORES
+    // ✅ HUB ADAPTER: VOLTAMOS COM AS LOGOS SINCRONIZADAS E SEM CORTES
     inner class HubAdapter(val list: List<LiveStream>, val onClick: (LiveStream) -> Unit) : RecyclerView.Adapter<HubAdapter.VH>() {
         inner class VH(v: View) : RecyclerView.ViewHolder(v) {
             val img: ImageView = v.findViewById(R.id.imgLogoHub)
@@ -328,9 +328,11 @@ class KidsActivity : AppCompatActivity() {
             val nomeUpper = item.name.uppercase()
             holder.txt.text = nomeUpper
 
+            // ✅ Carrega a logo do canal usando fitCenter para não cortar
             Glide.with(holder.itemView.context)
-                .load(item.icon) // Use .icon ou .stream_icon conforme seu modelo
+                .load(item.icon)
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .fitCenter() 
                 .into(holder.img)
 
             val corFundo = when {

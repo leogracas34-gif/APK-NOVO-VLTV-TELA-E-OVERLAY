@@ -178,9 +178,11 @@ class DetailsActivity : AppCompatActivity() {
     private fun tentarCarregarLogoCache() {
         val prefs = getSharedPreferences("vltv_logos_cache", Context.MODE_PRIVATE)
         val cachedUrl = prefs.getString("logo_$streamId", null)
+        val cachedName = prefs.getString("name_$streamId", "") // ✅ NOVO: Verifica o nome salvo
         val imgLogo = findViewById<ImageView>(R.id.imgTitleLogo)
 
-        if (cachedUrl != null && imgLogo != null) {
+        // ✅ Só mostra o cache se o nome bater com o filme atual
+        if (cachedUrl != null && imgLogo != null && cachedName == name) {
             imgLogo.visibility = View.VISIBLE
             tvTitle.visibility = View.GONE
             Glide.with(this)
@@ -225,7 +227,7 @@ class DetailsActivity : AppCompatActivity() {
                         val results = jsonObject.optJSONArray("results")
                         if (results != null && results.length() > 0) {
                             
-                            // ✅ MATCH INTELIGENTE: Procura o filme certo na lista
+                            // ✅ MATCH INTELIGENTE: Procura o filme certo na lista comparando nomes
                             var selectedMovie = results.getJSONObject(0)
                             for (i in 0 until results.length()) {
                                 val item = results.getJSONObject(i)
@@ -285,8 +287,12 @@ class DetailsActivity : AppCompatActivity() {
                             if (logoPath == null) logoPath = logos.getJSONObject(0).getString("file_path")
                             val finalUrl = "https://image.tmdb.org/t/p/w500$logoPath"
                             
+                            // ✅ SALVA NO CACHE INTERNO COM O NOME PARA VALIDAR DEPOIS
                             getSharedPreferences("vltv_logos_cache", Context.MODE_PRIVATE)
-                                .edit().putString("logo_$streamId", finalUrl).apply()
+                                .edit()
+                                .putString("logo_$streamId", finalUrl)
+                                .putString("name_$streamId", name) // ✅ NOVO: Salva nome
+                                .apply()
 
                             runOnUiThread {
                                 val imgLogo = findViewById<ImageView>(R.id.imgTitleLogo)
@@ -330,6 +336,7 @@ class DetailsActivity : AppCompatActivity() {
                             for (i in 0 until gs.length()) genresList.add(gs.getJSONObject(i).getString("name"))
                         }
                         
+                        // --- ELENCO COMO TEXTO ---
                         val castArray = d.optJSONObject("credits")?.optJSONArray("cast")
                         val castNamesList = mutableListOf<String>()
                         

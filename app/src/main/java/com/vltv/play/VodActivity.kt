@@ -577,6 +577,7 @@ class VodActivity : AppCompatActivity() {
                 .load(item.icon)
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .priority(if (isTelevision(context)) Priority.HIGH else Priority.IMMEDIATE)
+                .dontAnimate() // ✅ EVITA PISCAR NO SCROLL
                 .thumbnail(0.1f)
                 .placeholder(R.drawable.bg_logo_placeholder)
                 .error(R.drawable.bg_logo_placeholder)
@@ -584,7 +585,7 @@ class VodActivity : AppCompatActivity() {
                 .into(holder.imgPoster)
 
             // 3. BUSCA LOGO NO TMDB (Estilo Disney)
-            searchTmdbLogo(item.name, holder.imgLogo)
+            searchTmdbLogo(item.name, holder.imgLogo, holder.tvName)
 
             // 4. Animações de Foco (Zoom e Controle)
             holder.itemView.isFocusable = true
@@ -593,8 +594,8 @@ class VodActivity : AppCompatActivity() {
                 if (hasFocus) {
                     view.animate().scaleX(1.1f).scaleY(1.1f).setDuration(150).start()
                     view.elevation = 10f
-                    // Se não tiver logo, mostra o texto quando foca, para o usuário saber o nome
-                    if (holder.imgLogo.drawable == null) holder.tvName.visibility = View.VISIBLE
+                    // ✅ TRAVA: Só mostra o nome se o logo ainda não tiver carregado
+                    if (holder.imgLogo.visibility != View.VISIBLE) holder.tvName.visibility = View.VISIBLE
                     holder.tvName.setTextColor(0xFF00C6FF.toInt()) // Azul Neon
                     view.alpha = 1.0f
                 } else {
@@ -613,7 +614,7 @@ class VodActivity : AppCompatActivity() {
         override fun getItemCount() = list.size
 
         // --- FUNÇÃO DE BUSCA COM LIMPEZA SUPER PODEROSA ---
-        private fun searchTmdbLogo(rawName: String, targetView: ImageView) {
+        private fun searchTmdbLogo(rawName: String, targetView: ImageView, textBackup: TextView) {
             
             // 1. A VASSOURA (Limpeza do Nome)
             var cleanName = rawName
@@ -671,10 +672,13 @@ class VodActivity : AppCompatActivity() {
                                 val fullLogoUrl = "https://image.tmdb.org/t/p/w500$logoPath"
 
                                 withContext(Dispatchers.Main) {
+                                    // ✅ TRAVA: Esconde o texto no exato momento que mostra a logo
+                                    textBackup.visibility = View.GONE
                                     targetView.visibility = View.VISIBLE
                                     Glide.with(targetView.context)
                                         .load(fullLogoUrl)
                                         .diskCacheStrategy(DiskCacheStrategy.ALL)
+                                        .dontAnimate() // ✅ EVITA PISCAR NO SCROLL
                                         .fitCenter()
                                         .into(targetView)
                                 }

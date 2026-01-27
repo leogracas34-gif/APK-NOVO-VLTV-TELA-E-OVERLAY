@@ -114,7 +114,7 @@
                         android:text="Elenco:"
                         android:textColor="#BBBBBB"
                         android:textSize="15sp" />
-                    
+
                     <androidx.recyclerview.widget.RecyclerView
                         android:id="@+id/recyclerCast"
                         android:layout_width="match_parent"

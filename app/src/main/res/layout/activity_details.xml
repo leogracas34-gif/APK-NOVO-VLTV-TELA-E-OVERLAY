@@ -110,15 +110,19 @@
                         android:id="@+id/tvCast"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
+                        android:layout_marginTop="8dp"
                         android:text="Elenco:"
-                        android:textColor="#BBBBBB"
-                        android:textSize="15sp" />
+                        android:textColor="#DDDDDD"
+                        android:textSize="14sp"
+                        android:lineSpacingExtra="3dp"
+                        android:maxLines="4"
+                        android:ellipsize="end" />
                     
                     <androidx.recyclerview.widget.RecyclerView
                         android:id="@+id/recyclerCast"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:visibility="gone" 
                         android:layout_marginTop="10dp"
                         android:layout_marginBottom="10dp"
                         android:orientation="horizontal"

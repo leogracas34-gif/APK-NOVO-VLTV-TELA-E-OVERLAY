@@ -287,8 +287,6 @@ class DetailsActivity : AppCompatActivity() {
                                         .load(finalUrl)
                                         .diskCacheStrategy(DiskCacheStrategy.ALL)
                                         .dontAnimate()
-                                        .placeholder(null)
-                                        .priority(Priority.IMMEDIATE)
                                         .into(imgLogo)
                                 }
                             }
@@ -319,26 +317,24 @@ class DetailsActivity : AppCompatActivity() {
                         if (gs != null) {
                             for (i in 0 until gs.length()) genresList.add(gs.getJSONObject(i).getString("name"))
                         }
-                        
-                        // ✅ ALTERAÇÃO: ELENCO APENAS EM TEXTO (MAIS RÁPIDO)
                         val castArray = d.optJSONObject("credits")?.optJSONArray("cast")
-                        val castNamesList = mutableListOf<String>()
+                        val castMemberList = mutableListOf<CastMember>()
                         if (castArray != null) {
                             val limit = if (castArray.length() > 10) 10 else castArray.length()
                             for (i in 0 until limit) {
                                 val actorJson = castArray.getJSONObject(i)
-                                castNamesList.add(actorJson.getString("name"))
+                                castMemberList.add(CastMember(
+                                    actorJson.getString("name"),
+                                    actorJson.optString("profile_path")
+                                ))
                             }
                         }
-                        
                         runOnUiThread {
                             tvGenre.text = "Gênero: ${if (genresList.isEmpty()) "Diversos" else genresList.joinToString(", ")}"
-                            
-                            // Exibe o elenco no TextView tvCast em vez de usar o RecyclerView
-                            tvCast.text = "Elenco: ${if (castNamesList.isEmpty()) "Não disponível" else castNamesList.joinToString(", ")}"
-                            
-                            // Esconde o RecyclerView de fotos para limpar o layout
-                            findViewById<RecyclerView>(R.id.recyclerCast).visibility = View.GONE
+                            findViewById<RecyclerView>(R.id.recyclerCast).apply {
+                                layoutManager = LinearLayoutManager(this@DetailsActivity, LinearLayoutManager.HORIZONTAL, false)
+                                adapter = CastAdapter(castMemberList)
+                            }
                         }
                     } catch (e: Exception) { e.printStackTrace() }
                 }

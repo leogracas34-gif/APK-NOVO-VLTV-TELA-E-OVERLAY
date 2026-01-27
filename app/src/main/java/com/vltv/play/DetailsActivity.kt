@@ -98,8 +98,8 @@ class DetailsActivity : AppCompatActivity() {
         setupEventos()
         setupEpisodesRecycler()
 
-        // ✅ MEMÓRIA DE LOGOS: Tenta carregar do cache interno antes de ir na internet
-        tentarCarregarLogoCache()
+        // ✅ CARREGA TUDO DO CACHE (Logo e Textos) IMEDIATAMENTE
+        tentarCarregarTudoCache()
 
         sincronizarDadosTMDB()
     }
@@ -119,8 +119,8 @@ class DetailsActivity : AppCompatActivity() {
         imgPoster = findViewById(R.id.imgPoster)
         tvTitle = findViewById(R.id.tvTitle)
         
-        // Esconde o texto por padrão para não ter delay visual
-        tvTitle.visibility = View.INVISIBLE 
+        tvTitle.visibility = View.VISIBLE 
+        tvTitle.text = name
 
         tvRating = findViewById(R.id.tvRating)
         tvGenre = findViewById(R.id.tvGenre)
@@ -150,11 +150,10 @@ class DetailsActivity : AppCompatActivity() {
     }
 
     private fun carregarConteudo() {
-        // tvTitle.text = name // Mantemos invisível até a logo carregar ou falhar
         tvRating.text = "⭐ $rating"
-        tvGenre.text = "Gênero: Carregando..."
+        tvGenre.text = "Gênero: ..."
         tvCast.text = "Elenco:"
-        tvPlot.text = "Carregando sinopse..."
+        tvPlot.text = "A carregar..."
         tvYear?.text = "" 
 
         Glide.with(this).load(icon).placeholder(android.R.drawable.ic_menu_gallery).into(imgPoster)
@@ -174,15 +173,28 @@ class DetailsActivity : AppCompatActivity() {
         restaurarEstadoDownload()
     }
 
-    // ✅ Tenta carregar a logo do cache SharedPreferences IMEDIATAMENTE
-    private fun tentarCarregarLogoCache() {
-        val prefs = getSharedPreferences("vltv_logos_cache", Context.MODE_PRIVATE)
+    // ✅ MÉTODO DE ACELERAÇÃO: Carrega Logo e Textos sem delay
+    private fun tentarCarregarTudoCache() {
+        val prefs = getSharedPreferences("vltv_data_cache", Context.MODE_PRIVATE)
         val cachedUrl = prefs.getString("logo_$streamId", null)
-        val cachedName = prefs.getString("name_$streamId", "") // ✅ NOVO: Verifica o nome salvo
+        val cachedTitle = prefs.getString("title_$streamId", null)
+        val cachedPlot = prefs.getString("plot_$streamId", null)
+        val cachedCast = prefs.getString("cast_$streamId", null)
+        val cachedGenre = prefs.getString("genre_$streamId", null)
+        val cachedYear = prefs.getString("year_$streamId", null)
+
         val imgLogo = findViewById<ImageView>(R.id.imgTitleLogo)
 
-        // ✅ Só mostra o cache se o nome bater com o filme atual
-        if (cachedUrl != null && imgLogo != null && cachedName == name) {
+        // Se tiver o título e logo salvos para ESTE streamId, mostra na hora
+        if (cachedTitle != null) {
+            tvTitle.text = cachedTitle
+            tvPlot.text = cachedPlot
+            tvCast.text = cachedCast
+            tvGenre.text = cachedGenre
+            tvYear?.text = cachedYear
+        }
+
+        if (cachedUrl != null && imgLogo != null) {
             imgLogo.visibility = View.VISIBLE
             tvTitle.visibility = View.GONE
             Glide.with(this)
@@ -190,7 +202,7 @@ class DetailsActivity : AppCompatActivity() {
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .priority(Priority.IMMEDIATE)
                 .dontAnimate()
-                .placeholder(imgLogo.drawable) // SEGURA A IMAGEM (TRAVA PISCAR)
+                .placeholder(imgLogo.drawable)
                 .into(imgLogo)
         }
     }
@@ -214,8 +226,7 @@ class DetailsActivity : AppCompatActivity() {
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
                 runOnUiThread { 
-                    tvPlot.text = "Falha na conexão." 
-                    tvTitle.visibility = View.VISIBLE 
+                    if (tvPlot.text.toString().contains("...")) tvPlot.text = "Falha na conexão." 
                 }
             }
 
@@ -227,7 +238,6 @@ class DetailsActivity : AppCompatActivity() {
                         val results = jsonObject.optJSONArray("results")
                         if (results != null && results.length() > 0) {
                             
-                            // ✅ MATCH INTELIGENTE: Procura o filme certo na lista comparando nomes
                             var selectedMovie = results.getJSONObject(0)
                             for (i in 0 until results.length()) {
                                 val item = results.getJSONObject(i)
@@ -244,20 +254,26 @@ class DetailsActivity : AppCompatActivity() {
 
                             runOnUiThread {
                                 val tituloOficial = if (selectedMovie.has("title")) selectedMovie.getString("title") else selectedMovie.optString("name")
-                                if (tituloOficial.isNotEmpty()) tvTitle.text = tituloOficial
+                                if (tituloOficial.isNotEmpty()) {
+                                    tvTitle.text = tituloOficial
+                                    getSharedPreferences("vltv_data_cache", Context.MODE_PRIVATE).edit().putString("title_$streamId", tituloOficial).apply()
+                                }
                                 
                                 val date = if (isSeries) selectedMovie.optString("first_air_date") else selectedMovie.optString("release_date")
-                                if (date.length >= 4) tvYear?.text = date.substring(0, 4)
+                                if (date.length >= 4) {
+                                    val yr = date.substring(0, 4)
+                                    tvYear?.text = yr
+                                    getSharedPreferences("vltv_data_cache", Context.MODE_PRIVATE).edit().putString("year_$streamId", yr).apply()
+                                }
+
                                 val sinopse = selectedMovie.optString("overview")
-                                tvPlot.text = if (sinopse.isNotEmpty()) sinopse else "Sinopse indisponível."
+                                if (sinopse.isNotEmpty()) {
+                                    tvPlot.text = sinopse
+                                    getSharedPreferences("vltv_data_cache", Context.MODE_PRIVATE).edit().putString("plot_$streamId", sinopse).apply()
+                                }
+
                                 val vote = selectedMovie.optDouble("vote_average", 0.0)
                                 if (vote > 0) tvRating.text = "⭐ ${String.format("%.1f", vote)}"
-                            }
-                        } else {
-                            runOnUiThread { 
-                                tvPlot.text = "Informações não encontradas." 
-                                tvTitle.visibility = View.VISIBLE 
-                                tvTitle.text = name
                             }
                         }
                     } catch (e: Exception) { e.printStackTrace() }
@@ -287,12 +303,8 @@ class DetailsActivity : AppCompatActivity() {
                             if (logoPath == null) logoPath = logos.getJSONObject(0).getString("file_path")
                             val finalUrl = "https://image.tmdb.org/t/p/w500$logoPath"
                             
-                            // ✅ SALVA NO CACHE INTERNO COM O NOME PARA VALIDAR DEPOIS
-                            getSharedPreferences("vltv_logos_cache", Context.MODE_PRIVATE)
-                                .edit()
-                                .putString("logo_$streamId", finalUrl)
-                                .putString("name_$streamId", name) // ✅ NOVO: Salva nome
-                                .apply()
+                            getSharedPreferences("vltv_data_cache", Context.MODE_PRIVATE)
+                                .edit().putString("logo_$streamId", finalUrl).apply()
 
                             runOnUiThread {
                                 val imgLogo = findViewById<ImageView>(R.id.imgTitleLogo)
@@ -308,17 +320,11 @@ class DetailsActivity : AppCompatActivity() {
                                         .into(imgLogo)
                                 }
                             }
-                        } else {
-                            runOnUiThread { tvTitle.visibility = View.VISIBLE }
                         }
-                    } catch (e: Exception) {
-                        runOnUiThread { tvTitle.visibility = View.VISIBLE }
-                    }
+                    } catch (e: Exception) { e.printStackTrace() }
                 }
             }
-            override fun onFailure(call: Call, e: IOException) {
-                runOnUiThread { tvTitle.visibility = View.VISIBLE }
-            }
+            override fun onFailure(call: Call, e: IOException) {}
         })
     }
 
@@ -336,23 +342,28 @@ class DetailsActivity : AppCompatActivity() {
                             for (i in 0 until gs.length()) genresList.add(gs.getJSONObject(i).getString("name"))
                         }
                         
-                        // --- ELENCO COMO TEXTO ---
                         val castArray = d.optJSONObject("credits")?.optJSONArray("cast")
                         val castNamesList = mutableListOf<String>()
-                        
                         if (castArray != null) {
                             val limit = if (castArray.length() > 15) 15 else castArray.length()
                             for (i in 0 until limit) {
-                                val actorJson = castArray.getJSONObject(i)
-                                castNamesList.add(actorJson.getString("name"))
+                                castNamesList.add(castArray.getJSONObject(i).getString("name"))
                             }
                         }
                         
                         runOnUiThread {
-                            tvGenre.text = "Gênero: ${if (genresList.isEmpty()) "Diversos" else genresList.joinToString(", ")}"
-                            val textoElenco = if (castNamesList.isEmpty()) "Indisponível" else "Elenco: " + castNamesList.joinToString(", ")
-                            tvCast.text = textoElenco
+                            val gn = "Gênero: ${if (genresList.isEmpty()) "Diversos" else genresList.joinToString(", ")}"
+                            tvGenre.text = gn
                             
+                            val el = if (castNamesList.isEmpty()) "Elenco: Indisponível" else "Elenco: " + castNamesList.joinToString(", ")
+                            tvCast.text = el
+                            
+                            // ✅ SALVA TEXTOS NO CACHE
+                            getSharedPreferences("vltv_data_cache", Context.MODE_PRIVATE).edit()
+                                .putString("genre_$streamId", gn)
+                                .putString("cast_$streamId", el)
+                                .apply()
+
                             findViewById<RecyclerView>(R.id.recyclerCast).adapter = null
                         }
                     } catch (e: Exception) { e.printStackTrace() }

@@ -98,7 +98,7 @@ class DetailsActivity : AppCompatActivity() {
         setupEventos()
         setupEpisodesRecycler()
 
-        // ✅ CARREGA TUDO DO CACHE (Logo e Textos) IMEDIATAMENTE
+        // ✅ Lógica Netflix: Carrega o cache completo (Logo + Textos) antes de ir na internet
         tentarCarregarTudoCache()
 
         sincronizarDadosTMDB()
@@ -151,9 +151,7 @@ class DetailsActivity : AppCompatActivity() {
 
     private fun carregarConteudo() {
         tvRating.text = "⭐ $rating"
-        tvGenre.text = "Gênero: ..."
-        tvCast.text = "Elenco:"
-        tvPlot.text = "A carregar..."
+        if (tvPlot.text.isNullOrEmpty() || tvPlot.text == "...") tvPlot.text = "Carregando..."
         tvYear?.text = "" 
 
         Glide.with(this).load(icon).placeholder(android.R.drawable.ic_menu_gallery).into(imgPoster)
@@ -173,7 +171,7 @@ class DetailsActivity : AppCompatActivity() {
         restaurarEstadoDownload()
     }
 
-    // ✅ MÉTODO DE ACELERAÇÃO: Carrega Logo e Textos sem delay
+    // ✅ NOVO: Tenta carregar TUDO o que já foi salvo para este StreamId (Instantâneo)
     private fun tentarCarregarTudoCache() {
         val prefs = getSharedPreferences("vltv_data_cache", Context.MODE_PRIVATE)
         val cachedUrl = prefs.getString("logo_$streamId", null)
@@ -185,7 +183,6 @@ class DetailsActivity : AppCompatActivity() {
 
         val imgLogo = findViewById<ImageView>(R.id.imgTitleLogo)
 
-        // Se tiver o título e logo salvos para ESTE streamId, mostra na hora
         if (cachedTitle != null) {
             tvTitle.text = cachedTitle
             tvPlot.text = cachedPlot
@@ -208,9 +205,18 @@ class DetailsActivity : AppCompatActivity() {
     }
 
     private fun sincronizarDadosTMDB() {
-        val apiKey = "9b73f5dd15b8165b1b57419be2f29128"
+        val prefs = getSharedPreferences("vltv_data_cache", Context.MODE_PRIVATE)
+        val tmdbId = prefs.getInt("tmdb_id_$streamId", -1)
         val type = if (isSeries) "tv" else "movie"
-        
+        val apiKey = "9b73f5dd15b8165b1b57419be2f29128"
+
+        // ✅ Atalho: Se já conhecemos o ID, pula a pesquisa e vai direto nos dados
+        if (tmdbId != -1) {
+            buscarLogoOverlayTraduzida(tmdbId, type, apiKey)
+            buscarDetalhesCompletos(tmdbId, type, apiKey)
+            return
+        }
+
         var cleanName = name
         cleanName = cleanName.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
         cleanName = cleanName.replace(Regex("\\b\\d{4}\\b"), "")
@@ -224,12 +230,7 @@ class DetailsActivity : AppCompatActivity() {
         val request = Request.Builder().url(url).build()
 
         client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                runOnUiThread { 
-                    if (tvPlot.text.toString().contains("...")) tvPlot.text = "Falha na conexão." 
-                }
-            }
-
+            override fun onFailure(call: Call, e: IOException) {}
             override fun onResponse(call: Call, response: Response) {
                 val body = response.body()?.string()
                 if (body != null) {
@@ -249,6 +250,8 @@ class DetailsActivity : AppCompatActivity() {
                             }
 
                             val idTmdb = selectedMovie.getInt("id")
+                            prefs.edit().putInt("tmdb_id_$streamId", idTmdb).apply()
+
                             buscarLogoOverlayTraduzida(idTmdb, type, apiKey)
                             buscarDetalhesCompletos(idTmdb, type, apiKey)
 
@@ -256,22 +259,20 @@ class DetailsActivity : AppCompatActivity() {
                                 val tituloOficial = if (selectedMovie.has("title")) selectedMovie.getString("title") else selectedMovie.optString("name")
                                 if (tituloOficial.isNotEmpty()) {
                                     tvTitle.text = tituloOficial
-                                    getSharedPreferences("vltv_data_cache", Context.MODE_PRIVATE).edit().putString("title_$streamId", tituloOficial).apply()
+                                    prefs.edit().putString("title_$streamId", tituloOficial).apply()
                                 }
                                 
                                 val date = if (isSeries) selectedMovie.optString("first_air_date") else selectedMovie.optString("release_date")
                                 if (date.length >= 4) {
                                     val yr = date.substring(0, 4)
                                     tvYear?.text = yr
-                                    getSharedPreferences("vltv_data_cache", Context.MODE_PRIVATE).edit().putString("year_$streamId", yr).apply()
+                                    prefs.edit().putString("year_$streamId", yr).apply()
                                 }
-
                                 val sinopse = selectedMovie.optString("overview")
                                 if (sinopse.isNotEmpty()) {
                                     tvPlot.text = sinopse
-                                    getSharedPreferences("vltv_data_cache", Context.MODE_PRIVATE).edit().putString("plot_$streamId", sinopse).apply()
+                                    prefs.edit().putString("plot_$streamId", sinopse).apply()
                                 }
-
                                 val vote = selectedMovie.optDouble("vote_average", 0.0)
                                 if (vote > 0) tvRating.text = "⭐ ${String.format("%.1f", vote)}"
                             }
@@ -311,7 +312,6 @@ class DetailsActivity : AppCompatActivity() {
                                 if (imgLogo != null) {
                                     tvTitle.visibility = View.GONE
                                     imgLogo.visibility = View.VISIBLE
-                                    
                                     Glide.with(this@DetailsActivity)
                                         .load(finalUrl)
                                         .diskCacheStrategy(DiskCacheStrategy.ALL)
@@ -354,11 +354,9 @@ class DetailsActivity : AppCompatActivity() {
                         runOnUiThread {
                             val gn = "Gênero: ${if (genresList.isEmpty()) "Diversos" else genresList.joinToString(", ")}"
                             tvGenre.text = gn
-                            
                             val el = if (castNamesList.isEmpty()) "Elenco: Indisponível" else "Elenco: " + castNamesList.joinToString(", ")
                             tvCast.text = el
                             
-                            // ✅ SALVA TEXTOS NO CACHE
                             getSharedPreferences("vltv_data_cache", Context.MODE_PRIVATE).edit()
                                 .putString("genre_$streamId", gn)
                                 .putString("cast_$streamId", el)

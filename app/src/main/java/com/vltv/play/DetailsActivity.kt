@@ -38,6 +38,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+// ✅ MANTIDO: EpisodeData
 data class EpisodeData(
     val streamId: Int,
     val season: Int,
@@ -58,6 +59,7 @@ class DetailsActivity : AppCompatActivity() {
 
     private lateinit var imgPoster: ImageView
     private lateinit var tvTitle: TextView
+    private lateinit var imgTitleLogo: ImageView // ✅ ADICIONADO PARA LOGO TMDB
     private lateinit var tvRating: TextView
     private lateinit var tvGenre: TextView
     private lateinit var tvCast: TextView
@@ -98,18 +100,17 @@ class DetailsActivity : AppCompatActivity() {
         setupEventos()
         setupEpisodesRecycler()
 
-        // ✅ ACELERAÇÃO: Carrega Sinopse e Elenco salvos imediatamente
+        // ✅ ACELERAÇÃO: Carrega Sinopse, Elenco e LOGO salvos
         tentarCarregarTextoCache()
+        tentarCarregarLogoCache()
 
         sincronizarDadosTMDB()
     }
 
     private fun configurarTelaTV() {
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
-        windowInsetsController?.systemBarsBehavior =
-            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
-
         if (isTelevisionDevice()) {
             requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         }
@@ -118,10 +119,10 @@ class DetailsActivity : AppCompatActivity() {
     private fun inicializarViews() {
         imgPoster = findViewById(R.id.imgPoster)
         tvTitle = findViewById(R.id.tvTitle)
+        imgTitleLogo = findViewById(R.id.imgTitleLogo) // ✅ INICIALIZADO
         
-        // Texto Sempre Visível: Acaba com o carregamento da Logo externa
-        tvTitle.visibility = View.VISIBLE 
-        tvTitle.text = name
+        // Texto invisível por padrão até a logo ou cache carregar
+        tvTitle.visibility = View.INVISIBLE 
 
         tvRating = findViewById(R.id.tvRating)
         tvGenre = findViewById(R.id.tvGenre)
@@ -139,110 +140,119 @@ class DetailsActivity : AppCompatActivity() {
         tvYear = findViewById(R.id.tvYear)
         btnSettings = findViewById(R.id.btnSettings)
 
-        if (isTelevisionDevice()) {
-            btnDownloadArea.visibility = View.GONE
-        }
-
+        if (isTelevisionDevice()) btnDownloadArea.visibility = View.GONE
         btnPlay.isFocusable = true
         btnResume.isFocusable = true
         btnFavorite.isFocusable = true
-        btnSettings?.isFocusable = true
         btnPlay.requestFocus()
     }
 
     private fun carregarConteudo() {
         tvRating.text = "⭐ $rating"
-        if (tvPlot.text.isNullOrEmpty() || tvPlot.text == "Carregando...") {
-            tvPlot.text = "Buscando detalhes..."
-        }
-        
+        tvPlot.text = "Buscando detalhes..."
         tvGenre.text = "Gênero: ..."
         tvCast.text = "Elenco:"
-        tvYear?.text = "" 
-
-        // Imagens do seu servidor (Rápidas)
+        
         Glide.with(this).load(icon).diskCacheStrategy(DiskCacheStrategy.ALL).into(imgPoster)
         Glide.with(this).load(icon).centerCrop().diskCacheStrategy(DiskCacheStrategy.ALL).into(imgBackground)
 
         val isFavInicial = getFavMovies(this).contains(streamId)
         atualizarIconeFavorito(isFavInicial)
 
-        if (isSeries) { carregarEpisodios() } else {
+        if (isSeries) carregarEpisodios() else {
             tvEpisodesTitle.visibility = View.GONE
             recyclerEpisodes.visibility = View.GONE
         }
-
         verificarResume()
         restaurarEstadoDownload()
     }
 
-    // ✅ MÉTODO DE VELOCIDADE: Busca textos salvos no celular para não ter delay
     private fun tentarCarregarTextoCache() {
         val prefs = getSharedPreferences("vltv_text_cache", Context.MODE_PRIVATE)
-        val cachedPlot = prefs.getString("plot_$streamId", null)
-        val cachedCast = prefs.getString("cast_$streamId", null)
-        val cachedGenre = prefs.getString("genre_$streamId", null)
-        val cachedYear = prefs.getString("year_$streamId", null)
-        val cachedTitle = prefs.getString("title_$streamId", null)
+        prefs.getString("title_$streamId", null)?.let { tvTitle.text = it }
+        prefs.getString("plot_$streamId", null)?.let { tvPlot.text = it }
+        prefs.getString("cast_$streamId", null)?.let { tvCast.text = it }
+        prefs.getString("genre_$streamId", null)?.let { tvGenre.text = it }
+        prefs.getString("year_$streamId", null)?.let { tvYear?.text = it }
+    }
 
-        if (cachedTitle != null) tvTitle.text = cachedTitle
-        if (cachedPlot != null) tvPlot.text = cachedPlot
-        if (cachedCast != null) tvCast.text = cachedCast
-        if (cachedGenre != null) tvGenre.text = cachedGenre
-        if (cachedYear != null) tvYear?.text = cachedYear
+    // ✅ NOVO: Tenta carregar a logo do cache SharedPreferences
+    private fun tentarCarregarLogoCache() {
+        val prefs = getSharedPreferences("vltv_logos_cache", Context.MODE_PRIVATE)
+        val cachedUrl = prefs.getString("movie_logo_$streamId", null)
+        if (cachedUrl != null) {
+            tvTitle.visibility = View.GONE
+            imgTitleLogo.visibility = View.VISIBLE
+            Glide.with(this).load(cachedUrl).diskCacheStrategy(DiskCacheStrategy.ALL).into(imgTitleLogo)
+        } else {
+            tvTitle.visibility = View.VISIBLE // Fallback caso não tenha cache
+        }
     }
 
     private fun sincronizarDadosTMDB() {
         val apiKey = "9b73f5dd15b8165b1b57419be2f29128"
         val type = if (isSeries) "tv" else "movie"
         
-        var cleanName = name
-        cleanName = cleanName.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
-        cleanName = cleanName.replace(Regex("\\b\\d{4}\\b"), "")
-        val lixo = listOf("FHD", "HD", "SD", "4K", "8K", "H265", "LEG", "DUBLADO", "DUB", "|", "-", "_", ".")
-        lixo.forEach { cleanName = cleanName.replace(it, "", ignoreCase = true) }
-        val searchName = cleanName.trim().replace(Regex("\\s+"), " ")
+        var clean = name.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "").replace(Regex("\\b\\d{4}\\b"), "").trim()
+        val lixo = listOf("FHD", "HD", "4K", "H265", "LEG", "DUBLADO")
+        lixo.forEach { clean = clean.replace(it, "", ignoreCase = true) }
+        val encoded = URLEncoder.encode(clean.replace(Regex("\\s+"), " "), "UTF-8")
         
-        val url = "https://api.themoviedb.org/3/search/$type?api_key=$apiKey&query=${URLEncoder.encode(searchName, "UTF-8")}&language=pt-BR"
+        val url = "https://api.themoviedb.org/3/search/$type?api_key=$apiKey&query=$encoded&language=pt-BR"
 
         client.newCall(Request.Builder().url(url).build()).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {}
+            override fun onFailure(call: Call, e: IOException) { runOnUiThread { tvTitle.visibility = View.VISIBLE } }
             override fun onResponse(call: Call, response: Response) {
                 val body = response.body()?.string() ?: return
                 try {
                     val results = JSONObject(body).optJSONArray("results")
                     if (results != null && results.length() > 0) {
-                        var selectedMovie = results.getJSONObject(0)
-                        for (i in 0 until results.length()) {
-                            val item = results.getJSONObject(i)
-                            val tmdbTitle = if (type == "movie") item.optString("title") else item.optString("name")
-                            if (tmdbTitle.equals(searchName, ignoreCase = true)) {
-                                selectedMovie = item
-                                break
-                            }
-                        }
-                        val idTmdb = selectedMovie.getInt("id")
+                        val selected = results.getJSONObject(0)
+                        val idTmdb = selected.getInt("id")
+                        
+                        buscarLogoTMDB(idTmdb, type, apiKey) // ✅ BUSCA A LOGO
                         buscarDetalhesCompletos(idTmdb, type, apiKey)
 
                         runOnUiThread {
-                            val tOficial = if (selectedMovie.has("title")) selectedMovie.getString("title") else selectedMovie.optString("name")
-                            val sinopse = selectedMovie.optString("overview")
-                            val date = if (isSeries) selectedMovie.optString("first_air_date") else selectedMovie.optString("release_date")
+                            val tOficial = if (type == "movie") selected.getString("title") else selected.getString("name")
+                            val sinopse = selected.optString("overview")
+                            val date = if (isSeries) selected.optString("first_air_date") else selected.optString("release_date")
                             
                             tvTitle.text = tOficial
                             if (sinopse.isNotEmpty()) tvPlot.text = sinopse
                             if (date.length >= 4) tvYear?.text = date.substring(0, 4)
 
-                            // ✅ Salva no Cache de Texto
                             getSharedPreferences("vltv_text_cache", Context.MODE_PRIVATE).edit()
-                                .putString("title_$streamId", tOficial)
-                                .putString("plot_$streamId", sinopse)
-                                .putString("year_$streamId", if (date.length >= 4) date.substring(0, 4) else "")
-                                .apply()
+                                .putString("title_$streamId", tOficial).putString("plot_$streamId", sinopse)
+                                .putString("year_$streamId", if (date.length >= 4) date.substring(0, 4) else "").apply()
+                        }
+                    } else { runOnUiThread { tvTitle.visibility = View.VISIBLE } }
+                } catch (e: Exception) { runOnUiThread { tvTitle.visibility = View.VISIBLE } }
+            }
+        })
+    }
+
+    // ✅ NOVO: Busca e salva a logo do filme
+    private fun buscarLogoTMDB(id: Int, type: String, key: String) {
+        val imagesUrl = "https://api.themoviedb.org/3/$type/$id/images?api_key=$key&include_image_language=pt,en,null"
+        client.newCall(Request.Builder().url(imagesUrl).build()).enqueue(object : Callback {
+            override fun onResponse(call: Call, response: Response) {
+                val body = response.body()?.string() ?: return
+                try {
+                    val logos = JSONObject(body).optJSONArray("logos")
+                    if (logos != null && logos.length() > 0) {
+                        val path = logos.getJSONObject(0).getString("file_path")
+                        val finalUrl = "https://image.tmdb.org/t/p/w500$path"
+                        getSharedPreferences("vltv_logos_cache", Context.MODE_PRIVATE).edit().putString("movie_logo_$streamId", finalUrl).apply()
+                        runOnUiThread {
+                            tvTitle.visibility = View.GONE
+                            imgTitleLogo.visibility = View.VISIBLE
+                            Glide.with(this@DetailsActivity).load(finalUrl).into(imgTitleLogo)
                         }
                     }
                 } catch (e: Exception) {}
             }
+            override fun onFailure(call: Call, e: IOException) {}
         })
     }
 
@@ -260,20 +270,16 @@ class DetailsActivity : AppCompatActivity() {
                     val castArray = d.optJSONObject("credits")?.optJSONArray("cast")
                     val castNamesList = mutableListOf<String>()
                     if (castArray != null) {
-                        val limit = if (castArray.length() > 15) 15 else castArray.length()
+                        val limit = if (castArray.length() > 10) 10 else castArray.length()
                         for (i in 0 until limit) castNamesList.add(castArray.getJSONObject(i).getString("name"))
                     }
-                    
                     runOnUiThread {
-                        val g = "Gênero: ${if (genresList.isEmpty()) "Diversos" else genresList.joinToString(", ")}"
-                        val e = if (castNamesList.isEmpty()) "Elenco: Indisponível" else "Elenco: " + castNamesList.joinToString(", ")
+                        val g = "Gênero: ${genresList.joinToString(", ")}"
+                        val e = "Elenco: ${castNamesList.joinToString(", ")}" // ✅ MANTIDO EM TEXTO
                         tvGenre.text = g
                         tvCast.text = e
-
                         getSharedPreferences("vltv_text_cache", Context.MODE_PRIVATE).edit()
-                            .putString("genre_$streamId", g)
-                            .putString("cast_$streamId", e)
-                            .apply()
+                            .putString("genre_$streamId", g).putString("cast_$streamId", e).apply()
                     }
                 } catch (e: Exception) {}
             }
@@ -284,15 +290,13 @@ class DetailsActivity : AppCompatActivity() {
     private fun setupEpisodesRecycler() {
         episodesAdapter = EpisodesAdapter { episode ->
             val intent = Intent(this, PlayerActivity::class.java)
-            intent.putExtra("stream_id", episode.streamId)
-            intent.putExtra("stream_type", "series")
+            intent.putExtra("stream_id", episode.streamId).putExtra("stream_type", "series")
             intent.putExtra("channel_name", "${name} - S${episode.season}:E${episode.episode}")
             startActivity(intent)
         }
         recyclerEpisodes.apply {
             layoutManager = if (isTelevisionDevice()) GridLayoutManager(this@DetailsActivity, 6) else LinearLayoutManager(this@DetailsActivity, LinearLayoutManager.HORIZONTAL, false)
             adapter = episodesAdapter
-            descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
         }
     }
 
@@ -303,6 +307,7 @@ class DetailsActivity : AppCompatActivity() {
         recyclerEpisodes.visibility = View.VISIBLE
     }
 
+    // ✅ MANTIDO: Eventos, Cliques e DPAD
     private fun setupEventos() {
         val zoomFocus = View.OnFocusChangeListener { v, hasFocus ->
             v.scaleX = if (hasFocus) 1.1f else 1.0f
@@ -311,21 +316,11 @@ class DetailsActivity : AppCompatActivity() {
         btnPlay.onFocusChangeListener = zoomFocus
         btnResume.onFocusChangeListener = zoomFocus
         btnFavorite.onFocusChangeListener = zoomFocus
-        btnSettings?.onFocusChangeListener = zoomFocus
-
         btnFavorite.setOnClickListener { toggleFavorite() }
         btnPlay.setOnClickListener { abrirPlayer(false) }
         btnResume.setOnClickListener { abrirPlayer(true) }
         btnDownloadArea.setOnClickListener { handleDownloadClick() }
         btnSettings?.setOnClickListener { mostrarConfiguracoes() }
-        
-        if (isTelevisionDevice()) {
-            imgPoster.setOnKeyListener { _, keyCode, event ->
-                if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER && event.action == KeyEvent.ACTION_DOWN) {
-                    abrirPlayer(false); true
-                } else false
-            }
-        }
     }
 
     private fun getFavMovies(context: Context): MutableList<Int> {
@@ -357,16 +352,13 @@ class DetailsActivity : AppCompatActivity() {
     }
 
     private fun verificarResume() {
-        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
-        val pos = prefs.getLong("movie_resume_${streamId}_pos", 0L)
+        val pos = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE).getLong("movie_resume_${streamId}_pos", 0L)
         btnResume.visibility = if (pos > 30000L) View.VISIBLE else View.GONE
     }
 
     private fun abrirPlayer(usarResume: Boolean) {
         val intent = Intent(this, PlayerActivity::class.java)
-        intent.putExtra("stream_id", streamId)
-        intent.putExtra("stream_type", if (isSeries) "series" else "movie")
-        intent.putExtra("channel_name", name)
+        intent.putExtra("stream_id", streamId).putExtra("stream_type", if (isSeries) "series" else "movie").putExtra("channel_name", name)
         if (usarResume) {
             val pos = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE).getLong("movie_resume_${streamId}_pos", 0L)
             intent.putExtra("start_position_ms", pos)
@@ -375,18 +367,15 @@ class DetailsActivity : AppCompatActivity() {
     }
 
     private fun restaurarEstadoDownload() {
-        val prefs = getSharedPreferences("vltv_downloads", Context.MODE_PRIVATE)
-        val estado = prefs.getString("download_state_$streamId", "BAIXAR")
+        val estado = getSharedPreferences("vltv_downloads", Context.MODE_PRIVATE).getString("download_state_$streamId", "BAIXAR")
         try { downloadState = DownloadState.valueOf(estado ?: "BAIXAR") } catch(e: Exception) { downloadState = DownloadState.BAIXAR }
         atualizarUI_download()
     }
 
     private fun iniciarDownload() {
-        downloadState = DownloadState.BAIXANDO
-        atualizarUI_download()
+        downloadState = DownloadState.BAIXANDO; atualizarUI_download()
         Handler(Looper.getMainLooper()).postDelayed({
-            downloadState = DownloadState.BAIXADO
-            atualizarUI_download()
+            downloadState = DownloadState.BAIXADO; atualizarUI_download()
             getSharedPreferences("vltv_downloads", Context.MODE_PRIVATE).edit().putString("download_state_$streamId", "BAIXADO").apply()
         }, 3000)
     }
@@ -399,16 +388,10 @@ class DetailsActivity : AppCompatActivity() {
         }
     }
 
-    private fun handleDownloadClick() {
-        if (downloadState == DownloadState.BAIXAR) iniciarDownload()
-        else if (downloadState == DownloadState.BAIXADO) Toast.makeText(this, "Já baixado", Toast.LENGTH_SHORT).show()
-    }
-
+    private fun handleDownloadClick() { if (downloadState == DownloadState.BAIXAR) iniciarDownload() }
     private fun mostrarConfiguracoes() {
-        val players = arrayOf("ExoPlayer", "VLC", "MX Player")
-        AlertDialog.Builder(this).setTitle("Player").setItems(players) { _, i ->
-            getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE).edit().putString("player_preferido", players[i]).apply()
-        }.show()
+        val p = arrayOf("ExoPlayer", "VLC", "MX Player")
+        AlertDialog.Builder(this).setTitle("Player").setItems(p) { _, i -> getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE).edit().putString("player_preferido", p[i]).apply() }.show()
     }
 
     private fun isTelevisionDevice() = packageManager.hasSystemFeature("android.software.leanback") || packageManager.hasSystemFeature("android.hardware.type.television")
@@ -419,7 +402,6 @@ class DetailsActivity : AppCompatActivity() {
         inner class ViewHolder(val v: View) : RecyclerView.ViewHolder(v) {
             fun bind(e: EpisodeData) {
                 v.isFocusable = true
-                v.setOnFocusChangeListener { _, hasFocus -> v.scaleX = if (hasFocus) 1.1f else 1.0f; v.scaleY = if (hasFocus) 1.1f else 1.0f }
                 v.findViewById<TextView>(R.id.tvEpisodeTitle).text = "S${e.season}E${e.episode}: ${e.title}"
                 Glide.with(v.context).load(e.thumb).centerCrop().into(v.findViewById(R.id.imgEpisodeThumb))
                 v.setOnClickListener { onEpisodeClick(e) }

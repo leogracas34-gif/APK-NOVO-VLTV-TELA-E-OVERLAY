@@ -58,11 +58,9 @@
                     <ImageView
                         android:id="@+id/imgTitleLogo"
                         android:layout_width="match_parent"
-                        android:layout_height="100dp"
+                        android:layout_height="80dp"
                         android:layout_marginBottom="8dp"
                         android:scaleType="fitStart"
-                        android:duplicateParentState="true"
-                        android:layerType="hardware"
                         android:visibility="gone" />
 
                     <TextView
@@ -112,20 +110,16 @@
                         android:layout_marginTop="12dp"
                         android:text="Elenco:"
                         android:textColor="#FFFFFF"
-                        android:textSize="13sp"
-                        android:maxLines="4"
-                        android:ellipsize="end"
-                        android:lineSpacingExtra="3dp" />
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
 
                     <androidx.recyclerview.widget.RecyclerView
                         android:id="@+id/recyclerCast"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:visibility="gone"
                         android:layout_marginTop="4dp"
                         android:orientation="horizontal"
                         app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
-                    
                     <TextView
                         android:id="@+id/tvPlot"
                         android:layout_width="match_parent"

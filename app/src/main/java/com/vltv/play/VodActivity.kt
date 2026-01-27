@@ -27,7 +27,7 @@ import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
 
-// --- IMPORTAÇÕES ADICIONADAS PARA A PERFORMANCE ---
+// --- IMPORTAÃ‡Ã•ES ADICIONADAS PARA A PERFORMANCE ---
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -47,7 +47,7 @@ class VodActivity : AppCompatActivity() {
     private var password = ""
     private lateinit var prefs: SharedPreferences
 
-    // Cache em memória
+    // Cache em memÃ³ria
     private var cachedCategories: List<LiveCategory>? = null
     private val moviesCache = mutableMapOf<String, List<VodStream>>() // key = categoryId
     private var favMoviesCache: List<VodStream>? = null
@@ -55,7 +55,7 @@ class VodActivity : AppCompatActivity() {
     private var categoryAdapter: VodCategoryAdapter? = null
     private var moviesAdapter: VodAdapter? = null
 
-    // Função para checar se é TV Box ou Celular
+    // FunÃ§Ã£o para checar se Ã© TV Box ou Celular
     private fun isTelevision(context: Context): Boolean {
         val uiMode = context.resources.configuration.uiMode
         return (uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) == 
@@ -65,7 +65,7 @@ class VodActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // --- AQUI ESTÁ A MÁGICA ---
+        // --- AQUI ESTÃ A MÃGICA ---
         // Agora usamos o molde SEM PLAYER. A lista vai ocupar a tela toda.
         setContentView(R.layout.activity_vod) 
         // --------------------------
@@ -81,7 +81,7 @@ class VodActivity : AppCompatActivity() {
         progressBar = findViewById(R.id.progressBar)
         tvCategoryTitle = findViewById(R.id.tvCategoryTitle)
 
-        // ✅ BUSCA DIRETA (PULA A PONTE DO TECLADO)
+        // âœ… BUSCA DIRETA (PULA A PONTE DO TECLADO)
         val searchInput = findViewById<View>(R.id.etSearchContent)
         searchInput?.isFocusableInTouchMode = false // Impede abrir teclado aqui
         searchInput?.setOnClickListener {
@@ -94,7 +94,7 @@ class VodActivity : AppCompatActivity() {
         username = prefs.getString("username", "") ?: ""
         password = prefs.getString("password", "") ?: ""
 
-        // ✅ FOCO TV + D-PAD PERFEITO
+        // âœ… FOCO TV + D-PAD PERFEITO
         setupRecyclerFocus()
 
         rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
@@ -107,13 +107,13 @@ class VodActivity : AppCompatActivity() {
         rvMovies.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
         rvMovies.setHasFixedSize(true)
 
-        // ✅ Foco inicial categorias TV
+        // âœ… Foco inicial categorias TV
         rvCategories.requestFocus()
 
         carregarCategorias()
     }
 
-    // ✅ MELHOR NAVEGAÇÃO ENTRE RECYCLERVIEWS (TV)
+    // âœ… MELHOR NAVEGAÃ‡ÃƒO ENTRE RECYCLERVIEWS (TV)
     private fun setupRecyclerFocus() {
         rvCategories.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus) {
@@ -128,10 +128,10 @@ class VodActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ FUNÇÃO ATUALIZADA: DOUBLE PRELOAD (POSTER + LOGO TMDB)
+    // âœ… FUNÃ‡ÃƒO ATUALIZADA: DOUBLE PRELOAD (POSTER + LOGO TMDB)
     private fun preLoadImages(filmes: List<VodStream>) {
         CoroutineScope(Dispatchers.IO).launch {
-            // 1. Pré-carrega os posters (Até 40)
+            // 1. PrÃ©-carrega os posters (AtÃ© 40)
             val limitPosters = if (filmes.size > 40) 40 else filmes.size
             for (i in 0 until limitPosters) {
                 val url = filmes[i].icon
@@ -146,7 +146,7 @@ class VodActivity : AppCompatActivity() {
                 }
             }
 
-            // 2. ✅ NOVIDADE: Pré-carrega as Logos do TMDB (Somente as primeiras 15)
+            // 2. âœ… NOVIDADE: PrÃ©-carrega as Logos do TMDB (Somente as primeiras 15)
             val limitLogos = if (filmes.size > 15) 15 else filmes.size
             for (i in 0 until limitLogos) {
                 preLoadTmdbLogo(filmes[i].name)
@@ -154,7 +154,7 @@ class VodActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ FUNÇÃO AUXILIAR: BUSCA LOGO ANTES DE EXIBIR
+    // âœ… FUNÃ‡ÃƒO AUXILIAR: BUSCA LOGO ANTES DE EXIBIR
     private suspend fun preLoadTmdbLogo(rawName: String) {
         val TMDB_API_KEY = "9b73f5dd15b8165b1b57419be2f29128"
         var cleanName = rawName.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
@@ -167,17 +167,7 @@ class VodActivity : AppCompatActivity() {
             val results = JSONObject(searchJson).getJSONArray("results")
 
             if (results.length() > 0) {
-                // ✅ FILTRO DE MATCH EXATO NO PRELOAD
-                var bestResult = results.getJSONObject(0)
-                for (j in 0 until results.length()) {
-                    val obj = results.getJSONObject(j)
-                    if (obj.optString("title", "").equals(cleanName, ignoreCase = true)) {
-                        bestResult = obj
-                        break
-                    }
-                }
-                val movieId = bestResult.getString("id")
-                
+                val movieId = results.getJSONObject(0).getString("id")
                 val imagesJson = URL("https://api.themoviedb.org/3/movie/$movieId/images?api_key=$TMDB_API_KEY&include_image_language=pt,en,null").readText()
                 val logos = JSONObject(imagesJson).getJSONArray("logos")
                 
@@ -206,7 +196,7 @@ class VodActivity : AppCompatActivity() {
     }
 
     private fun carregarCategorias() {
-        // Usa cache se já tiver
+        // Usa cache se jÃ¡ tiver
         cachedCategories?.let { categoriasCacheadas ->
             aplicarCategorias(categoriasCacheadas)
             return
@@ -257,7 +247,7 @@ class VodActivity : AppCompatActivity() {
                     progressBar.visibility = View.GONE
                     Toast.makeText(
                         this@VodActivity,
-                        "Falha de conexão",
+                        "Falha de conexÃ£o",
                         Toast.LENGTH_SHORT
                     ).show()
                 }
@@ -266,7 +256,7 @@ class VodActivity : AppCompatActivity() {
 
     private fun aplicarCategorias(categorias: List<LiveCategory>) {
         if (categorias.isEmpty()) {
-            Toast.makeText(this, "Nenhuma categoria disponível.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Nenhuma categoria disponÃ­vel.", Toast.LENGTH_SHORT).show()
             rvCategories.adapter = VodCategoryAdapter(emptyList()) {}
             rvMovies.adapter = VodAdapter(emptyList(), {}, {})
             return
@@ -296,7 +286,7 @@ class VodActivity : AppCompatActivity() {
         // cache por categoria
         moviesCache[categoria.id]?.let { filmesCacheadas ->
             aplicarFilmes(filmesCacheadas)
-            preLoadImages(filmesCacheadas) // ✅ PRELOAD DO CACHE
+            preLoadImages(filmesCacheadas) // âœ… PRELOAD DO CACHE
             return
         }
 
@@ -321,7 +311,7 @@ class VodActivity : AppCompatActivity() {
                         }
 
                         aplicarFilmes(filmes)
-                        preLoadImages(filmes) // ✅ PRELOAD DA API
+                        preLoadImages(filmes) // âœ… PRELOAD DA API
                     }
                 }
 
@@ -341,7 +331,7 @@ class VodActivity : AppCompatActivity() {
             return
         }
 
-        // ✅ ACELERAÇÃO: Tenta encontrar os filmes já carregados na memória antes de ir na API
+        // âœ… ACELERAÃ‡ÃƒO: Tenta encontrar os filmes jÃ¡ carregados na memÃ³ria antes de ir na API
         val listaFavoritosInstantanea = mutableListOf<VodStream>()
         moviesCache.values.flatten().distinctBy { it.id }.forEach { filme ->
             if (favIds.contains(filme.id)) {
@@ -396,7 +386,7 @@ class VodActivity : AppCompatActivity() {
     }
 
     private fun getFavMovies(context: Context): MutableSet<Int> {
-        // ✅ CORREÇÃO: Lendo do caderninho correto 'vltv_favoritos' e da lista 'favoritos'
+        // âœ… CORREÃ‡ÃƒO: Lendo do caderninho correto 'vltv_favoritos' e da lista 'favoritos'
         val prefsFav = context.getSharedPreferences("vltv_favoritos", Context.MODE_PRIVATE)
         val set = prefsFav.getStringSet("favoritos", emptySet()) ?: emptySet()
         return set.mapNotNull { it.toIntOrNull() }.toMutableSet()
@@ -470,7 +460,7 @@ class VodActivity : AppCompatActivity() {
     private fun abrirDownloadsPremium(filme: VodStream) {
         Toast.makeText(
             this,
-            "Meus downloads (premium) – ${filme.name}",
+            "Meus downloads (premium) â€“ ${filme.name}",
             Toast.LENGTH_LONG
         ).show()
     }
@@ -566,18 +556,17 @@ class VodActivity : AppCompatActivity() {
             holder.imgLogo.setImageDrawable(null) // Limpa logo antiga (reciclagem)
             holder.imgLogo.visibility = View.INVISIBLE
             
-            // ✅ REMOVIDO: ESTRELA/DOWNLOAD NA CAPA (Grade limpa)
+            // âœ… REMOVIDO: ESTRELA/DOWNLOAD NA CAPA (Grade limpa)
             holder.imgDownload.visibility = View.GONE
 
-            // 2. Carrega o Pôster do IPTV (Fundo)
+            // 2. Carrega o PÃ´ster do IPTV (Fundo)
             val context = holder.itemView.context
             
-            // ✅ ESTRATÉGIA DE CACHE AGRESSIVA
+            // âœ… ESTRATÃ‰GIA DE CACHE AGRESSIVA
             Glide.with(context)
                 .load(item.icon)
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .priority(if (isTelevision(context)) Priority.HIGH else Priority.IMMEDIATE)
-                .dontAnimate() // ✅ EVITA PISCAR NO SCROLL
                 .thumbnail(0.1f)
                 .placeholder(R.drawable.bg_logo_placeholder)
                 .error(R.drawable.bg_logo_placeholder)
@@ -585,17 +574,17 @@ class VodActivity : AppCompatActivity() {
                 .into(holder.imgPoster)
 
             // 3. BUSCA LOGO NO TMDB (Estilo Disney)
-            searchTmdbLogo(item.name, holder.imgLogo, holder.tvName)
+            searchTmdbLogo(item.name, holder.imgLogo)
 
-            // 4. Animações de Foco (Zoom e Controle)
+            // 4. AnimaÃ§Ãµes de Foco (Zoom e Controle)
             holder.itemView.isFocusable = true
             holder.itemView.isClickable = true
             holder.itemView.setOnFocusChangeListener { view, hasFocus ->
                 if (hasFocus) {
                     view.animate().scaleX(1.1f).scaleY(1.1f).setDuration(150).start()
                     view.elevation = 10f
-                    // ✅ TRAVA: Só mostra o nome se o logo ainda não tiver carregado
-                    if (holder.imgLogo.visibility != View.VISIBLE) holder.tvName.visibility = View.VISIBLE
+                    // Se nÃ£o tiver logo, mostra o texto quando foca, para o usuÃ¡rio saber o nome
+                    if (holder.imgLogo.drawable == null) holder.tvName.visibility = View.VISIBLE
                     holder.tvName.setTextColor(0xFF00C6FF.toInt()) // Azul Neon
                     view.alpha = 1.0f
                 } else {
@@ -613,8 +602,8 @@ class VodActivity : AppCompatActivity() {
 
         override fun getItemCount() = list.size
 
-        // --- FUNÇÃO DE BUSCA COM LIMPEZA SUPER PODEROSA ---
-        private fun searchTmdbLogo(rawName: String, targetView: ImageView, textBackup: TextView) {
+        // --- FUNÃ‡ÃƒO DE BUSCA COM LIMPEZA SUPER PODEROSA ---
+        private fun searchTmdbLogo(rawName: String, targetView: ImageView) {
             
             // 1. A VASSOURA (Limpeza do Nome)
             var cleanName = rawName
@@ -636,7 +625,7 @@ class VodActivity : AppCompatActivity() {
                 cleanName = cleanName.replace(lixo, "", ignoreCase = true)
             }
 
-            // Passo D: Remove espaços duplos
+            // Passo D: Remove espaÃ§os duplos
             cleanName = cleanName.trim().replace(Regex("\\s+"), " ")
 
             if (cleanName.length < 2) cleanName = rawName
@@ -645,22 +634,13 @@ class VodActivity : AppCompatActivity() {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val query = URLEncoder.encode(cleanName, "UTF-8")
-                    // ✅ TRAVA DE SEGURANÇA: Usando obrigatoriamente /search/movie para evitar conflitos com séries
+                    // âœ… TRAVA DE SEGURANÃ‡A: Usando obrigatoriamente /search/movie para evitar conflitos com sÃ©ries
                     val searchUrl = "https://api.themoviedb.org/3/search/movie?api_key=$TMDB_API_KEY&query=$query&language=pt-BR"
                     val searchJson = URL(searchUrl).readText()
                     val results = JSONObject(searchJson).getJSONArray("results")
 
                     if (results.length() > 0) {
-                        // ✅ FILTRO DE MATCH EXATO NA BUSCA DA LOGO
-                        var bestResult = results.getJSONObject(0)
-                        for (i in 0 until results.length()) {
-                            val obj = results.getJSONObject(i)
-                            if (obj.optString("title", "").equals(cleanName, ignoreCase = true)) {
-                                bestResult = obj
-                                break
-                            }
-                        }
-                        val movieId = bestResult.getString("id")
+                        val movieId = results.getJSONObject(0).getString("id")
                         val imagesUrl = "https://api.themoviedb.org/3/movie/$movieId/images?api_key=$TMDB_API_KEY&include_image_language=pt,en,null"
                         val imagesJson = URL(imagesUrl).readText()
                         val imagesObj = JSONObject(imagesJson)
@@ -672,13 +652,10 @@ class VodActivity : AppCompatActivity() {
                                 val fullLogoUrl = "https://image.tmdb.org/t/p/w500$logoPath"
 
                                 withContext(Dispatchers.Main) {
-                                    // ✅ TRAVA: Esconde o texto no exato momento que mostra a logo
-                                    textBackup.visibility = View.GONE
                                     targetView.visibility = View.VISIBLE
                                     Glide.with(targetView.context)
                                         .load(fullLogoUrl)
                                         .diskCacheStrategy(DiskCacheStrategy.ALL)
-                                        .dontAnimate() // ✅ EVITA PISCAR NO SCROLL
                                         .fitCenter()
                                         .into(targetView)
                                 }
@@ -690,7 +667,7 @@ class VodActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ BACK = SAIR (TV + Celular)
+    // âœ… BACK = SAIR (TV + Celular)
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
             finish()

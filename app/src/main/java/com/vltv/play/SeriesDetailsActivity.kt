@@ -359,27 +359,25 @@ class SeriesDetailsActivity : AppCompatActivity() {
                     val genresList = mutableListOf<String>()
                     if (gs != null) for (i in 0 until gs.length()) genresList.add(gs.getJSONObject(i).getString("name"))
 
+                    // ✅ ALTERAÇÃO: ELENCO APENAS EM TEXTO (MAIS RÁPIDO)
                     val credits = d.optJSONObject("credits")
                     val castArray = credits?.optJSONArray("cast")
-                    val castMemberList = mutableListOf<CastMember>()
+                    val castNamesList = mutableListOf<String>()
                     
                     if (castArray != null) {
                         val limit = if (castArray.length() > 10) 10 else castArray.length()
                         for (i in 0 until limit) {
                             val actor = castArray.getJSONObject(i)
-                            castMemberList.add(CastMember(
-                                actor.getString("name"),
-                                actor.optString("profile_path")
-                            ))
+                            castNamesList.add(actor.getString("name"))
                         }
                     }
 
                     runOnUiThread {
                         tvGenre.text = "Gênero: ${if (genresList.isEmpty()) "Variados" else genresList.joinToString(", ")}"
-                        recyclerCast.apply {
-                            layoutManager = LinearLayoutManager(this@SeriesDetailsActivity, LinearLayoutManager.HORIZONTAL, false)
-                            adapter = CastAdapter(castMemberList)
-                        }
+                        
+                        // Exibe elenco no TextView e esconde o RecyclerView de fotos
+                        tvCast.text = "Elenco: ${if (castNamesList.isEmpty()) "Não disponível" else castNamesList.joinToString(", ")}"
+                        recyclerCast.visibility = View.GONE
                     }
                 } catch(e: Exception) { e.printStackTrace() }
             }

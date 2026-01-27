@@ -331,6 +331,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
                                     .priority(Priority.IMMEDIATE)
                                     .dontAnimate()
                                     .into(imgTitleLogo)
+                                    .placeholder(null)
                             }
                         } else {
                             runOnUiThread { tvTitle.visibility = View.VISIBLE; tvTitle.text = seriesName }

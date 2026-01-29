@@ -597,20 +597,49 @@ class SeriesDetailsActivity : AppCompatActivity() {
         setDownloadState(DownloadState.valueOf(saved!!), ep)
     }
 
-    class EpisodeAdapter(val list: List<EpisodeStream>, private val onClick: (EpisodeStream, Int) -> Unit) : RecyclerView.Adapter<EpisodeAdapter.VH>() {
+        class EpisodeAdapter(val list: List<EpisodeStream>, private val onClick: (EpisodeStream, Int) -> Unit) : RecyclerView.Adapter<EpisodeAdapter.VH>() {
         class VH(v: View) : RecyclerView.ViewHolder(v) {
             val tvTitle: TextView = v.findViewById(R.id.tvEpisodeTitle)
-            val imgThumb: ImageView? = v.findViewById(R.id.imgEpisodeThumb)
+            val imgThumb: ImageView = v.findViewById(R.id.imgEpisodeThumb) // Removida a interrogação para garantir o ID
         }
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = VH(LayoutInflater.from(parent.context).inflate(R.layout.item_episode, parent, false))
+        
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = 
+            VH(LayoutInflater.from(parent.context).inflate(R.layout.item_episode, parent, false))
+        
         override fun onBindViewHolder(holder: VH, position: Int) {
             val ep = list[position]
             holder.tvTitle.text = "E${ep.episode_num.toString().padStart(2, '0')} - ${ep.title}"
+            
+            // ✅ RESTAURAÇÃO DA CAPA (O que tinha sumido):
+            // O link da imagem vem do campo 'movie_image' dentro de 'info'
+            val capaUrl = ep.info?.movie_image ?: ""
+            
+            Glide.with(holder.itemView.context)
+                .load(capaUrl)
+                .placeholder(android.R.color.darker_gray) // Cinza apenas enquanto baixa
+                .error(android.R.color.black)             // Preto se o link quebrar
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .centerCrop()
+                .into(holder.imgThumb)
+
+            // ✅ CONFIGURAÇÃO COMPLETA DE CONTROLE REMOTO + CELULAR (UM CLIQUE)
             holder.itemView.setOnClickListener { onClick(ep, position) }
-            holder.itemView.setOnFocusChangeListener { _, hasFocus ->
+            
+            holder.itemView.setOnFocusChangeListener { view, hasFocus ->
+                // Cor do título muda no foco (Padrão das suas outras telas)
                 holder.tvTitle.setTextColor(if (hasFocus) Color.YELLOW else Color.WHITE)
+                
+                // Efeito visual de foco para TV (Aumenta o card)
+                if (hasFocus) {
+                    view.animate().scaleX(1.1f).scaleY(1.1f).setDuration(200).start()
+                    view.elevation = 10f
+                } else {
+                    view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start()
+                    view.elevation = 4f
+                }
             }
         }
+        
         override fun getItemCount() = list.size
     }
 }

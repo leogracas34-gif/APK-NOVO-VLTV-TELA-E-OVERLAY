@@ -428,7 +428,10 @@ class SeriesActivity : AppCompatActivity() {
                 if (hasFocus) {
                     holder.tvName.setTextColor(holder.itemView.context.getColor(R.color.red_primary))
                     holder.tvName.setBackgroundColor(0xFF252525.toInt())
+                    // ✅ ADICIONADO: Animação leve para categoria
+                    holder.itemView.animate().scaleX(1.05f).scaleY(1.05f).setDuration(150).start()
                 } else {
+                    holder.itemView.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
                     if (selectedPos != holder.adapterPosition) {
                         holder.tvName.setTextColor(holder.itemView.context.getColor(R.color.gray_text))
                         holder.tvName.setBackgroundColor(0x00000000)
@@ -506,14 +509,17 @@ class SeriesActivity : AppCompatActivity() {
 
             holder.itemView.setOnFocusChangeListener { view, hasFocus ->
                 if (hasFocus) {
-                    view.animate().scaleX(1.1f).scaleY(1.1f).setDuration(150).start()
+                    // ✅ FOCO NEON ADICIONADO: Escala 1.15f + Background Neon
+                    view.animate().scaleX(1.15f).scaleY(1.15f).setDuration(150).start()
                     view.elevation = 10f
+                    view.setBackgroundResource(R.drawable.bg_focus_neon) // Aplica borda neon
                     if (holder.imgLogo.visibility != View.VISIBLE) holder.tvName.visibility = View.VISIBLE
                     holder.tvName.setTextColor(0xFF00C6FF.toInt()) 
                     view.alpha = 1.0f
                 } else {
                     view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
                     view.elevation = 4f
+                    view.setBackgroundResource(0) // Remove borda
                     holder.tvName.visibility = View.GONE
                     holder.tvName.setTextColor(0xFFFFFFFF.toInt())
                     view.alpha = 0.8f

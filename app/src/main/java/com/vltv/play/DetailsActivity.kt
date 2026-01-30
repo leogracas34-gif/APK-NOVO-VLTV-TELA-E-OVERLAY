@@ -29,6 +29,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import okhttp3.* import org.json.JSONObject 
 import java.io.IOException 
 import java.net.URLEncoder 
+import java.util.concurrent.TimeUnit
 import com.vltv.play.CastMember 
 import com.vltv.play.CastAdapter 
 import kotlinx.coroutines.CoroutineScope 
@@ -55,7 +56,7 @@ class DetailsActivity : AppCompatActivity() {
     private var hasResumePosition: Boolean = false 
     private lateinit var imgPoster: ImageView 
     private lateinit var tvTitle: TextView 
-    private lateinit var imgTitleLogo: ImageView // ✅ ADICIONADO PARA LOGO TMDB 
+    private lateinit var imgTitleLogo: ImageView 
     private lateinit var tvRating: TextView 
     private lateinit var tvGenre: TextView 
     private lateinit var tvCast: TextView 
@@ -74,7 +75,18 @@ class DetailsActivity : AppCompatActivity() {
     private lateinit var episodesAdapter: EpisodesAdapter 
     private enum class DownloadState { BAIXAR, BAIXANDO, BAIXADO } 
     private var downloadState: DownloadState = DownloadState.BAIXAR 
-    private val client = OkHttpClient() 
+
+    // ✅ PROTEÇÃO 1 e 2: TIMEOUTS E USER-AGENT (EVITA RECONECTANDO)
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(20, TimeUnit.SECONDS)
+        .readTimeout(20, TimeUnit.SECONDS)
+        .addInterceptor { chain ->
+            val request = chain.request().newBuilder()
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+                .build()
+            chain.proceed(request)
+        }
+        .build()
 
     override fun onCreate(savedInstanceState: Bundle?) { 
         super.onCreate(savedInstanceState) 
@@ -89,7 +101,6 @@ class DetailsActivity : AppCompatActivity() {
         carregarConteudo() 
         setupEventos() 
         setupEpisodesRecycler() 
-        // ✅ ACELERAÇÃO: Carrega Sinopse, Elenco e LOGO salvos 
         tentarCarregarTextoCache() 
         tentarCarregarLogoCache() 
         sincronizarDadosTMDB() 
@@ -107,8 +118,7 @@ class DetailsActivity : AppCompatActivity() {
     private fun inicializarViews() { 
         imgPoster = findViewById(R.id.imgPoster) 
         tvTitle = findViewById(R.id.tvTitle) 
-        imgTitleLogo = findViewById(R.id.imgTitleLogo) // ✅ INICIALIZADO 
-        // Texto invisível por padrão até a logo ou cache carregar 
+        imgTitleLogo = findViewById(R.id.imgTitleLogo) 
         tvTitle.visibility = View.INVISIBLE 
         tvRating = findViewById(R.id.tvRating) 
         tvGenre = findViewById(R.id.tvGenre) 
@@ -158,7 +168,6 @@ class DetailsActivity : AppCompatActivity() {
         prefs.getString("year_$streamId", null)?.let { tvYear?.text = it } 
     } 
 
-    // ✅ NOVO: Tenta carregar a logo do cache SharedPreferences 
     private fun tentarCarregarLogoCache() { 
         val prefs = getSharedPreferences("vltv_logos_cache", Context.MODE_PRIVATE) 
         val cachedUrl = prefs.getString("movie_logo_$streamId", null) 
@@ -167,7 +176,7 @@ class DetailsActivity : AppCompatActivity() {
             imgTitleLogo.visibility = View.VISIBLE 
             Glide.with(this).load(cachedUrl).diskCacheStrategy(DiskCacheStrategy.ALL).into(imgTitleLogo) 
         } else { 
-            tvTitle.visibility = View.VISIBLE // Fallback caso não tenha cache 
+            tvTitle.visibility = View.VISIBLE 
         } 
     } 
 
@@ -178,7 +187,6 @@ class DetailsActivity : AppCompatActivity() {
         val lixo = listOf("FHD", "HD", "4K", "H265", "LEG", "DUBLADO") 
         lixo.forEach { clean = clean.replace(it, "", ignoreCase = true) } 
         val encoded = URLEncoder.encode(clean.replace(Regex("\\s+"), " "), "UTF-8") 
-        // ✅ CORREÇÃO 1: Adicionado &region=BR para priorizar resultados brasileiros 
         val url = "https://api.themoviedb.org/3/search/$type?api_key=$apiKey&query=$encoded&language=pt-BR&region=BR" 
         client.newCall(Request.Builder().url(url).build()).enqueue(object : Callback { 
             override fun onFailure(call: Call, e: IOException) { 
@@ -191,7 +199,7 @@ class DetailsActivity : AppCompatActivity() {
                     if (results != null && results.length() > 0) { 
                         val selected = results.getJSONObject(0) 
                         val idTmdb = selected.getInt("id") 
-                        buscarLogoTMDB(idTmdb, type, apiKey) // ✅ BUSCA A LOGO 
+                        buscarLogoTMDB(idTmdb, type, apiKey) 
                         buscarDetalhesCompletos(idTmdb, type, apiKey) 
                         runOnUiThread { 
                             val tOficial = if (type == "movie") selected.getString("title") else selected.getString("name") 
@@ -214,9 +222,7 @@ class DetailsActivity : AppCompatActivity() {
         }) 
     } 
 
-    // ✅ NOVO: Busca e salva a logo do filme 
     private fun buscarLogoTMDB(id: Int, type: String, key: String) { 
-        // Pedimos PT e EN (pt,en,null) 
         val imagesUrl = "https://api.themoviedb.org/3/$type/$id/images?api_key=$key&include_image_language=pt,en,null" 
         client.newCall(Request.Builder().url(imagesUrl).build()).enqueue(object : Callback { 
             override fun onResponse(call: Call, response: Response) { 
@@ -225,15 +231,13 @@ class DetailsActivity : AppCompatActivity() {
                     val logos = JSONObject(body).optJSONArray("logos") 
                     if (logos != null && logos.length() > 0) { 
                         var finalPath = "" 
-                        // ✅ CORREÇÃO 2: Laço de repetição para priorizar logo em Português (pt) 
                         for (i in 0 until logos.length()) { 
                             val lg = logos.getJSONObject(i) 
                             if (lg.optString("iso_639_1") == "pt") { 
                                 finalPath = lg.getString("file_path") 
-                                break // Achou o BR? Para de procurar e usa ele! 
+                                break 
                             } 
                         } 
-                        // SE NÃO ACHOU NENHUM BR, PEGA O INGLÊS OU O PRIMEIRO DISPONÍVEL 
                         if (finalPath.isEmpty()) { 
                             finalPath = logos.getJSONObject(0).getString("file_path") 
                         } 
@@ -269,7 +273,7 @@ class DetailsActivity : AppCompatActivity() {
                     } 
                     runOnUiThread { 
                         val g = "Gênero: ${genresList.joinToString(", ")}" 
-                        val e = "Elenco: ${castNamesList.joinToString(", ")}" // ✅ MANTIDO EM TEXTO 
+                        val e = "Elenco: ${castNamesList.joinToString(", ")}" 
                         tvGenre.text = g 
                         tvCast.text = e 
                         getSharedPreferences("vltv_text_cache", Context.MODE_PRIVATE).edit() 
@@ -301,9 +305,9 @@ class DetailsActivity : AppCompatActivity() {
         recyclerEpisodes.visibility = View.VISIBLE 
     } 
 
-    // ✅ MANTIDO: Eventos, Cliques e DPAD 
     private fun setupEventos() { 
-        val zoomFocus = View.OnFocusChangeListener { v, hasFocus -> 
+        // ✅ FOCO NEON ADICIONADO AOS BOTÕES (ZOOM 1.15f)
+        val focusListener = View.OnFocusChangeListener { v, hasFocus -> 
             if (hasFocus) { 
                 v.setBackgroundResource(R.drawable.bg_focus_neon) 
                 v.animate().scaleX(1.15f).scaleY(1.15f).setDuration(150).start() 
@@ -313,9 +317,10 @@ class DetailsActivity : AppCompatActivity() {
                 v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start() 
             } 
         } 
-        btnPlay.onFocusChangeListener = zoomFocus 
-        btnResume.onFocusChangeListener = zoomFocus 
-        btnFavorite.onFocusChangeListener = zoomFocus 
+        btnPlay.onFocusChangeListener = focusListener 
+        btnResume.onFocusChangeListener = focusListener 
+        btnFavorite.onFocusChangeListener = focusListener 
+
         btnFavorite.setOnClickListener { toggleFavorite() } 
         btnPlay.setOnClickListener { abrirPlayer(false) } 
         btnResume.setOnClickListener { abrirPlayer(true) } 
@@ -408,6 +413,12 @@ class DetailsActivity : AppCompatActivity() {
     } 
 
     private fun isTelevisionDevice() = packageManager.hasSystemFeature("android.software.leanback") || packageManager.hasSystemFeature("android.hardware.type.television") 
+
+    // ✅ PROTEÇÃO 3: LIMPEZA DE REDE AO SAIR (EVITA TRAVAMENTO GLOBAL)
+    override fun onDestroy() {
+        client.dispatcher().cancelAll()
+        super.onDestroy()
+    }
 
     inner class EpisodesAdapter(private val onEpisodeClick: (EpisodeData) -> Unit) : ListAdapter<EpisodeData, EpisodesAdapter.ViewHolder>(DiffCallback) { 
         override fun onCreateViewHolder(p: ViewGroup, t: Int) = ViewHolder(LayoutInflater.from(p.context).inflate(R.layout.item_episode, p, false)) 

@@ -328,8 +328,17 @@ class DetailsActivity : AppCompatActivity() {
     // ✅ MANTIDO: Eventos, Cliques e DPAD
     private fun setupEventos() {
         val zoomFocus = View.OnFocusChangeListener { v, hasFocus ->
-            v.scaleX = if (hasFocus) 1.1f else 1.0f
-            v.scaleY = if (hasFocus) 1.1f else 1.0f
+            v.scaleX = if (hasFocus) 1.15f else 1.0f // ✅ AUMENTADO PARA 1.15f
+            v.scaleY = if (hasFocus) 1.15f else 1.0f
+
+            // ✅ ADICIONADO FOCO NEON NOS BOTÕES
+            if (hasFocus) {
+                v.setBackgroundResource(R.drawable.bg_focus_neon)
+            } else {
+                // Se for botão de imagem, removemos o filtro. Se for botão normal, fundo original.
+                if (v is ImageButton) v.setBackgroundResource(0) 
+                else if (v is Button) v.setBackgroundResource(R.drawable.bg_button_login_neon) // Mantendo seu padrão
+            }
         }
         btnPlay.onFocusChangeListener = zoomFocus
         btnResume.onFocusChangeListener = zoomFocus
@@ -420,8 +429,16 @@ class DetailsActivity : AppCompatActivity() {
         inner class ViewHolder(val v: View) : RecyclerView.ViewHolder(v) {
             fun bind(e: EpisodeData) {
                 v.isFocusable = true
+                v.isFocusableInTouchMode = true // ✅ GARANTIDO PARA TV
                 v.findViewById<TextView>(R.id.tvEpisodeTitle).text = "S${e.season}E${e.episode}: ${e.title}"
                 Glide.with(v.context).load(e.thumb).centerCrop().into(v.findViewById(R.id.imgEpisodeThumb))
+                
+                // ✅ FOCO NEON NOS EPISÓDIOS
+                v.setOnFocusChangeListener { view, hasFocus ->
+                    view.animate().scaleX(if (hasFocus) 1.12f else 1.0f).scaleY(if (hasFocus) 1.12f else 1.0f).setDuration(150).start()
+                    if (hasFocus) view.setBackgroundResource(R.drawable.bg_focus_neon) else view.setBackgroundResource(0)
+                }
+                
                 v.setOnClickListener { onEpisodeClick(e) }
             }
         }

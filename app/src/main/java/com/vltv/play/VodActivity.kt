@@ -40,7 +40,7 @@ class VodActivity : AppCompatActivity() {
     private var username = ""
     private var password = ""
     private lateinit var prefs: SharedPreferences
-    private lateinit var gridCachePrefs: SharedPreferences 
+    private lateinit var gridCachePrefs: SharedPreferences
     private var cachedCategories: List<LiveCategory>? = null
     private val moviesCache = mutableMapOf<String, List<VodStream>>()
     private var favMoviesCache: List<VodStream>? = null
@@ -55,6 +55,7 @@ class VodActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_vod)
+
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
@@ -78,6 +79,7 @@ class VodActivity : AppCompatActivity() {
         password = prefs.getString("password", "") ?: ""
 
         setupRecyclerFocus()
+
         rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
         rvCategories.setHasFixedSize(true)
         rvCategories.isFocusable = true
@@ -93,8 +95,12 @@ class VodActivity : AppCompatActivity() {
     }
 
     private fun setupRecyclerFocus() {
-        rvCategories.setOnFocusChangeListener { _, hasFocus -> if (hasFocus) rvCategories.smoothScrollToPosition(0) }
-        rvMovies.setOnFocusChangeListener { _, hasFocus -> if (hasFocus) rvMovies.smoothScrollToPosition(0) }
+        rvCategories.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) rvCategories.smoothScrollToPosition(0)
+        }
+        rvMovies.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) rvMovies.smoothScrollToPosition(0)
+        }
     }
 
     private fun preLoadImages(filmes: List<VodStream>) {
@@ -104,7 +110,10 @@ class VodActivity : AppCompatActivity() {
                 val url = filmes[i].icon
                 if (!url.isNullOrEmpty()) {
                     withContext(Dispatchers.Main) {
-                        Glide.with(this@VodActivity).load(url).diskCacheStrategy(DiskCacheStrategy.ALL).priority(Priority.LOW).preload(200, 300)
+                        Glide.with(this@VodActivity).load(url)
+                            .diskCacheStrategy(DiskCacheStrategy.ALL)
+                            .priority(Priority.LOW)
+                            .preload(200, 300)
                     }
                 }
             }
@@ -136,7 +145,9 @@ class VodActivity : AppCompatActivity() {
                         aplicarCategorias(categorias)
                     }
                 }
-                override fun onFailure(call: retrofit2.Call<List<LiveCategory>>, t: Throwable) { progressBar.visibility = View.GONE }
+                override fun onFailure(call: retrofit2.Call<List<LiveCategory>>, t: Throwable) {
+                    progressBar.visibility = View.GONE
+                }
             })
     }
 
@@ -166,7 +177,9 @@ class VodActivity : AppCompatActivity() {
                         preLoadImages(filmes)
                     }
                 }
-                override fun onFailure(call: retrofit2.Call<List<VodStream>>, t: Throwable) { progressBar.visibility = View.GONE }
+                override fun onFailure(call: retrofit2.Call<List<VodStream>>, t: Throwable) {
+                    progressBar.visibility = View.GONE
+                }
             })
     }
 
@@ -199,13 +212,20 @@ class VodActivity : AppCompatActivity() {
     private fun mostrarMenuDownload(filme: VodStream) {
         val popup = PopupMenu(this, findViewById(android.R.id.content))
         menuInflater.inflate(R.menu.menu_download, popup.menu)
-        popup.setOnMenuItemClickListener { item -> if (item.itemId == R.id.action_download) { Toast.makeText(this, "Baixando: ${filme.name}", Toast.LENGTH_LONG).show() }; true }
+        popup.setOnMenuItemClickListener { item ->
+            if (item.itemId == R.id.action_download) {
+                Toast.makeText(this, "Baixando: ${filme.name}", Toast.LENGTH_LONG).show()
+            }
+            true
+        }
         popup.show()
     }
 
     inner class VodCategoryAdapter(private val list: List<LiveCategory>, private val onClick: (LiveCategory) -> Unit) : RecyclerView.Adapter<VodCategoryAdapter.VH>() {
         private var selectedPos = 0
-        inner class VH(v: View) : RecyclerView.ViewHolder(v) { val tvName: TextView = v.findViewById(R.id.tvName) }
+        inner class VH(v: View) : RecyclerView.ViewHolder(v) {
+            val tvName: TextView = v.findViewById(R.id.tvName)
+        }
         override fun onCreateViewHolder(p: ViewGroup, t: Int) = VH(LayoutInflater.from(p.context).inflate(R.layout.item_category, p, false))
         override fun onBindViewHolder(h: VH, p: Int) {
             val item = list[p]
@@ -213,8 +233,21 @@ class VodActivity : AppCompatActivity() {
             val isSel = selectedPos == p
             h.tvName.setTextColor(getColor(if (isSel) R.color.red_primary else R.color.gray_text))
             h.tvName.setBackgroundColor(if (isSel) 0xFF252525.toInt() else 0x00000000)
-            h.itemView.setOnFocusChangeListener { _, hasFocus -> if (hasFocus) h.tvName.setTextColor(getColor(R.color.red_primary)) else if (selectedPos != h.adapterPosition) h.tvName.setTextColor(getColor(R.color.gray_text)) }
-            h.itemView.setOnClickListener { notifyItemChanged(selectedPos); selectedPos = h.adapterPosition; notifyItemChanged(selectedPos); onClick(item) }
+            h.itemView.setOnFocusChangeListener { view, hasFocus ->
+                if (hasFocus) {
+                    h.tvName.setTextColor(getColor(R.color.red_primary))
+                    view.animate().scaleX(1.10f).scaleY(1.10f).setDuration(150).start()
+                } else {
+                    view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
+                    if (selectedPos != h.adapterPosition) h.tvName.setTextColor(getColor(R.color.gray_text))
+                }
+            }
+            h.itemView.setOnClickListener {
+                notifyItemChanged(selectedPos)
+                selectedPos = h.adapterPosition
+                notifyItemChanged(selectedPos)
+                onClick(item)
+            }
         }
         override fun getItemCount() = list.size
     }
@@ -234,7 +267,6 @@ class VodActivity : AppCompatActivity() {
             h.tvName.visibility = View.VISIBLE
             h.imgLogo.visibility = View.GONE
             h.imgLogo.setImageDrawable(null)
-
             Glide.with(h.itemView.context).load(item.icon)
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .placeholder(R.drawable.bg_logo_placeholder)
@@ -260,15 +292,17 @@ class VodActivity : AppCompatActivity() {
                     }
                 }
             }
-            // ✅ ADICIONADO: Lógica de Foco Neon e Zoom ajustado para 1.15f
+
             h.itemView.setOnFocusChangeListener { view, hasFocus ->
-                view.animate().scaleX(if (hasFocus) 1.15f else 1.0f).scaleY(if (hasFocus) 1.15f else 1.0f).setDuration(150).start()
-                
                 if (hasFocus) {
-                    h.itemView.setBackgroundResource(R.drawable.bg_focus_neon) // Aplica a borda neon
+                    view.setBackgroundResource(R.drawable.bg_focus_neon)
+                    view.animate().scaleX(1.15f).scaleY(1.15f).setDuration(150).start()
+                    view.elevation = 10f
                     if (h.imgLogo.visibility != View.VISIBLE) h.tvName.visibility = View.VISIBLE
                 } else {
-                    h.itemView.setBackgroundResource(0) // Remove a borda
+                    view.setBackgroundResource(0)
+                    view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
+                    view.elevation = 4f
                     h.tvName.visibility = View.GONE
                 }
             }
@@ -286,10 +320,8 @@ class VodActivity : AppCompatActivity() {
                     val id = results.getJSONObject(0).getString("id")
                     val imgJson = URL("https://api.themoviedb.org/3/movie/$id/images?api_key=$apiKey&include_image_language=pt,en,null").readText()
                     val logos = JSONObject(imgJson).getJSONArray("logos")
-                    
                     if (logos.length() > 0) {
                         var logoPath: String? = null
-                        
                         for (i in 0 until logos.length()) {
                             val logoObj = logos.getJSONObject(i)
                             if (logoObj.optString("iso_639_1") == "pt") {
@@ -297,9 +329,7 @@ class VodActivity : AppCompatActivity() {
                                 break
                             }
                         }
-                        
                         if (logoPath == null) logoPath = logos.getJSONObject(0).getString("file_path")
-                        
                         val finalUrl = "https://image.tmdb.org/t/p/w500$logoPath"
                         gridCachePrefs.edit().putString("logo_$rawName", finalUrl).apply()
                         return finalUrl
@@ -311,7 +341,9 @@ class VodActivity : AppCompatActivity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_BACK) { finish(); return true }
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            finish(); return true
+        }
         return super.onKeyDown(keyCode, event)
     }
 }

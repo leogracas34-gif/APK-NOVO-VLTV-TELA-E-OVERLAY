@@ -246,7 +246,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
         cleanName = cleanName.trim().replace(Regex("\\s+"), " ")
 
         val encodedName = try { URLEncoder.encode(cleanName, "UTF-8") } catch(e:Exception) { cleanName }
-        val url = "https://api.themoviedb.org/3/search/tv?api_key=$apiKey&query=$encodedName&language=pt-BR"
+        
+        // ✅ CORREÇÃO 1: Adicionado &region=BR para priorizar nomes brasileiros
+        val url = "https://api.themoviedb.org/3/search/tv?api_key=$apiKey&query=$encodedName&language=pt-BR&region=BR"
 
         client.newCall(Request.Builder().url(url).build()).enqueue(object : okhttp3.Callback {
             override fun onFailure(call: okhttp3.Call, e: IOException) {
@@ -298,6 +300,8 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         val logos = obj.optJSONArray("logos")
                         if (logos != null && logos.length() > 0) {
                             var logoPath: String? = null
+                            
+                            // ✅ CORREÇÃO 2: Laço 'for' para priorizar a logo em Português (pt)
                             for (i in 0 until logos.length()) {
                                 val logo = logos.getJSONObject(i)
                                 if (logo.optString("iso_639_1") == "pt") {
@@ -305,7 +309,10 @@ class SeriesDetailsActivity : AppCompatActivity() {
                                     break
                                 }
                             }
+                            
+                            // Caso não encontre PT, usa a primeira (geralmente EN ou Original)
                             if (logoPath == null) logoPath = logos.getJSONObject(0).getString("file_path")
+                            
                             val finalUrl = "https://image.tmdb.org/t/p/w500$logoPath"
                             getSharedPreferences("vltv_logos_cache", Context.MODE_PRIVATE)
                                 .edit().putString("series_logo_$seriesId", finalUrl).apply()
@@ -514,7 +521,6 @@ class SeriesDetailsActivity : AppCompatActivity() {
         val streamId = ep.id.toIntOrNull() ?: 0
         val ext = ep.container_extension ?: "mp4"
 
-        // ✅ LÓGICA DE MOCHILA MANTIDA
         val lista = episodesBySeason[currentSeason] ?: emptyList()
         val posInList = lista.indexOfFirst { it.id == ep.id }
         val nextEp = if (posInList + 1 < lista.size) lista[posInList + 1] else null
@@ -537,13 +543,13 @@ class SeriesDetailsActivity : AppCompatActivity() {
         intent.putExtra("channel_name", "T${currentSeason}E${ep.episode_num} - $seriesName")
         
         if (mochilaIds.isNotEmpty()) {
-            intent.putIntegerArrayListExtra("episode_list", mochilaIds) // ✅ MOCHILA
+            intent.putIntegerArrayListExtra("episode_list", mochilaIds)
         }
 
-        if (existe) intent.putExtra("start_position_ms", pos) // ✅ CONTINUAR
+        if (existe) intent.putExtra("start_position_ms", pos) 
         
         if (nextEp != null) {
-            intent.putExtra("next_stream_id", nextEp.id.toIntOrNull() ?: 0) // ✅ PRÓXIMO
+            intent.putExtra("next_stream_id", nextEp.id.toIntOrNull() ?: 0)
             intent.putExtra("next_channel_name", "T${currentSeason}E${nextEp.episode_num} - $seriesName")
         }
         
@@ -597,10 +603,10 @@ class SeriesDetailsActivity : AppCompatActivity() {
         setDownloadState(DownloadState.valueOf(saved!!), ep)
     }
 
-        class EpisodeAdapter(val list: List<EpisodeStream>, private val onClick: (EpisodeStream, Int) -> Unit) : RecyclerView.Adapter<EpisodeAdapter.VH>() {
+    class EpisodeAdapter(val list: List<EpisodeStream>, private val onClick: (EpisodeStream, Int) -> Unit) : RecyclerView.Adapter<EpisodeAdapter.VH>() {
         class VH(v: View) : RecyclerView.ViewHolder(v) {
             val tvTitle: TextView = v.findViewById(R.id.tvEpisodeTitle)
-            val imgThumb: ImageView = v.findViewById(R.id.imgEpisodeThumb) // Removida a interrogação para garantir o ID
+            val imgThumb: ImageView = v.findViewById(R.id.imgEpisodeThumb)
         }
         
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = 
@@ -610,26 +616,20 @@ class SeriesDetailsActivity : AppCompatActivity() {
             val ep = list[position]
             holder.tvTitle.text = "E${ep.episode_num.toString().padStart(2, '0')} - ${ep.title}"
             
-            // ✅ RESTAURAÇÃO DA CAPA (O que tinha sumido):
-            // O link da imagem vem do campo 'movie_image' dentro de 'info'
             val capaUrl = ep.info?.movie_image ?: ""
             
             Glide.with(holder.itemView.context)
                 .load(capaUrl)
-                .placeholder(android.R.color.darker_gray) // Cinza apenas enquanto baixa
-                .error(android.R.color.black)             // Preto se o link quebrar
+                .placeholder(android.R.color.darker_gray)
+                .error(android.R.color.black)
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .centerCrop()
                 .into(holder.imgThumb)
 
-            // ✅ CONFIGURAÇÃO COMPLETA DE CONTROLE REMOTO + CELULAR (UM CLIQUE)
             holder.itemView.setOnClickListener { onClick(ep, position) }
             
             holder.itemView.setOnFocusChangeListener { view, hasFocus ->
-                // Cor do título muda no foco (Padrão das suas outras telas)
                 holder.tvTitle.setTextColor(if (hasFocus) Color.YELLOW else Color.WHITE)
-                
-                // Efeito visual de foco para TV (Aumenta o card)
                 if (hasFocus) {
                     view.animate().scaleX(1.1f).scaleY(1.1f).setDuration(200).start()
                     view.elevation = 10f

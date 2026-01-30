@@ -249,7 +249,8 @@ class HomeActivity : AppCompatActivity() {
         val tipoAtual = if (ultimoTipo == "tv") "movie" else "tv"
         prefs.edit().putString("ultimo_tipo_banner", tipoAtual).apply()
 
-        val urlString = "https://api.themoviedb.org/3/trending/$tipoAtual/day?api_key=$TMDB_API_KEY&language=pt-BR"
+        // ✅ CORREÇÃO 1: Adicionado &region=BR na URL do Banner Destaque
+        val urlString = "https://api.themoviedb.org/3/trending/$tipoAtual/day?api_key=$TMDB_API_KEY&language=pt-BR&region=BR"
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -308,7 +309,21 @@ class HomeActivity : AppCompatActivity() {
                 if (imagesObj.has("logos")) {
                     val logos = imagesObj.getJSONArray("logos")
                     if (logos.length() > 0) {
-                        val logoPath = logos.getJSONObject(0).getString("file_path")
+                        
+                        var logoPath: String? = null
+                        
+                        // ✅ CORREÇÃO 2: Laço 'for' para priorizar a logo do Banner em Português (pt)
+                        for (i in 0 until logos.length()) {
+                            val logo = logos.getJSONObject(i)
+                            if (logo.optString("iso_639_1") == "pt") {
+                                logoPath = logo.getString("file_path")
+                                break
+                            }
+                        }
+
+                        // Fallback caso não ache PT (usa a primeira disponível)
+                        if (logoPath == null) logoPath = logos.getJSONObject(0).getString("file_path")
+                        
                         val fullLogoUrl = "https://image.tmdb.org/t/p/w500$logoPath"
 
                         withContext(Dispatchers.Main) {

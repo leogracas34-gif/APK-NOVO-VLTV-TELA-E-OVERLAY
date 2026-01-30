@@ -48,7 +48,9 @@
             android:textStyle="bold"
             android:letterSpacing="0.15"
             android:shadowColor="#00E5FF"
-            android:shadowRadius="40"
+            android:shadowDx="2"
+            android:shadowDy="2"
+            android:shadowRadius="12"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent" />
@@ -100,7 +102,7 @@
             android:elevation="8dp"
             android:focusable="true"
             android:clickable="true"
-            android:focusableInTouchMode="false" 
+            android:focusableInTouchMode="true" 
             app:layout_constraintTop_toBottomOf="@id/etPassword" />
 
         <ProgressBar

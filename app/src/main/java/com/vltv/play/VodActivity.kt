@@ -260,9 +260,17 @@ class VodActivity : AppCompatActivity() {
                     }
                 }
             }
+            // ✅ ADICIONADO: Lógica de Foco Neon e Zoom ajustado para 1.15f
             h.itemView.setOnFocusChangeListener { view, hasFocus ->
-                view.animate().scaleX(if (hasFocus) 1.1f else 1.0f).scaleY(if (hasFocus) 1.1f else 1.0f).setDuration(150).start()
-                if (hasFocus && h.imgLogo.visibility != View.VISIBLE) h.tvName.visibility = View.VISIBLE else if (!hasFocus) h.tvName.visibility = View.GONE
+                view.animate().scaleX(if (hasFocus) 1.15f else 1.0f).scaleY(if (hasFocus) 1.15f else 1.0f).setDuration(150).start()
+                
+                if (hasFocus) {
+                    h.itemView.setBackgroundResource(R.drawable.bg_focus_neon) // Aplica a borda neon
+                    if (h.imgLogo.visibility != View.VISIBLE) h.tvName.visibility = View.VISIBLE
+                } else {
+                    h.itemView.setBackgroundResource(0) // Remove a borda
+                    h.tvName.visibility = View.GONE
+                }
             }
             h.itemView.setOnClickListener { onClick(item) }
         }
@@ -272,7 +280,6 @@ class VodActivity : AppCompatActivity() {
             val apiKey = "9b73f5dd15b8165b1b57419be2f29128"
             val cleanName = rawName.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "").replace(Regex("\\b\\d{4}\\b"), "").trim()
             try {
-                // ✅ CORREÇÃO 1: Adicionado &region=BR para garantir busca brasileira na grade
                 val searchJson = URL("https://api.themoviedb.org/3/search/movie?api_key=$apiKey&query=${URLEncoder.encode(cleanName, "UTF-8")}&language=pt-BR&region=BR").readText()
                 val results = JSONObject(searchJson).getJSONArray("results")
                 if (results.length() > 0) {
@@ -283,7 +290,6 @@ class VodActivity : AppCompatActivity() {
                     if (logos.length() > 0) {
                         var logoPath: String? = null
                         
-                        // ✅ CORREÇÃO 2: Laço 'for' para priorizar logo em Português na grade
                         for (i in 0 until logos.length()) {
                             val logoObj = logos.getJSONObject(i)
                             if (logoObj.optString("iso_639_1") == "pt") {
@@ -292,7 +298,6 @@ class VodActivity : AppCompatActivity() {
                             }
                         }
                         
-                        // Se não achar PT, pega o primeiro (Inglês ou Geral)
                         if (logoPath == null) logoPath = logos.getJSONObject(0).getString("file_path")
                         
                         val finalUrl = "https://image.tmdb.org/t/p/w500$logoPath"

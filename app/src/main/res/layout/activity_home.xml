@@ -69,6 +69,7 @@
         app:cardBackgroundColor="#202020"
         app:cardElevation="6dp"
         android:focusable="true"
+        android:clickable="true"
         app:layout_constraintTop_toBottomOf="@id/headerLayout"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
@@ -149,14 +150,14 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:layout_marginEnd="4dp"
+            android:layout_marginEnd="12dp"
             app:cardCornerRadius="16dp"
             app:cardElevation="8dp"
-            android:foreground="?attr/selectableItemBackground"
             android:clickable="true"
             android:focusable="true"
             app:cardBackgroundColor="@android:color/transparent"
-            android:nextFocusUp="@id/cardBanner">
+            android:nextFocusUp="@id/cardBanner"
+            android:nextFocusRight="@id/cardMovies">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -169,15 +170,15 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="📺"
-                    android:textSize="28sp"
-                    android:layout_marginBottom="4dp"/>
+                    android:textSize="32sp"
+                    android:layout_marginBottom="6dp"/>
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="AO VIVO"
                     android:textColor="#FFFFFF"
-                    android:textSize="12sp"
+                    android:textSize="16sp"
                     android:textStyle="bold"/>
             </LinearLayout>
         </androidx.cardview.widget.CardView>
@@ -187,14 +188,15 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:layout_marginHorizontal="4dp"
+            android:layout_marginHorizontal="6dp"
             app:cardCornerRadius="16dp"
             app:cardElevation="8dp"
-            android:foreground="?attr/selectableItemBackground"
             android:clickable="true"
             android:focusable="true"
             app:cardBackgroundColor="@android:color/transparent"
-            android:nextFocusUp="@id/cardBanner">
+            android:nextFocusUp="@id/cardBanner"
+            android:nextFocusLeft="@id/cardLiveTv"
+            android:nextFocusRight="@id/cardSeries">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -207,15 +209,15 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="🎬"
-                    android:textSize="28sp"
-                    android:layout_marginBottom="4dp"/>
+                    android:textSize="32sp"
+                    android:layout_marginBottom="6dp"/>
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="FILMES"
                     android:textColor="#FFFFFF"
-                    android:textSize="12sp"
+                    android:textSize="16sp"
                     android:textStyle="bold"/>
             </LinearLayout>
         </androidx.cardview.widget.CardView>
@@ -225,14 +227,15 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:layout_marginHorizontal="4dp"
+            android:layout_marginHorizontal="6dp"
             app:cardCornerRadius="16dp"
             app:cardElevation="8dp"
-            android:foreground="?attr/selectableItemBackground"
             android:clickable="true"
             android:focusable="true"
             app:cardBackgroundColor="@android:color/transparent"
-            android:nextFocusUp="@id/cardBanner">
+            android:nextFocusUp="@id/cardBanner"
+            android:nextFocusLeft="@id/cardMovies"
+            android:nextFocusRight="@id/cardKids">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -245,15 +248,15 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="🍿"
-                    android:textSize="28sp"
-                    android:layout_marginBottom="4dp"/>
+                    android:textSize="32sp"
+                    android:layout_marginBottom="6dp"/>
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="SÉRIES"
                     android:textColor="#FFFFFF"
-                    android:textSize="12sp"
+                    android:textSize="16sp"
                     android:textStyle="bold"/>
             </LinearLayout>
         </androidx.cardview.widget.CardView>
@@ -263,14 +266,14 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:layout_marginStart="4dp"
+            android:layout_marginStart="12dp"
             app:cardCornerRadius="16dp"
             app:cardElevation="10dp"
-            android:foreground="?attr/selectableItemBackground"
             android:clickable="true"
             android:focusable="true"
             app:cardBackgroundColor="@android:color/transparent"
-            android:nextFocusUp="@id/cardBanner">
+            android:nextFocusUp="@id/cardBanner"
+            android:nextFocusLeft="@id/cardSeries">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -283,15 +286,15 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="🎨"
-                    android:textSize="28sp"
-                    android:layout_marginBottom="4dp"/>
+                    android:textSize="32sp"
+                    android:layout_marginBottom="6dp"/>
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="KIDS"
                     android:textColor="#FFFFFF"
-                    android:textSize="12sp"
+                    android:textSize="16sp"
                     android:textStyle="bold"/>
             </LinearLayout>
         </androidx.cardview.widget.CardView>

@@ -427,9 +427,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
         if (sortedSeasons.isEmpty()) return
         val dialog = BottomSheetDialog(this, R.style.DialogTemporadaTransparente)
         val root = LinearLayout(this)
-        root.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+        root.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT)
         root.orientation = LinearLayout.VERTICAL
-        root.gravity = Gravity.CENTER_HORIZONTAL
+        root.gravity = Gravity.CENTER
         root.setPadding(0, 30, 0, 30)
         root.setBackgroundColor(Color.TRANSPARENT)
 
@@ -491,7 +491,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
     private fun mudarTemporada(seasonKey: String) {
         currentSeason = seasonKey
-        btnSeasonSelector.text = "Temporada $seasonKey â–¼"
+        btnSeasonSelector.text = "Temporada $seasonKey ▼"
         val lista = episodesBySeason[seasonKey] ?: emptyList()
         if (lista.isNotEmpty()) {
             currentEpisode = lista.first()

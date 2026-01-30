@@ -231,8 +231,13 @@ class VodActivity : AppCompatActivity() {
             h.tvName.setTextColor(getColor(if (isSel) R.color.red_primary else R.color.gray_text))
             h.tvName.setBackgroundColor(if (isSel) 0xFF252525.toInt() else 0x00000000)
             h.itemView.setOnFocusChangeListener { _, hasFocus ->
-                if (hasFocus) h.tvName.setTextColor(getColor(R.color.red_primary))
-                else if (selectedPos != h.adapterPosition) h.tvName.setTextColor(getColor(R.color.gray_text))
+                if (hasFocus) {
+                    h.tvName.setTextColor(getColor(R.color.red_primary))
+                    h.itemView.animate().scaleX(1.05f).scaleY(1.05f).setDuration(150).start()
+                } else {
+                    h.itemView.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
+                    if (selectedPos != h.adapterPosition) h.tvName.setTextColor(getColor(R.color.gray_text))
+                }
             }
             h.itemView.setOnClickListener { notifyItemChanged(selectedPos); selectedPos = h.adapterPosition; notifyItemChanged(selectedPos); onClick(item) }
         }
@@ -244,12 +249,13 @@ class VodActivity : AppCompatActivity() {
             val tvName: TextView = v.findViewById(R.id.tvName)
             val imgPoster: ImageView = v.findViewById(R.id.imgPoster)
             val imgLogo: ImageView = v.findViewById(R.id.imgLogo)
-            var job: Job? = null // ✅ Para controlar a busca da logo
+            val cardView: View = v.findViewById(R.id.cardVod) // ✅ Certifique-se que o ID no XML é cardVod
+            var job: Job? = null 
         }
         override fun onCreateViewHolder(p: ViewGroup, t: Int) = VH(LayoutInflater.from(p.context).inflate(R.layout.item_vod, p, false))
         override fun onBindViewHolder(h: VH, p: Int) {
             val item = list[p]
-            h.job?.cancel() // ✅ Para o "pisca-pisca" ao dar scroll
+            h.job?.cancel()
 
             h.tvName.text = item.name
             h.tvName.visibility = View.VISIBLE 
@@ -259,10 +265,10 @@ class VodActivity : AppCompatActivity() {
             Glide.with(h.itemView.context).load(item.icon)
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .placeholder(R.drawable.bg_logo_placeholder)
+                .priority(Priority.IMMEDIATE)
                 .centerCrop()
                 .into(h.imgPoster)
 
-            // ✅ CACHE DE LOGO: Se já buscou, mostra na hora
             val cachedUrl = gridCachePrefs.getString("logo_${item.name}", null)
             if (cachedUrl != null) {
                 h.tvName.visibility = View.GONE
@@ -284,7 +290,16 @@ class VodActivity : AppCompatActivity() {
             }
 
             h.itemView.setOnFocusChangeListener { view, hasFocus ->
-                view.animate().scaleX(if (hasFocus) 1.1f else 1.0f).scaleY(if (hasFocus) 1.1f else 1.0f).setDuration(150).start()
+                // ✅ FOCO MELHORADO: Escala + Borda Neon
+                view.animate().scaleX(if (hasFocus) 1.12f else 1.0f).scaleY(if (hasFocus) 1.12f else 1.0f).setDuration(200).start()
+                
+                // Altera o fundo para simular a borda de foco neon
+                if (hasFocus) {
+                    h.itemView.setBackgroundResource(R.drawable.bg_focus_neon)
+                } else {
+                    h.itemView.setBackgroundResource(0)
+                }
+
                 if (hasFocus && h.imgLogo.visibility != View.VISIBLE) h.tvName.visibility = View.VISIBLE
                 else if (!hasFocus) h.tvName.visibility = View.GONE
             }
@@ -294,12 +309,15 @@ class VodActivity : AppCompatActivity() {
 
         private suspend fun searchTmdbLogoSilently(rawName: String): String? {
             val apiKey = "9b73f5dd15b8165b1b57419be2f29128"
+            // ✅ Prioridade PT-BR e Region BR para capas em Português
             val cleanName = rawName.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "").replace(Regex("\\b\\d{4}\\b"), "").trim()
             try {
-                val searchJson = URL("https://api.themoviedb.org/3/search/movie?api_key=$apiKey&query=${URLEncoder.encode(cleanName, "UTF-8")}&language=pt-BR").readText()
+                val searchUrl = "https://api.themoviedb.org/3/search/movie?api_key=$apiKey&query=${URLEncoder.encode(cleanName, "UTF-8")}&language=pt-BR&region=BR&include_adult=false"
+                val searchJson = URL(searchUrl).readText()
                 val results = JSONObject(searchJson).getJSONArray("results")
                 if (results.length() > 0) {
                     val id = results.getJSONObject(0).getString("id")
+                    // Busca logos priorizando PT e depois EN
                     val imgJson = URL("https://api.themoviedb.org/3/movie/$id/images?api_key=$apiKey&include_image_language=pt,en,null").readText()
                     val logos = JSONObject(imgJson).getJSONArray("logos")
                     if (logos.length() > 0) {

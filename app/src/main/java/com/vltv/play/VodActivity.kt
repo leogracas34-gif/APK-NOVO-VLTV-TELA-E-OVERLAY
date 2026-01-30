@@ -249,7 +249,6 @@ class VodActivity : AppCompatActivity() {
             val tvName: TextView = v.findViewById(R.id.tvName)
             val imgPoster: ImageView = v.findViewById(R.id.imgPoster)
             val imgLogo: ImageView = v.findViewById(R.id.imgLogo)
-            val cardView: View = v.findViewById(R.id.cardVod) // ✅ Certifique-se que o ID no XML é cardVod
             var job: Job? = null 
         }
         override fun onCreateViewHolder(p: ViewGroup, t: Int) = VH(LayoutInflater.from(p.context).inflate(R.layout.item_vod, p, false))
@@ -262,6 +261,7 @@ class VodActivity : AppCompatActivity() {
             h.imgLogo.visibility = View.GONE
             h.imgLogo.setImageDrawable(null)
 
+            // ✅ Carregamento prioritário e Cache agressivo para capas rápidas
             Glide.with(h.itemView.context).load(item.icon)
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .placeholder(R.drawable.bg_logo_placeholder)
@@ -290,18 +290,16 @@ class VodActivity : AppCompatActivity() {
             }
 
             h.itemView.setOnFocusChangeListener { view, hasFocus ->
-                // ✅ FOCO MELHORADO: Escala + Borda Neon
-                view.animate().scaleX(if (hasFocus) 1.12f else 1.0f).scaleY(if (hasFocus) 1.12f else 1.0f).setDuration(200).start()
+                // ✅ FOCO MELHORADO: Maior escala e borda visual
+                view.animate().scaleX(if (hasFocus) 1.15f else 1.0f).scaleY(if (hasFocus) 1.15f else 1.0f).setDuration(200).start()
                 
-                // Altera o fundo para simular a borda de foco neon
                 if (hasFocus) {
-                    h.itemView.setBackgroundResource(R.drawable.bg_focus_neon)
+                    h.itemView.setBackgroundResource(R.drawable.bg_focus_neon) // Ativa a borda neon
+                    if (h.imgLogo.visibility != View.VISIBLE) h.tvName.visibility = View.VISIBLE
                 } else {
-                    h.itemView.setBackgroundResource(0)
+                    h.itemView.setBackgroundResource(0) // Remove a borda
+                    h.tvName.visibility = View.GONE
                 }
-
-                if (hasFocus && h.imgLogo.visibility != View.VISIBLE) h.tvName.visibility = View.VISIBLE
-                else if (!hasFocus) h.tvName.visibility = View.GONE
             }
             h.itemView.setOnClickListener { onClick(item) }
         }
@@ -309,15 +307,16 @@ class VodActivity : AppCompatActivity() {
 
         private suspend fun searchTmdbLogoSilently(rawName: String): String? {
             val apiKey = "9b73f5dd15b8165b1b57419be2f29128"
-            // ✅ Prioridade PT-BR e Region BR para capas em Português
+            // ✅ Limpeza de nome para busca precisa e Prioridade BR
             val cleanName = rawName.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "").replace(Regex("\\b\\d{4}\\b"), "").trim()
             try {
-                val searchUrl = "https://api.themoviedb.org/3/search/movie?api_key=$apiKey&query=${URLEncoder.encode(cleanName, "UTF-8")}&language=pt-BR&region=BR&include_adult=false"
+                // Adicionado region=BR e language=pt-BR para garantir capas em português
+                val searchUrl = "https://api.themoviedb.org/3/search/movie?api_key=$apiKey&query=${URLEncoder.encode(cleanName, "UTF-8")}&language=pt-BR&region=BR"
                 val searchJson = URL(searchUrl).readText()
                 val results = JSONObject(searchJson).getJSONArray("results")
                 if (results.length() > 0) {
                     val id = results.getJSONObject(0).getString("id")
-                    // Busca logos priorizando PT e depois EN
+                    // Busca logos priorizando rigorosamente o idioma português
                     val imgJson = URL("https://api.themoviedb.org/3/movie/$id/images?api_key=$apiKey&include_image_language=pt,en,null").readText()
                     val logos = JSONObject(imgJson).getJSONArray("logos")
                     if (logos.length() > 0) {

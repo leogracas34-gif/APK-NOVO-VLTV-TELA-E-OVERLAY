@@ -144,7 +144,8 @@ class SeriesActivity : AppCompatActivity() {
 
         try {
             val query = URLEncoder.encode(cleanName, "UTF-8")
-            val searchJson = URL("https://api.themoviedb.org/3/search/tv?api_key=$TMDB_API_KEY&query=$query&language=pt-BR").readText()
+            // ✅ CORREÇÃO: region=BR adicionado
+            val searchJson = URL("https://api.themoviedb.org/3/search/tv?api_key=$TMDB_API_KEY&query=$query&language=pt-BR&region=BR").readText()
             val results = JSONObject(searchJson).getJSONArray("results")
 
             if (results.length() > 0) {
@@ -163,7 +164,18 @@ class SeriesActivity : AppCompatActivity() {
                 val logos = JSONObject(imagesJson).getJSONArray("logos")
                 
                 if (logos.length() > 0) {
-                    val fullLogoUrl = "https://image.tmdb.org/t/p/w500${logos.getJSONObject(0).getString("file_path")}"
+                    var finalPath = ""
+                    // ✅ CORREÇÃO: Prioridade para logo em PT
+                    for (i in 0 until logos.length()) {
+                        val lg = logos.getJSONObject(i)
+                        if (lg.optString("iso_639_1") == "pt") {
+                            finalPath = lg.getString("file_path")
+                            break
+                        }
+                    }
+                    if (finalPath.isEmpty()) finalPath = logos.getJSONObject(0).getString("file_path")
+                    
+                    val fullLogoUrl = "https://image.tmdb.org/t/p/w500$finalPath"
                     withContext(Dispatchers.Main) {
                         Glide.with(this@SeriesActivity)
                             .load(fullLogoUrl)
@@ -522,7 +534,8 @@ class SeriesActivity : AppCompatActivity() {
 
             try {
                 val query = URLEncoder.encode(cleanName, "UTF-8")
-                val searchJson = URL("https://api.themoviedb.org/3/search/tv?api_key=$TMDB_API_KEY&query=$query&language=pt-BR").readText()
+                // ✅ CORREÇÃO: region=BR adicionado
+                val searchJson = URL("https://api.themoviedb.org/3/search/tv?api_key=$TMDB_API_KEY&query=$query&language=pt-BR&region=BR").readText()
                 val results = JSONObject(searchJson).getJSONArray("results")
 
                 if (results.length() > 0) {
@@ -532,7 +545,18 @@ class SeriesActivity : AppCompatActivity() {
                     val logos = JSONObject(imagesJson).getJSONArray("logos")
                     
                     if (logos.length() > 0) {
-                        val finalUrl = "https://image.tmdb.org/t/p/w500${logos.getJSONObject(0).getString("file_path")}"
+                        var finalPath = ""
+                        // ✅ CORREÇÃO: Prioridade para logo em PT
+                        for (i in 0 until logos.length()) {
+                            val lg = logos.getJSONObject(i)
+                            if (lg.optString("iso_639_1") == "pt") {
+                                finalPath = lg.getString("file_path")
+                                break
+                            }
+                        }
+                        if (finalPath.isEmpty()) finalPath = logos.getJSONObject(0).getString("file_path")
+                        
+                        val finalUrl = "https://image.tmdb.org/t/p/w500$finalPath"
                         
                         // ✅ Salva no Cache
                         seriesCachePrefs.edit().putString("logo_$rawName", finalUrl).apply()

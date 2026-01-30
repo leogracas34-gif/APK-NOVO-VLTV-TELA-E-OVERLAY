@@ -26,43 +26,35 @@ import com.bumptech.glide.Priority
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
-
 import kotlinx.coroutines.*
 import org.json.JSONObject
 import java.net.URL
 import java.net.URLEncoder
 
-// ✅ CORREÇÃO: EpisodeData removido daqui para evitar "Redeclaration" (já existe no Details)
-
+// ✅ MANTIDO: Sem redeclaração de EpisodeData
 class VodActivity : AppCompatActivity() {
-
     private lateinit var rvCategories: RecyclerView
     private lateinit var rvMovies: RecyclerView
     private lateinit var progressBar: View
     private lateinit var tvCategoryTitle: TextView
-
     private var username = ""
     private var password = ""
     private lateinit var prefs: SharedPreferences
-    private lateinit var gridCachePrefs: SharedPreferences // ✅ Cache para logos da grade
-
+    private lateinit var gridCachePrefs: SharedPreferences 
     private var cachedCategories: List<LiveCategory>? = null
-    private val moviesCache = mutableMapOf<String, List<VodStream>>() 
+    private val moviesCache = mutableMapOf<String, List<VodStream>>()
     private var favMoviesCache: List<VodStream>? = null
-
     private var categoryAdapter: VodCategoryAdapter? = null
     private var moviesAdapter: VodAdapter? = null
 
     private fun isTelevision(context: Context): Boolean {
         val uiMode = context.resources.configuration.uiMode
-        return (uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) == 
-                android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+        return (uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_vod) 
-
+        setContentView(R.layout.activity_vod)
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
@@ -71,7 +63,6 @@ class VodActivity : AppCompatActivity() {
         rvMovies = findViewById(R.id.rvChannels)
         progressBar = findViewById(R.id.progressBar)
         tvCategoryTitle = findViewById(R.id.tvCategoryTitle)
-
         gridCachePrefs = getSharedPreferences("vltv_grid_cache", Context.MODE_PRIVATE)
 
         val searchInput = findViewById<View>(R.id.etSearchContent)
@@ -87,7 +78,6 @@ class VodActivity : AppCompatActivity() {
         password = prefs.getString("password", "") ?: ""
 
         setupRecyclerFocus()
-
         rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
         rvCategories.setHasFixedSize(true)
         rvCategories.isFocusable = true
@@ -130,7 +120,6 @@ class VodActivity : AppCompatActivity() {
     private fun carregarCategorias() {
         cachedCategories?.let { aplicarCategorias(it); return }
         progressBar.visibility = View.VISIBLE
-
         XtreamApi.service.getVodCategories(username, password)
             .enqueue(object : retrofit2.Callback<List<LiveCategory>> {
                 override fun onResponse(call: retrofit2.Call<List<LiveCategory>>, response: retrofit2.Response<List<LiveCategory>>) {
@@ -163,7 +152,6 @@ class VodActivity : AppCompatActivity() {
         tvCategoryTitle.text = categoria.name
         moviesCache[categoria.id]?.let { aplicarFilmes(it); preLoadImages(it); return }
         progressBar.visibility = View.VISIBLE
-
         XtreamApi.service.getVodStreams(username, password, categoryId = categoria.id)
             .enqueue(object : retrofit2.Callback<List<VodStream>> {
                 override fun onResponse(call: retrofit2.Call<List<VodStream>>, response: retrofit2.Response<List<VodStream>>) {
@@ -211,12 +199,7 @@ class VodActivity : AppCompatActivity() {
     private fun mostrarMenuDownload(filme: VodStream) {
         val popup = PopupMenu(this, findViewById(android.R.id.content))
         menuInflater.inflate(R.menu.menu_download, popup.menu)
-        popup.setOnMenuItemClickListener { item ->
-            if (item.itemId == R.id.action_download) {
-                val dns = prefs.getString("dns", "") ?: ""
-                Toast.makeText(this, "Baixando: ${filme.name}", Toast.LENGTH_LONG).show()
-            }; true
-        }
+        popup.setOnMenuItemClickListener { item -> if (item.itemId == R.id.action_download) { Toast.makeText(this, "Baixando: ${filme.name}", Toast.LENGTH_LONG).show() }; true }
         popup.show()
     }
 
@@ -230,15 +213,7 @@ class VodActivity : AppCompatActivity() {
             val isSel = selectedPos == p
             h.tvName.setTextColor(getColor(if (isSel) R.color.red_primary else R.color.gray_text))
             h.tvName.setBackgroundColor(if (isSel) 0xFF252525.toInt() else 0x00000000)
-            h.itemView.setOnFocusChangeListener { _, hasFocus ->
-                if (hasFocus) {
-                    h.tvName.setTextColor(getColor(R.color.red_primary))
-                    h.itemView.animate().scaleX(1.05f).scaleY(1.05f).setDuration(150).start()
-                } else {
-                    h.itemView.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
-                    if (selectedPos != h.adapterPosition) h.tvName.setTextColor(getColor(R.color.gray_text))
-                }
-            }
+            h.itemView.setOnFocusChangeListener { _, hasFocus -> if (hasFocus) h.tvName.setTextColor(getColor(R.color.red_primary)) else if (selectedPos != h.adapterPosition) h.tvName.setTextColor(getColor(R.color.gray_text)) }
             h.itemView.setOnClickListener { notifyItemChanged(selectedPos); selectedPos = h.adapterPosition; notifyItemChanged(selectedPos); onClick(item) }
         }
         override fun getItemCount() = list.size
@@ -249,23 +224,20 @@ class VodActivity : AppCompatActivity() {
             val tvName: TextView = v.findViewById(R.id.tvName)
             val imgPoster: ImageView = v.findViewById(R.id.imgPoster)
             val imgLogo: ImageView = v.findViewById(R.id.imgLogo)
-            var job: Job? = null 
+            var job: Job? = null
         }
         override fun onCreateViewHolder(p: ViewGroup, t: Int) = VH(LayoutInflater.from(p.context).inflate(R.layout.item_vod, p, false))
         override fun onBindViewHolder(h: VH, p: Int) {
             val item = list[p]
             h.job?.cancel()
-
             h.tvName.text = item.name
-            h.tvName.visibility = View.VISIBLE 
+            h.tvName.visibility = View.VISIBLE
             h.imgLogo.visibility = View.GONE
             h.imgLogo.setImageDrawable(null)
 
-            // ✅ Carregamento prioritário e Cache agressivo para capas rápidas
             Glide.with(h.itemView.context).load(item.icon)
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .placeholder(R.drawable.bg_logo_placeholder)
-                .priority(Priority.IMMEDIATE)
                 .centerCrop()
                 .into(h.imgPoster)
 
@@ -288,18 +260,9 @@ class VodActivity : AppCompatActivity() {
                     }
                 }
             }
-
             h.itemView.setOnFocusChangeListener { view, hasFocus ->
-                // ✅ FOCO MELHORADO: Maior escala e borda visual
-                view.animate().scaleX(if (hasFocus) 1.15f else 1.0f).scaleY(if (hasFocus) 1.15f else 1.0f).setDuration(200).start()
-                
-                if (hasFocus) {
-                    h.itemView.setBackgroundResource(R.drawable.bg_focus_neon) // Ativa a borda neon
-                    if (h.imgLogo.visibility != View.VISIBLE) h.tvName.visibility = View.VISIBLE
-                } else {
-                    h.itemView.setBackgroundResource(0) // Remove a borda
-                    h.tvName.visibility = View.GONE
-                }
+                view.animate().scaleX(if (hasFocus) 1.1f else 1.0f).scaleY(if (hasFocus) 1.1f else 1.0f).setDuration(150).start()
+                if (hasFocus && h.imgLogo.visibility != View.VISIBLE) h.tvName.visibility = View.VISIBLE else if (!hasFocus) h.tvName.visibility = View.GONE
             }
             h.itemView.setOnClickListener { onClick(item) }
         }
@@ -307,20 +270,32 @@ class VodActivity : AppCompatActivity() {
 
         private suspend fun searchTmdbLogoSilently(rawName: String): String? {
             val apiKey = "9b73f5dd15b8165b1b57419be2f29128"
-            // ✅ Limpeza de nome para busca precisa e Prioridade BR
             val cleanName = rawName.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "").replace(Regex("\\b\\d{4}\\b"), "").trim()
             try {
-                // Adicionado region=BR e language=pt-BR para garantir capas em português
-                val searchUrl = "https://api.themoviedb.org/3/search/movie?api_key=$apiKey&query=${URLEncoder.encode(cleanName, "UTF-8")}&language=pt-BR&region=BR"
-                val searchJson = URL(searchUrl).readText()
+                // ✅ CORREÇÃO 1: Adicionado &region=BR para garantir busca brasileira na grade
+                val searchJson = URL("https://api.themoviedb.org/3/search/movie?api_key=$apiKey&query=${URLEncoder.encode(cleanName, "UTF-8")}&language=pt-BR&region=BR").readText()
                 val results = JSONObject(searchJson).getJSONArray("results")
                 if (results.length() > 0) {
                     val id = results.getJSONObject(0).getString("id")
-                    // Busca logos priorizando rigorosamente o idioma português
                     val imgJson = URL("https://api.themoviedb.org/3/movie/$id/images?api_key=$apiKey&include_image_language=pt,en,null").readText()
                     val logos = JSONObject(imgJson).getJSONArray("logos")
+                    
                     if (logos.length() > 0) {
-                        val finalUrl = "https://image.tmdb.org/t/p/w500${logos.getJSONObject(0).getString("file_path")}"
+                        var logoPath: String? = null
+                        
+                        // ✅ CORREÇÃO 2: Laço 'for' para priorizar logo em Português na grade
+                        for (i in 0 until logos.length()) {
+                            val logoObj = logos.getJSONObject(i)
+                            if (logoObj.optString("iso_639_1") == "pt") {
+                                logoPath = logoObj.getString("file_path")
+                                break
+                            }
+                        }
+                        
+                        // Se não achar PT, pega o primeiro (Inglês ou Geral)
+                        if (logoPath == null) logoPath = logos.getJSONObject(0).getString("file_path")
+                        
+                        val finalUrl = "https://image.tmdb.org/t/p/w500$logoPath"
                         gridCachePrefs.edit().putString("logo_$rawName", finalUrl).apply()
                         return finalUrl
                     }

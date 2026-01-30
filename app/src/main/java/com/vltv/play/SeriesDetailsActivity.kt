@@ -102,8 +102,24 @@ class SeriesDetailsActivity : AppCompatActivity() {
         tvCast.text = "Elenco:"
         tvPlot.text = "Carregando sinopse..."
 
-        // ✅ APLICAÇÃO DO FOCO NEON NOS BOTÕES PRINCIPAIS
-        configurarFocoBotoes()
+        btnSeasonSelector.setBackgroundColor(Color.parseColor("#333333"))
+
+        // ✅ INJEÇÃO DE FOCO NEON NOS BOTÕES ORIGINAIS
+        val focusNeon = View.OnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                v.setBackgroundResource(R.drawable.bg_focus_neon)
+                v.animate().scaleX(1.15f).scaleY(1.15f).setDuration(150).start()
+            } else {
+                if (v == btnSeasonSelector) v.setBackgroundColor(Color.parseColor("#333333"))
+                else if (v is Button) v.setBackgroundResource(R.drawable.bg_button_default)
+                else v.setBackgroundResource(0)
+                v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
+            }
+        }
+        btnPlaySeries.onFocusChangeListener = focusNeon
+        btnResume.onFocusChangeListener = focusNeon
+        btnFavoriteSeries.onFocusChangeListener = focusNeon
+        btnSeasonSelector.onFocusChangeListener = focusNeon
 
         Glide.with(this)
             .load(seriesIcon)
@@ -168,28 +184,6 @@ class SeriesDetailsActivity : AppCompatActivity() {
         sincronizarDadosTMDB()
     }
 
-    private fun configurarFocoBotoes() {
-        val botoes = listOf(btnPlaySeries, btnResume, btnFavoriteSeries, btnSeasonSelector)
-        botoes.forEach { btn ->
-            btn.isFocusable = true
-            btn.setOnFocusChangeListener { view, hasFocus ->
-                if (hasFocus) {
-                    view.setBackgroundResource(R.drawable.bg_focus_neon)
-                    view.animate().scaleX(1.15f).scaleY(1.15f).setDuration(150).start()
-                } else {
-                    if (view == btnSeasonSelector) {
-                        view.setBackgroundColor(Color.parseColor("#333333"))
-                    } else if (view == btnPlaySeries || view == btnResume) {
-                        view.setBackgroundResource(R.drawable.bg_button_default)
-                    } else {
-                        view.setBackgroundResource(0)
-                    }
-                    view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
-                }
-            }
-        }
-    }
-
     private fun inicializarViews() {
         imgPoster = findViewById(R.id.imgPoster)
         imgBackground = try { findViewById(R.id.imgBackground) } catch (e: Exception) { imgPoster }
@@ -209,7 +203,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         btnResume = findViewById(R.id.btnResume)
         btnDownloadEpisodeArea = findViewById(R.id.btnDownloadArea)
         imgDownloadEpisodeState = findViewById(R.id.imgDownloadState)
-        tvDownloadEpisodeState = findViewById(R.id.tvDownloadState)
+        tvDownloadState = findViewById(R.id.tvDownloadState)
         btnDownloadSeason = findViewById(R.id.btnDownloadSeason)
     }
 
@@ -427,7 +421,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
             })
     }
 
-    // ✅ COLUNA TRANSPARENTE COM "X" FIXO NO RODAPÉ
+    // ✅ MANTIDO ORIGINAL: COLUNA TRANSPARENTE COM FOCO NEON
     private fun mostrarSeletorDeTemporada() {
         if (sortedSeasons.isEmpty()) return
         val dialog = BottomSheetDialog(this, R.style.DialogTemporadaTransparente)
@@ -436,7 +430,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         root.orientation = LinearLayout.VERTICAL
         root.gravity = Gravity.CENTER_HORIZONTAL
         root.setPadding(0, 30, 0, 30)
-        root.setBackgroundColor(Color.parseColor("#E6000000")) 
+        root.setBackgroundColor(Color.TRANSPARENT)
 
         val rvSeasons = RecyclerView(this)
         val rvParams = LinearLayout.LayoutParams(250.toPx(), 400.toPx())
@@ -461,11 +455,12 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 tv.text = "Temporada $season"
                 tv.setOnFocusChangeListener { v, hasFocus ->
                     if (hasFocus) {
+                        // ✅ Apenas foco visual
                         v.setBackgroundResource(R.drawable.bg_focus_neon)
-                        (v as TextView).setTextColor(Color.YELLOW)
+                        (v as TextView).setTextColor(Color.BLACK)
                         v.animate().scaleX(1.15f).scaleY(1.15f).setDuration(150).start()
                     } else {
-                        v.setBackgroundResource(0)
+                        v.setBackgroundColor(Color.TRANSPARENT)
                         (v as TextView).setTextColor(Color.WHITE)
                         v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
                     }
@@ -476,9 +471,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         }
 
         val btnClose = TextView(this)
-        btnClose.layoutParams = LinearLayout.LayoutParams(250.toPx(), ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-            topMargin = 20.toPx()
-        }
+        btnClose.layoutParams = LinearLayout.LayoutParams(250.toPx(), ViewGroup.LayoutParams.WRAP_CONTENT)
         btnClose.text = "✕ FECHAR"
         btnClose.gravity = Gravity.CENTER
         btnClose.setTextColor(Color.WHITE)
@@ -486,15 +479,14 @@ class SeriesDetailsActivity : AppCompatActivity() {
         btnClose.isFocusable = true
         btnClose.isClickable = true
         
+        // Foco Neon no fechar
         btnClose.setOnFocusChangeListener { v, hasFocus ->
             if (hasFocus) {
                 v.setBackgroundResource(R.drawable.bg_focus_neon)
                 v.animate().scaleX(1.15f).scaleY(1.15f).setDuration(150).start()
-                (v as TextView).setTextColor(Color.RED)
             } else {
                 v.setBackgroundResource(0)
                 v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
-                (v as TextView).setTextColor(Color.WHITE)
             }
         }
         btnClose.setOnClickListener { dialog.dismiss() }
@@ -614,6 +606,12 @@ class SeriesDetailsActivity : AppCompatActivity() {
         setDownloadState(DownloadState.valueOf(saved!!), ep)
     }
 
+    // ✅ NOVO: LIMPEZA DE REDE AO SAIR
+    override fun onDestroy() {
+        client.dispatcher().cancelAll()
+        super.onDestroy()
+    }
+
     class EpisodeAdapter(val list: List<EpisodeStream>, private val onClick: (EpisodeStream, Int) -> Unit) : RecyclerView.Adapter<EpisodeAdapter.VH>() {
         class VH(v: View) : RecyclerView.ViewHolder(v) {
             val tvTitle: TextView = v.findViewById(R.id.tvEpisodeTitle)
@@ -631,18 +629,18 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .centerCrop()
                 .into(holder.imgThumb)
-            
+
             holder.itemView.setOnClickListener { onClick(ep, position) }
             holder.itemView.isFocusable = true
             holder.itemView.setOnFocusChangeListener { view, hasFocus ->
+                holder.tvTitle.setTextColor(if (hasFocus) Color.YELLOW else Color.WHITE)
                 if (hasFocus) {
+                    // ✅ Apenas foco visual neon
                     view.setBackgroundResource(R.drawable.bg_focus_neon)
                     view.animate().scaleX(1.15f).scaleY(1.15f).setDuration(200).start()
-                    holder.tvTitle.setTextColor(Color.YELLOW)
                 } else {
                     view.setBackgroundResource(0)
                     view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start()
-                    holder.tvTitle.setTextColor(Color.WHITE)
                 }
             }
         }

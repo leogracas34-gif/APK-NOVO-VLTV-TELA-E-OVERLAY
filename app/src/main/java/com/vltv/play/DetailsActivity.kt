@@ -198,7 +198,8 @@ class DetailsActivity : AppCompatActivity() {
         lixo.forEach { clean = clean.replace(it, "", ignoreCase = true) }
         val encoded = URLEncoder.encode(clean.replace(Regex("\\s+"), " "), "UTF-8")
         
-        val url = "https://api.themoviedb.org/3/search/$type?api_key=$apiKey&query=$encoded&language=pt-BR"
+        // ✅ CORREÇÃO 1: Adicionado &region=BR para priorizar resultados brasileiros
+        val url = "https://api.themoviedb.org/3/search/$type?api_key=$apiKey&query=$encoded&language=pt-BR&region=BR"
 
         client.newCall(Request.Builder().url(url).build()).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) { runOnUiThread { tvTitle.visibility = View.VISIBLE } }
@@ -234,6 +235,7 @@ class DetailsActivity : AppCompatActivity() {
 
     // ✅ NOVO: Busca e salva a logo do filme
     private fun buscarLogoTMDB(id: Int, type: String, key: String) {
+        // Pedimos PT e EN (pt,en,null)
         val imagesUrl = "https://api.themoviedb.org/3/$type/$id/images?api_key=$key&include_image_language=pt,en,null"
         client.newCall(Request.Builder().url(imagesUrl).build()).enqueue(object : Callback {
             override fun onResponse(call: Call, response: Response) {
@@ -241,8 +243,24 @@ class DetailsActivity : AppCompatActivity() {
                 try {
                     val logos = JSONObject(body).optJSONArray("logos")
                     if (logos != null && logos.length() > 0) {
-                        val path = logos.getJSONObject(0).getString("file_path")
-                        val finalUrl = "https://image.tmdb.org/t/p/w500$path"
+                        
+                        var finalPath = ""
+                        
+                        // ✅ CORREÇÃO 2: Laço de repetição para priorizar logo em Português (pt)
+                        for (i in 0 until logos.length()) {
+                            val lg = logos.getJSONObject(i)
+                            if (lg.optString("iso_639_1") == "pt") {
+                                finalPath = lg.getString("file_path")
+                                break // Achou o BR? Para de procurar e usa ele!
+                            }
+                        }
+
+                        // SE NÃO ACHOU NENHUM BR, PEGA O INGLÊS OU O PRIMEIRO DISPONÍVEL
+                        if (finalPath.isEmpty()) {
+                            finalPath = logos.getJSONObject(0).getString("file_path")
+                        }
+
+                        val finalUrl = "https://image.tmdb.org/t/p/w500$finalPath"
                         getSharedPreferences("vltv_logos_cache", Context.MODE_PRIVATE).edit().putString("movie_logo_$streamId", finalUrl).apply()
                         runOnUiThread {
                             tvTitle.visibility = View.GONE

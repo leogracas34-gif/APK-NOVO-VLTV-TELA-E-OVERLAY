@@ -1,312 +1,304 @@
-package com.vltv.play
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout 
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#101010">
 
-import android.content.Context
-import android.content.Intent
-import android.content.SharedPreferences
-import android.os.Bundle
-import android.view.KeyEvent
-import android.view.LayoutInflater
-import android.view.MenuItem
-import android.view.View
-import android.view.ViewGroup
-import android.widget.ImageView
-import android.widget.PopupMenu
-import android.widget.TextView
-import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
-import androidx.recyclerview.widget.GridLayoutManager
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
-import com.bumptech.glide.Glide
-import com.bumptech.glide.load.engine.DiskCacheStrategy
-import com.bumptech.glide.Priority
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
-import kotlinx.coroutines.*
-import org.json.JSONObject
-import java.net.URL
-import java.net.URLEncoder
+    <LinearLayout
+        android:id="@+id/headerLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:padding="12dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
 
-// ✅ MANTIDO: Sem redeclaração de EpisodeData
-class VodActivity : AppCompatActivity() {
-    private lateinit var rvCategories: RecyclerView
-    private lateinit var rvMovies: RecyclerView
-    private lateinit var progressBar: View
-    private lateinit var tvCategoryTitle: TextView
-    private var username = ""
-    private var password = ""
-    private lateinit var prefs: SharedPreferences
-    private lateinit var gridCachePrefs: SharedPreferences 
-    private var cachedCategories: List<LiveCategory>? = null
-    private val moviesCache = mutableMapOf<String, List<VodStream>>()
-    private var favMoviesCache: List<VodStream>? = null
-    private var categoryAdapter: VodCategoryAdapter? = null
-    private var moviesAdapter: VodAdapter? = null
+        <ImageView
+            android:id="@+id/ivLogo"
+            android:layout_width="120dp"
+            android:layout_height="36dp"
+            android:src="@drawable/ic_launcher"
+            android:scaleType="fitCenter"
+            android:layout_marginEnd="12dp" />
 
-    private fun isTelevision(context: Context): Boolean {
-        val uiMode = context.resources.configuration.uiMode
-        return (uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
-    }
+        <EditText
+            android:id="@+id/etSearch"
+            android:layout_width="300dp"
+            android:layout_height="36dp"
+            android:background="@drawable/bg_search_rounded"
+            android:paddingStart="36dp"
+            android:paddingEnd="8dp"
+            android:drawableStart="@drawable/ic_search"
+            android:drawablePadding="8dp"
+            android:hint="Buscar..."
+            android:textColor="#FFFFFF"
+            android:textColorHint="#AAAAAA"
+            android:imeOptions="actionSearch"
+            android:inputType="textNoSuggestions"
+            android:maxLines="1" />
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_vod)
-        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
-        windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
 
-        rvCategories = findViewById(R.id.rvCategories)
-        rvMovies = findViewById(R.id.rvChannels)
-        progressBar = findViewById(R.id.progressBar)
-        tvCategoryTitle = findViewById(R.id.tvCategoryTitle)
-        gridCachePrefs = getSharedPreferences("vltv_grid_cache", Context.MODE_PRIVATE)
+        <ImageButton
+            android:id="@+id/btnSettings"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="12dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_settings"
+            app:tint="#FFFFFF"
+            android:focusable="true" />
+    </LinearLayout>
 
-        val searchInput = findViewById<View>(R.id.etSearchContent)
-        searchInput?.isFocusableInTouchMode = false
-        searchInput?.setOnClickListener {
-            val intent = Intent(this, SearchActivity::class.java)
-            intent.putExtra("initial_query", "")
-            startActivity(intent)
-        }
+    <androidx.cardview.widget.CardView
+        android:id="@+id/cardBanner"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintHeight_percent="0.45"
+        android:layout_marginHorizontal="12dp"
+        android:layout_marginTop="8dp"
+        app:cardCornerRadius="14dp"
+        app:cardBackgroundColor="#202020"
+        app:cardElevation="6dp"
+        android:focusable="true"
+        android:clickable="true"
+        app:layout_constraintTop_toBottomOf="@id/headerLayout"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:nextFocusDown="@id/cardLiveTv">
 
-        prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
-        username = prefs.getString("username", "") ?: ""
-        password = prefs.getString("password", "") ?: ""
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
 
-        setupRecyclerFocus()
-        rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
-        rvCategories.setHasFixedSize(true)
-        rvCategories.isFocusable = true
-        rvCategories.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
+            <ImageView
+                android:id="@+id/imgBanner"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:src="@android:color/transparent" />
 
-        rvMovies.layoutManager = GridLayoutManager(this, 5)
-        rvMovies.isFocusable = true
-        rvMovies.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
-        rvMovies.setHasFixedSize(true)
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@drawable/gradient_black_bottom" />
 
-        rvCategories.requestFocus()
-        carregarCategorias()
-    }
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom"
+                android:padding="16dp"
+                android:orientation="vertical">
 
-    private fun setupRecyclerFocus() {
-        rvCategories.setOnFocusChangeListener { _, hasFocus -> if (hasFocus) rvCategories.smoothScrollToPosition(0) }
-        rvMovies.setOnFocusChangeListener { _, hasFocus -> if (hasFocus) rvMovies.smoothScrollToPosition(0) }
-    }
+                <ImageView
+                    android:id="@+id/imgBannerLogo"
+                    android:layout_width="220dp"
+                    android:layout_height="80dp"
+                    android:layout_gravity="start"
+                    android:scaleType="fitCenter"
+                    android:visibility="gone" />
 
-    private fun preLoadImages(filmes: List<VodStream>) {
-        CoroutineScope(Dispatchers.IO).launch {
-            val limitPosters = if (filmes.size > 40) 40 else filmes.size
-            for (i in 0 until limitPosters) {
-                val url = filmes[i].icon
-                if (!url.isNullOrEmpty()) {
-                    withContext(Dispatchers.Main) {
-                        Glide.with(this@VodActivity).load(url).diskCacheStrategy(DiskCacheStrategy.ALL).priority(Priority.LOW).preload(200, 300)
-                    }
-                }
-            }
-        }
-    }
+                <TextView
+                    android:id="@+id/tvBannerTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Carregando..."
+                    android:textColor="#FFFFFF"
+                    android:textSize="22sp"
+                    android:textStyle="bold"
+                    android:shadowColor="#000000"
+                    android:shadowDx="2"
+                    android:shadowDy="2"
+                    android:shadowRadius="4" />
 
-    private fun isAdultName(name: String?): Boolean {
-        if (name.isNullOrBlank()) return false
-        val n = name.lowercase()
-        return n.contains("+18") || n.contains("adult") || n.contains("xxx") || n.contains("hot") || n.contains("sexo")
-    }
+                <TextView
+                    android:id="@+id/tvBannerOverview"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text=""
+                    android:textColor="#E0E0E0"
+                    android:textSize="13sp"
+                    android:maxLines="2"
+                    android:ellipsize="end"
+                    android:layout_marginTop="4dp" />
+            </LinearLayout>
+        </FrameLayout>
+    </androidx.cardview.widget.CardView>
 
-    private fun carregarCategorias() {
-        cachedCategories?.let { aplicarCategorias(it); return }
-        progressBar.visibility = View.VISIBLE
-        XtreamApi.service.getVodCategories(username, password)
-            .enqueue(object : retrofit2.Callback<List<LiveCategory>> {
-                override fun onResponse(call: retrofit2.Call<List<LiveCategory>>, response: retrofit2.Response<List<LiveCategory>>) {
-                    progressBar.visibility = View.GONE
-                    if (response.isSuccessful && response.body() != null) {
-                        val originais = response.body()!!
-                        var categorias = mutableListOf<LiveCategory>()
-                        categorias.add(LiveCategory(category_id = "FAV", category_name = "FAVORITOS"))
-                        categorias.addAll(originais)
-                        cachedCategories = categorias
-                        if (ParentalControlManager.isEnabled(this@VodActivity)) {
-                            categorias = categorias.filterNot { isAdultName(it.name) }.toMutableList()
-                        }
-                        aplicarCategorias(categorias)
-                    }
-                }
-                override fun onFailure(call: retrofit2.Call<List<LiveCategory>>, t: Throwable) { progressBar.visibility = View.GONE }
-            })
-    }
+    <LinearLayout
+        android:id="@+id/mainButtonsLayout"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:orientation="horizontal"
+        android:padding="12dp"
+        android:baselineAligned="false"
+        app:layout_constraintTop_toBottomOf="@id/cardBanner"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
 
-    private fun aplicarCategorias(categorias: List<LiveCategory>) {
-        categoryAdapter = VodCategoryAdapter(categorias) { categoria ->
-            if (categoria.id == "FAV") carregarFilmesFavoritos() else carregarFilmes(categoria)
-        }
-        rvCategories.adapter = categoryAdapter
-        categorias.firstOrNull { it.id != "FAV" }?.let { carregarFilmes(it) }
-    }
+        <androidx.cardview.widget.CardView
+            android:id="@+id/cardLiveTv"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="12dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="8dp"
+            android:clickable="true"
+            android:focusable="true"
+            app:cardBackgroundColor="@android:color/transparent"
+            android:nextFocusUp="@id/cardBanner"
+            android:nextFocusRight="@id/cardMovies">
 
-    private fun carregarFilmes(categoria: LiveCategory) {
-        tvCategoryTitle.text = categoria.name
-        moviesCache[categoria.id]?.let { aplicarFilmes(it); preLoadImages(it); return }
-        progressBar.visibility = View.VISIBLE
-        XtreamApi.service.getVodStreams(username, password, categoryId = categoria.id)
-            .enqueue(object : retrofit2.Callback<List<VodStream>> {
-                override fun onResponse(call: retrofit2.Call<List<VodStream>>, response: retrofit2.Response<List<VodStream>>) {
-                    progressBar.visibility = View.GONE
-                    if (response.isSuccessful && response.body() != null) {
-                        var filmes = response.body()!!
-                        moviesCache[categoria.id] = filmes
-                        if (ParentalControlManager.isEnabled(this@VodActivity)) {
-                            filmes = filmes.filterNot { isAdultName(it.name) || isAdultName(it.title) }
-                        }
-                        aplicarFilmes(filmes)
-                        preLoadImages(filmes)
-                    }
-                }
-                override fun onFailure(call: retrofit2.Call<List<VodStream>>, t: Throwable) { progressBar.visibility = View.GONE }
-            })
-    }
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:background="@drawable/bg_premium_blue">
 
-    private fun carregarFilmesFavoritos() {
-        tvCategoryTitle.text = "FAVORITOS"
-        val favIds = getFavMovies(this)
-        val listaFavoritosInstantanea = moviesCache.values.flatten().distinctBy { it.id }.filter { favIds.contains(it.id) }
-        aplicarFilmes(listaFavoritosInstantanea)
-    }
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="📺"
+                    android:textSize="32sp"
+                    android:layout_marginBottom="6dp"/>
 
-    private fun aplicarFilmes(filmes: List<VodStream>) {
-        moviesAdapter = VodAdapter(filmes, { abrirDetalhes(it) }, { mostrarMenuDownload(it) })
-        rvMovies.adapter = moviesAdapter
-    }
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="AO VIVO"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:textStyle="bold"/>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
 
-    private fun abrirDetalhes(filme: VodStream) {
-        val intent = Intent(this@VodActivity, DetailsActivity::class.java)
-        intent.putExtra("stream_id", filme.id)
-        intent.putExtra("name", filme.name)
-        intent.putExtra("icon", filme.icon)
-        intent.putExtra("rating", filme.rating ?: "0.0")
-        startActivity(intent)
-    }
+        <androidx.cardview.widget.CardView
+            android:id="@+id/cardMovies"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginHorizontal="6dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="8dp"
+            android:clickable="true"
+            android:focusable="true"
+            app:cardBackgroundColor="@android:color/transparent"
+            android:nextFocusUp="@id/cardBanner"
+            android:nextFocusLeft="@id/cardLiveTv"
+            android:nextFocusRight="@id/cardSeries">
 
-    private fun getFavMovies(context: Context): MutableSet<Int> {
-        val prefsFav = context.getSharedPreferences("vltv_favoritos", Context.MODE_PRIVATE)
-        return prefsFav.getStringSet("favoritos", emptySet())?.mapNotNull { it.toIntOrNull() }?.toMutableSet() ?: mutableSetOf()
-    }
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:background="@drawable/bg_premium_blue">
 
-    private fun mostrarMenuDownload(filme: VodStream) {
-        val popup = PopupMenu(this, findViewById(android.R.id.content))
-        menuInflater.inflate(R.menu.menu_download, popup.menu)
-        popup.setOnMenuItemClickListener { item -> if (item.itemId == R.id.action_download) { Toast.makeText(this, "Baixando: ${filme.name}", Toast.LENGTH_LONG).show() }; true }
-        popup.show()
-    }
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🎬"
+                    android:textSize="32sp"
+                    android:layout_marginBottom="6dp"/>
 
-    inner class VodCategoryAdapter(private val list: List<LiveCategory>, private val onClick: (LiveCategory) -> Unit) : RecyclerView.Adapter<VodCategoryAdapter.VH>() {
-        private var selectedPos = 0
-        inner class VH(v: View) : RecyclerView.ViewHolder(v) { val tvName: TextView = v.findViewById(R.id.tvName) }
-        override fun onCreateViewHolder(p: ViewGroup, t: Int) = VH(LayoutInflater.from(p.context).inflate(R.layout.item_category, p, false))
-        override fun onBindViewHolder(h: VH, p: Int) {
-            val item = list[p]
-            h.tvName.text = item.name
-            val isSel = selectedPos == p
-            h.tvName.setTextColor(getColor(if (isSel) R.color.red_primary else R.color.gray_text))
-            h.tvName.setBackgroundColor(if (isSel) 0xFF252525.toInt() else 0x00000000)
-            h.itemView.setOnFocusChangeListener { _, hasFocus -> if (hasFocus) h.tvName.setTextColor(getColor(R.color.red_primary)) else if (selectedPos != h.adapterPosition) h.tvName.setTextColor(getColor(R.color.gray_text)) }
-            h.itemView.setOnClickListener { notifyItemChanged(selectedPos); selectedPos = h.adapterPosition; notifyItemChanged(selectedPos); onClick(item) }
-        }
-        override fun getItemCount() = list.size
-    }
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="FILMES"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:textStyle="bold"/>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
 
-    inner class VodAdapter(private val list: List<VodStream>, private val onClick: (VodStream) -> Unit, private val onDownloadClick: (VodStream) -> Unit) : RecyclerView.Adapter<VodAdapter.VH>() {
-        inner class VH(v: View) : RecyclerView.ViewHolder(v) {
-            val tvName: TextView = v.findViewById(R.id.tvName)
-            val imgPoster: ImageView = v.findViewById(R.id.imgPoster)
-            val imgLogo: ImageView = v.findViewById(R.id.imgLogo)
-            var job: Job? = null
-        }
-        override fun onCreateViewHolder(p: ViewGroup, t: Int) = VH(LayoutInflater.from(p.context).inflate(R.layout.item_vod, p, false))
-        override fun onBindViewHolder(h: VH, p: Int) {
-            val item = list[p]
-            h.job?.cancel()
-            h.tvName.text = item.name
-            h.tvName.visibility = View.VISIBLE
-            h.imgLogo.visibility = View.GONE
-            h.imgLogo.setImageDrawable(null)
+        <androidx.cardview.widget.CardView
+            android:id="@+id/cardSeries"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginHorizontal="6dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="8dp"
+            android:clickable="true"
+            android:focusable="true"
+            app:cardBackgroundColor="@android:color/transparent"
+            android:nextFocusUp="@id/cardBanner"
+            android:nextFocusLeft="@id/cardMovies"
+            android:nextFocusRight="@id/cardKids">
 
-            Glide.with(h.itemView.context).load(item.icon)
-                .diskCacheStrategy(DiskCacheStrategy.ALL)
-                .placeholder(R.drawable.bg_logo_placeholder)
-                .centerCrop()
-                .into(h.imgPoster)
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:background="@drawable/bg_premium_blue">
 
-            val cachedUrl = gridCachePrefs.getString("logo_${item.name}", null)
-            if (cachedUrl != null) {
-                h.tvName.visibility = View.GONE
-                h.imgLogo.visibility = View.VISIBLE
-                Glide.with(h.itemView.context).load(cachedUrl).into(h.imgLogo)
-            } else {
-                h.job = CoroutineScope(Dispatchers.IO).launch {
-                    val url = searchTmdbLogoSilently(item.name)
-                    if (url != null) {
-                        withContext(Dispatchers.Main) {
-                            if (h.adapterPosition == p) {
-                                h.tvName.visibility = View.GONE
-                                h.imgLogo.visibility = View.VISIBLE
-                                Glide.with(h.itemView.context).load(url).into(h.imgLogo)
-                            }
-                        }
-                    }
-                }
-            }
-            h.itemView.setOnFocusChangeListener { view, hasFocus ->
-                view.animate().scaleX(if (hasFocus) 1.1f else 1.0f).scaleY(if (hasFocus) 1.1f else 1.0f).setDuration(150).start()
-                if (hasFocus && h.imgLogo.visibility != View.VISIBLE) h.tvName.visibility = View.VISIBLE else if (!hasFocus) h.tvName.visibility = View.GONE
-            }
-            h.itemView.setOnClickListener { onClick(item) }
-        }
-        override fun getItemCount() = list.size
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🍿"
+                    android:textSize="32sp"
+                    android:layout_marginBottom="6dp"/>
 
-        private suspend fun searchTmdbLogoSilently(rawName: String): String? {
-            val apiKey = "9b73f5dd15b8165b1b57419be2f29128"
-            val cleanName = rawName.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "").replace(Regex("\\b\\d{4}\\b"), "").trim()
-            try {
-                // ✅ CORREÇÃO 1: Adicionado &region=BR para garantir busca brasileira na grade
-                val searchJson = URL("https://api.themoviedb.org/3/search/movie?api_key=$apiKey&query=${URLEncoder.encode(cleanName, "UTF-8")}&language=pt-BR&region=BR").readText()
-                val results = JSONObject(searchJson).getJSONArray("results")
-                if (results.length() > 0) {
-                    val id = results.getJSONObject(0).getString("id")
-                    val imgJson = URL("https://api.themoviedb.org/3/movie/$id/images?api_key=$apiKey&include_image_language=pt,en,null").readText()
-                    val logos = JSONObject(imgJson).getJSONArray("logos")
-                    
-                    if (logos.length() > 0) {
-                        var logoPath: String? = null
-                        
-                        // ✅ CORREÇÃO 2: Laço 'for' para priorizar logo em Português na grade
-                        for (i in 0 until logos.length()) {
-                            val logoObj = logos.getJSONObject(i)
-                            if (logoObj.optString("iso_639_1") == "pt") {
-                                logoPath = logoObj.getString("file_path")
-                                break
-                            }
-                        }
-                        
-                        // Se não achar PT, pega o primeiro (Inglês ou Geral)
-                        if (logoPath == null) logoPath = logos.getJSONObject(0).getString("file_path")
-                        
-                        val finalUrl = "https://image.tmdb.org/t/p/w500$logoPath"
-                        gridCachePrefs.edit().putString("logo_$rawName", finalUrl).apply()
-                        return finalUrl
-                    }
-                }
-            } catch (e: Exception) {}
-            return null
-        }
-    }
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="SÉRIES"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:textStyle="bold"/>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
 
-    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_BACK) { finish(); return true }
-        return super.onKeyDown(keyCode, event)
-    }
-}
+        <androidx.cardview.widget.CardView
+            android:id="@+id/cardKids"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginStart="12dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="10dp"
+            android:clickable="true"
+            android:focusable="true"
+            app:cardBackgroundColor="@android:color/transparent"
+            android:nextFocusUp="@id/cardBanner"
+            android:nextFocusLeft="@id/cardSeries">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:background="@drawable/selector_kids_premium">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🎨"
+                    android:textSize="32sp"
+                    android:layout_marginBottom="6dp"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="KIDS"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:textStyle="bold"/>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -30,16 +30,19 @@ import java.util.ArrayList
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-// Importante: Certifique-se de que CastAdapter e CastMember estão no projeto
+
+// Importante: Certifique-se de que CastAdapter e CastMember estÃ£o no projeto
 import com.vltv.play.CastAdapter
 import com.vltv.play.CastMember
-// ✅ IMPORTAÇÕES ADICIONADAS PARA A LOGO
+
+// âœ… IMPORTAÃ‡Ã•ES ADICIONADAS PARA A LOGO
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class SeriesDetailsActivity : AppCompatActivity() {
+
     private var seriesId: Int = 0
     private var seriesName: String = ""
     private var seriesIcon: String? = null
@@ -49,21 +52,23 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private lateinit var imgPoster: ImageView
     private lateinit var imgBackground: ImageView
     private lateinit var tvTitle: TextView
-    private lateinit var imgTitleLogo: ImageView // ✅ ADICIONADO
+    private lateinit var imgTitleLogo: ImageView // âœ… ADICIONADO
     private lateinit var tvRating: TextView
     private lateinit var tvGenre: TextView
-    private lateinit var tvCast: TextView // Título "Elenco"
+    private lateinit var tvCast: TextView // TÃ­tulo "Elenco"
     private lateinit var recyclerCast: RecyclerView // Lista de bolinhas (Novo)
     private lateinit var tvPlot: TextView
     private lateinit var btnSeasonSelector: TextView
     private lateinit var rvEpisodes: RecyclerView
     private lateinit var btnFavoriteSeries: ImageButton
+
     private lateinit var btnPlaySeries: Button
     private lateinit var btnDownloadEpisodeArea: LinearLayout
     private lateinit var imgDownloadEpisodeState: ImageView
     private lateinit var tvDownloadEpisodeState: TextView
+
     private lateinit var btnDownloadSeason: Button
-    private lateinit var btnResume: Button // Botão Continuar
+    private lateinit var btnResume: Button // BotÃ£o Continuar
 
     private var episodesBySeason: Map<String, List<EpisodeStream>> = emptyMap()
     private var sortedSeasons: List<String> = emptyList()
@@ -72,13 +77,14 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
     private enum class DownloadState { BAIXAR, BAIXANDO, BAIXADO }
     private var downloadState: DownloadState = DownloadState.BAIXAR
+
     private val client = OkHttpClient()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_series_details)
 
-        // ✅ ADICIONE O CÓDIGO EXATAMENTE AQUI:
+        // âœ… ADICIONE O CÃ“DIGO EXATAMENTE AQUI:
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
@@ -98,28 +104,11 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
         tvTitle.text = seriesName
         tvRating.text = "Nota: $seriesRating"
-        tvGenre.text = "Gênero: Buscando..."
+        tvGenre.text = "GÃªnero: Buscando..."
         tvCast.text = "Elenco:"
         tvPlot.text = "Carregando sinopse..."
 
         btnSeasonSelector.setBackgroundColor(Color.parseColor("#333333"))
-
-        // ✅ INJEÇÃO DE FOCO NEON NOS BOTÕES ORIGINAIS
-        val focusNeon = View.OnFocusChangeListener { v, hasFocus ->
-            if (hasFocus) {
-                v.setBackgroundResource(R.drawable.bg_focus_neon)
-                v.animate().scaleX(1.15f).scaleY(1.15f).setDuration(150).start()
-            } else {
-                if (v == btnSeasonSelector) v.setBackgroundColor(Color.parseColor("#333333"))
-                else if (v is Button) v.setBackgroundResource(R.drawable.bg_button_default)
-                else v.setBackgroundResource(0)
-                v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
-            }
-        }
-        btnPlaySeries.onFocusChangeListener = focusNeon
-        btnResume.onFocusChangeListener = focusNeon
-        btnFavoriteSeries.onFocusChangeListener = focusNeon
-        btnSeasonSelector.onFocusChangeListener = focusNeon
 
         Glide.with(this)
             .load(seriesIcon)
@@ -165,7 +154,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         btnPlaySeries.setOnClickListener {
             val ep = currentEpisode
             if (ep == null) {
-                Toast.makeText(this, "Selecione um episódio.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Selecione um episÃ³dio.", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
             abrirPlayer(ep, false)
@@ -178,8 +167,10 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
         restaurarEstadoDownload()
         setupDownloadButtons()
-        // ✅ MEMÓRIA DE LOGOS
+
+        // âœ… MEMÃ“RIA DE LOGOS
         tentarCarregarLogoCache()
+
         carregarSeriesInfo()
         sincronizarDadosTMDB()
     }
@@ -193,17 +184,21 @@ class SeriesDetailsActivity : AppCompatActivity() {
         tvRating = findViewById(R.id.tvRating)
         tvGenre = findViewById(R.id.tvGenre)
         tvPlot = findViewById(R.id.tvPlot)
+
         tvCast = findViewById(R.id.tvCast)
         recyclerCast = findViewById(R.id.recyclerCast)
-        recyclerCast.visibility = View.GONE // ✅ MUDANÇA: OCULTA O RECYCLERVIEW DE FOTOS
+        recyclerCast.visibility = View.GONE // âœ… MUDANÃ‡A: OCULTA O RECYCLERVIEW DE FOTOS
+
         btnSeasonSelector = findViewById(R.id.btnSeasonSelector)
         rvEpisodes = findViewById(R.id.recyclerEpisodes)
+
         btnPlaySeries = findViewById(R.id.btnPlay)
         btnFavoriteSeries = findViewById(R.id.btnFavorite)
         btnResume = findViewById(R.id.btnResume)
+
         btnDownloadEpisodeArea = findViewById(R.id.btnDownloadArea)
         imgDownloadEpisodeState = findViewById(R.id.imgDownloadState)
-        tvDownloadState = findViewById(R.id.tvDownloadState)
+        tvDownloadEpisodeState = findViewById(R.id.tvDownloadState)
         btnDownloadSeason = findViewById(R.id.btnDownloadSeason)
     }
 
@@ -225,15 +220,17 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 DownloadState.BAIXADO -> startActivity(Intent(this, DownloadsActivity::class.java))
             }
         }
+
         btnDownloadSeason.setOnClickListener {
             if (currentSeason.isBlank()) return@setOnClickListener
             val lista = episodesBySeason[currentSeason] ?: emptyList()
             if (lista.isEmpty()) return@setOnClickListener
+
             AlertDialog.Builder(this)
                 .setTitle("Baixar temporada")
-                .setMessage("Baixar todos os ${lista.size} episódios?")
+                .setMessage("Baixar todos os ${lista.size} episÃ³dios?")
                 .setPositiveButton("Sim") { _, _ -> baixarTemporadaAtual(lista) }
-                .setNegativeButton("Não", null)
+                .setNegativeButton("NÃ£o", null)
                 .show()
         }
     }
@@ -246,9 +243,11 @@ class SeriesDetailsActivity : AppCompatActivity() {
         val lixo = listOf("FHD", "HD", "SD", "4K", "8K", "H265", "LEG", "DUBLADO", "DUB", "|", "-", "_", ".")
         lixo.forEach { cleanName = cleanName.replace(it, "", ignoreCase = true) }
         cleanName = cleanName.trim().replace(Regex("\\s+"), " ")
+
         val encodedName = try { URLEncoder.encode(cleanName, "UTF-8") } catch(e:Exception) { cleanName }
-        // ✅ CORREÇÃO 1: Adicionado &region=BR para priorizar nomes brasileiros
+        // âœ… CORREÃ‡ÃƒO 1: Adicionado &region=BR para priorizar nomes brasileiros
         val url = "https://api.themoviedb.org/3/search/tv?api_key=$apiKey&query=$encodedName&language=pt-BR&region=BR"
+
         client.newCall(Request.Builder().url(url).build()).enqueue(object : okhttp3.Callback {
             override fun onFailure(call: okhttp3.Call, e: IOException) {
                 runOnUiThread { tvTitle.visibility = View.VISIBLE; tvTitle.text = seriesName }
@@ -266,7 +265,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
                             buscarDetalhesTMDB(tmdbId, apiKey)
                             runOnUiThread {
                                 val sinopse = show.optString("overview")
-                                tvPlot.text = if (sinopse.isNotEmpty()) sinopse else "Sinopse indisponível."
+                                tvPlot.text = if (sinopse.isNotEmpty()) sinopse else "Sinopse indisponÃ­vel."
                                 val vote = show.optDouble("vote_average", 0.0)
                                 if (vote > 0) tvRating.text = "Nota: ${String.format("%.1f", vote)}"
                                 val backdropPath = show.optString("backdrop_path")
@@ -299,7 +298,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         val logos = obj.optJSONArray("logos")
                         if (logos != null && logos.length() > 0) {
                             var logoPath: String? = null
-                            // ✅ CORREÇÃO 2: Laço 'for' para priorizar a logo em Português (pt)
+                            // âœ… CORREÃ‡ÃƒO 2: LaÃ§o 'for' para priorizar a logo em PortuguÃªs (pt)
                             for (i in 0 until logos.length()) {
                                 val logo = logos.getJSONObject(i)
                                 if (logo.optString("iso_639_1") == "pt") {
@@ -307,7 +306,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
                                     break
                                 }
                             }
-                            // Caso não encontre PT, usa a primeira (geralmente EN ou Original)
+                            // Caso nÃ£o encontre PT, usa a primeira (geralmente EN ou Original)
                             if (logoPath == null) logoPath = logos.getJSONObject(0).getString("file_path")
                             val finalUrl = "https://image.tmdb.org/t/p/w500$logoPath"
                             getSharedPreferences("vltv_logos_cache", Context.MODE_PRIVATE)
@@ -342,6 +341,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
                     val gs = d.optJSONArray("genres")
                     val genresList = mutableListOf<String>()
                     if (gs != null) for (i in 0 until gs.length()) genresList.add(gs.getJSONObject(i).getString("name"))
+
                     val credits = d.optJSONObject("credits")
                     val castArray = credits?.optJSONArray("cast")
                     val castNames = mutableListOf<String>()
@@ -352,8 +352,8 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         }
                     }
                     runOnUiThread {
-                        tvGenre.text = "Gênero: ${if (genresList.isEmpty()) "Variados" else genresList.joinToString(", ")}"
-                        tvCast.text = "Elenco: ${castNames.joinToString(", ")}" // ✅ MUDANÇA: ELENCO PARA TEXTO
+                        tvGenre.text = "GÃªnero: ${if (genresList.isEmpty()) "Variados" else genresList.joinToString(", ")}"
+                        tvCast.text = "Elenco: ${castNames.joinToString(", ")}" // âœ… MUDANÃ‡A: ELENCO PARA TEXTO
                     }
                 } catch(e: Exception) { }
             }
@@ -405,6 +405,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val username = prefs.getString("username", "") ?: ""
         val password = prefs.getString("password", "") ?: ""
+
         XtreamApi.service.getSeriesInfoV2(username, password, seriesId = seriesId)
             .enqueue(object : Callback<SeriesInfoResponse> {
                 override fun onResponse(call: Call<SeriesInfoResponse>, response: Response<SeriesInfoResponse>) {
@@ -412,16 +413,16 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         val body = response.body()!!
                         episodesBySeason = body.episodes ?: emptyMap()
                         sortedSeasons = episodesBySeason.keys.sortedBy { it.toIntOrNull() ?: 0 }
-                        if (sortedSeasons.isNotEmpty()) mudarTemporada(sortedSeasons.first()) else btnSeasonSelector.text = "Indisponível"
+                        if (sortedSeasons.isNotEmpty()) mudarTemporada(sortedSeasons.first())
+                        else btnSeasonSelector.text = "IndisponÃ­vel"
                     }
                 }
                 override fun onFailure(call: Call<SeriesInfoResponse>, t: Throwable) {
-                    Toast.makeText(this@SeriesDetailsActivity, "Erro de conexão", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@SeriesDetailsActivity, "Erro de conexÃ£o", Toast.LENGTH_SHORT).show()
                 }
             })
     }
 
-    // ✅ MANTIDO ORIGINAL: COLUNA TRANSPARENTE COM FOCO NEON
     private fun mostrarSeletorDeTemporada() {
         if (sortedSeasons.isEmpty()) return
         val dialog = BottomSheetDialog(this, R.style.DialogTemporadaTransparente)
@@ -436,6 +437,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         val rvParams = LinearLayout.LayoutParams(250.toPx(), 400.toPx())
         rvSeasons.layoutParams = rvParams
         rvSeasons.layoutManager = LinearLayoutManager(this)
+
         rvSeasons.adapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
             override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
                 val tv = TextView(parent.context)
@@ -455,10 +457,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 tv.text = "Temporada $season"
                 tv.setOnFocusChangeListener { v, hasFocus ->
                     if (hasFocus) {
-                        // ✅ Apenas foco visual
-                        v.setBackgroundResource(R.drawable.bg_focus_neon)
+                        v.setBackgroundColor(Color.parseColor("#FFD700"))
                         (v as TextView).setTextColor(Color.BLACK)
-                        v.animate().scaleX(1.15f).scaleY(1.15f).setDuration(150).start()
+                        v.animate().scaleX(1.1f).scaleY(1.1f).setDuration(150).start()
                     } else {
                         v.setBackgroundColor(Color.TRANSPARENT)
                         (v as TextView).setTextColor(Color.WHITE)
@@ -472,23 +473,12 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
         val btnClose = TextView(this)
         btnClose.layoutParams = LinearLayout.LayoutParams(250.toPx(), ViewGroup.LayoutParams.WRAP_CONTENT)
-        btnClose.text = "✕ FECHAR"
+        btnClose.text = "âœ• FECHAR"
         btnClose.gravity = Gravity.CENTER
         btnClose.setTextColor(Color.WHITE)
         btnClose.setPadding(0, 25, 0, 25)
         btnClose.isFocusable = true
         btnClose.isClickable = true
-        
-        // Foco Neon no fechar
-        btnClose.setOnFocusChangeListener { v, hasFocus ->
-            if (hasFocus) {
-                v.setBackgroundResource(R.drawable.bg_focus_neon)
-                v.animate().scaleX(1.15f).scaleY(1.15f).setDuration(150).start()
-            } else {
-                v.setBackgroundResource(0)
-                v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
-            }
-        }
         btnClose.setOnClickListener { dialog.dismiss() }
 
         root.addView(rvSeasons)
@@ -501,7 +491,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
     private fun mudarTemporada(seasonKey: String) {
         currentSeason = seasonKey
-        btnSeasonSelector.text = "Temporada $seasonKey ▼"
+        btnSeasonSelector.text = "Temporada $seasonKey â–¼"
         val lista = episodesBySeason[seasonKey] ?: emptyList()
         if (lista.isNotEmpty()) {
             currentEpisode = lista.first()
@@ -525,31 +515,39 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private fun abrirPlayer(ep: EpisodeStream, usarResume: Boolean) {
         val streamId = ep.id.toIntOrNull() ?: 0
         val ext = ep.container_extension ?: "mp4"
+
         val lista = episodesBySeason[currentSeason] ?: emptyList()
         val posInList = lista.indexOfFirst { it.id == ep.id }
         val nextEp = if (posInList + 1 < lista.size) lista[posInList + 1] else null
+
         val mochilaIds = ArrayList<Int>()
         for (item in lista) {
             val idInt = item.id.toIntOrNull() ?: 0
             if (idInt != 0) mochilaIds.add(idInt)
         }
+
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val pos = prefs.getLong("series_resume_${streamId}_pos", 0L)
         val dur = prefs.getLong("series_resume_${streamId}_dur", 0L)
         val existe = usarResume && pos > 30000L && pos < (dur * 0.95).toLong()
+
         val intent = Intent(this, PlayerActivity::class.java)
         intent.putExtra("stream_id", streamId)
         intent.putExtra("stream_ext", ext)
         intent.putExtra("stream_type", "series")
         intent.putExtra("channel_name", "T${currentSeason}E${ep.episode_num} - $seriesName")
+
         if (mochilaIds.isNotEmpty()) {
             intent.putIntegerArrayListExtra("episode_list", mochilaIds)
         }
+
         if (existe) intent.putExtra("start_position_ms", pos)
+
         if (nextEp != null) {
             intent.putExtra("next_stream_id", nextEp.id.toIntOrNull() ?: 0)
             intent.putExtra("next_channel_name", "T${currentSeason}E${nextEp.episode_num} - $seriesName")
         }
+
         startActivity(intent)
     }
 
@@ -568,7 +566,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
             val eid = ep.id.toIntOrNull() ?: continue
             DownloadHelper.enqueueDownload(this, montarUrlEpisodio(ep), "${seriesName}_T${currentSeason}E${ep.episode_num}.mp4", logicalId = "series_$eid", type = "series")
         }
-        Toast.makeText(this, "Baixando episódios...", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, "Baixando episÃ³dios...", Toast.LENGTH_LONG).show()
     }
 
     private fun getProgressText(): String {
@@ -587,15 +585,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
         val eid = ep?.id?.toIntOrNull() ?: 0
         if (eid != 0) getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE).edit().putString("series_download_state_$eid", state.name).apply()
         when (state) {
-            DownloadState.BAIXAR -> {
-                imgDownloadEpisodeState.setImageResource(R.drawable.ic_dl_arrow); tvDownloadEpisodeState.text = "Baixar"
-            }
-            DownloadState.BAIXANDO -> {
-                imgDownloadEpisodeState.setImageResource(R.drawable.ic_dl_loading); tvDownloadEpisodeState.text = getProgressText()
-            }
-            DownloadState.BAIXADO -> {
-                imgDownloadEpisodeState.setImageResource(R.drawable.ic_dl_done); tvDownloadEpisodeState.text = "Baixado"
-            }
+            DownloadState.BAIXAR -> { imgDownloadEpisodeState.setImageResource(R.drawable.ic_dl_arrow); tvDownloadEpisodeState.text = "Baixar" }
+            DownloadState.BAIXANDO -> { imgDownloadEpisodeState.setImageResource(R.drawable.ic_dl_loading); tvDownloadEpisodeState.text = getProgressText() }
+            DownloadState.BAIXADO -> { imgDownloadEpisodeState.setImageResource(R.drawable.ic_dl_done); tvDownloadEpisodeState.text = "Baixado" }
         }
     }
 
@@ -606,22 +598,21 @@ class SeriesDetailsActivity : AppCompatActivity() {
         setDownloadState(DownloadState.valueOf(saved!!), ep)
     }
 
-    // ✅ NOVO: LIMPEZA DE REDE AO SAIR
-    override fun onDestroy() {
-        client.dispatcher().cancelAll()
-        super.onDestroy()
-    }
-
     class EpisodeAdapter(val list: List<EpisodeStream>, private val onClick: (EpisodeStream, Int) -> Unit) : RecyclerView.Adapter<EpisodeAdapter.VH>() {
         class VH(v: View) : RecyclerView.ViewHolder(v) {
             val tvTitle: TextView = v.findViewById(R.id.tvEpisodeTitle)
             val imgThumb: ImageView = v.findViewById(R.id.imgEpisodeThumb)
         }
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = VH(LayoutInflater.from(parent.context).inflate(R.layout.item_episode, parent, false))
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
+            VH(LayoutInflater.from(parent.context).inflate(R.layout.item_episode, parent, false))
+
         override fun onBindViewHolder(holder: VH, position: Int) {
             val ep = list[position]
             holder.tvTitle.text = "E${ep.episode_num.toString().padStart(2, '0')} - ${ep.title}"
+
             val capaUrl = ep.info?.movie_image ?: ""
+
             Glide.with(holder.itemView.context)
                 .load(capaUrl)
                 .placeholder(android.R.color.darker_gray)
@@ -631,19 +622,23 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 .into(holder.imgThumb)
 
             holder.itemView.setOnClickListener { onClick(ep, position) }
-            holder.itemView.isFocusable = true
+
             holder.itemView.setOnFocusChangeListener { view, hasFocus ->
                 holder.tvTitle.setTextColor(if (hasFocus) Color.YELLOW else Color.WHITE)
+
                 if (hasFocus) {
-                    // ✅ Apenas foco visual neon
                     view.setBackgroundResource(R.drawable.bg_focus_neon)
                     view.animate().scaleX(1.15f).scaleY(1.15f).setDuration(200).start()
+                    view.elevation = 15f
                 } else {
                     view.setBackgroundResource(0)
                     view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start()
+                    view.elevation = 4f
                 }
             }
         }
+
         override fun getItemCount() = list.size
     }
 }
+

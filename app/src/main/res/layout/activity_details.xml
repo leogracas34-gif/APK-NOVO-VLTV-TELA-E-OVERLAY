@@ -42,7 +42,8 @@
                     android:background="#333333"
                     android:elevation="8dp"
                     android:focusable="true"
-                    android:focusableInTouchMode="false" />
+                    android:focusableInTouchMode="true"
+                    android:nextFocusDown="@id/btnPlay" />
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -170,7 +171,9 @@
                     android:textSize="14sp"
                     android:textStyle="bold"
                     android:visibility="gone"
-                    android:focusable="true" />
+                    android:focusable="true"
+                    android:nextFocusUp="@id/imgPoster"
+                    android:nextFocusDown="@id/btnPlay" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -187,7 +190,10 @@
                         android:textColor="#000000"
                         android:textSize="14sp"
                         android:textStyle="bold"
-                        android:focusable="true" />
+                        android:focusable="true"
+                        android:nextFocusUp="@id/btnResume"
+                        android:nextFocusRight="@id/btnFavorite"
+                        android:nextFocusDown="@id/recyclerEpisodes" />
 
                     <ImageButton
                         android:id="@+id/btnFavorite"
@@ -197,6 +203,8 @@
                         android:src="@android:drawable/btn_star_big_off"
                         android:background="?attr/selectableItemBackgroundBorderless"
                         android:focusable="true"
+                        android:nextFocusLeft="@id/btnPlay"
+                        android:nextFocusDown="@id/recyclerEpisodes"
                         app:tint="#FFFFFF" />
                 </LinearLayout>
             </LinearLayout>
@@ -247,8 +255,6 @@
                 android:layout_marginTop="12dp"
                 android:visibility="gone"
                 android:nestedScrollingEnabled="false"
-                android:focusable="true" />
-
-        </LinearLayout>
+                android:focusable="false" /> </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 </FrameLayout>

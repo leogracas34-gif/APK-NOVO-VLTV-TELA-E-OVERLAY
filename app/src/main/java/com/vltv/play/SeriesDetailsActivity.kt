@@ -54,11 +54,11 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private lateinit var imgPoster: ImageView
     private lateinit var imgBackground: ImageView
     private lateinit var tvTitle: TextView
-    private lateinit var imgTitleLogo: ImageView // ✅ ADICIONADO
+    private lateinit var imgTitleLogo: ImageView 
     private lateinit var tvRating: TextView
     private lateinit var tvGenre: TextView
     private lateinit var tvCast: TextView // Título "Elenco"
-    private lateinit var recyclerCast: RecyclerView // Lista de bolinhas (Novo)
+    private lateinit var recyclerCast: RecyclerView 
     private lateinit var tvPlot: TextView
     private lateinit var btnSeasonSelector: TextView
     private lateinit var rvEpisodes: RecyclerView
@@ -75,10 +75,6 @@ class SeriesDetailsActivity : AppCompatActivity() {
     // ✅ NOVAS VARIÁVEIS PARA O LAYOUT (INCLUÍDAS)
     private var appBarLayout: AppBarLayout? = null
     private var tabLayout: TabLayout? = null
-    
-    // ✅ ADICIONADO PARA SUGESTÕES
-    private var rvSuggestions: RecyclerView? = null
-    private var tmdbGenreId: Int = 0
 
     private var episodesBySeason: Map<String, List<EpisodeStream>> = emptyMap()
     private var sortedSeasons: List<String> = emptyList()
@@ -94,11 +90,10 @@ class SeriesDetailsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_serie_details)
 
-        // ✅ ADICIONE O CÓDIGO EXATAMENTE AQUI:
+        // ✅ MODO IMERSIVO ATIVADO
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
-        // ------------------------------------------
 
         seriesId = intent.getIntExtra("series_id", 0)
         seriesName = intent.getStringExtra("name") ?: ""
@@ -107,7 +102,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
         inicializarViews()
 
-        // ✅ INCLUSÃO DO EFEITO DE ROLAGEM (ADICIONADO)
+        // ✅ EFEITO DE ALPHA NO SCROLL
         appBarLayout?.addOnOffsetChangedListener { appBar, verticalOffset ->
             val percentage = Math.abs(verticalOffset).toFloat() / appBar.totalScrollRange
             val alphaValue = if (percentage > 0.6f) 0f else 1f - (percentage * 1.5f).coerceAtMost(1f)
@@ -144,7 +139,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         rvEpisodes.isFocusableInTouchMode = true
         rvEpisodes.setHasFixedSize(true)
         
-        // ✅ ALTERADO: MUDANÇA PARA LINEAR (UM EMBAIXO DO OUTRO)
+        // ✅ LISTA VERTICAL PARA CABER A SINOPSE
         rvEpisodes.layoutManager = LinearLayoutManager(this)
 
         rvEpisodes.addOnChildAttachStateChangeListener(object : RecyclerView.OnChildAttachStateChangeListener {
@@ -193,14 +188,11 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
         restaurarEstadoDownload()
         setupDownloadButtons()
-
-        // ✅ MEMÓRIA DE LOGOS
         tentarCarregarLogoCache()
-
         carregarSeriesInfo()
         sincronizarDadosTMDB()
 
-        // ✅ APLICAÇÃO DE FOCO NOS BOTÕES PRINCIPAIS
+        // ✅ APLICAÇÃO DE FOCO NOS BOTÕES
         val commonFocus = View.OnFocusChangeListener { v, hasFocus ->
             if (hasFocus) {
                 v.setBackgroundResource(R.drawable.bg_focus_neon)
@@ -220,32 +212,25 @@ class SeriesDetailsActivity : AppCompatActivity() {
         btnResume.onFocusChangeListener = commonFocus
         btnSeasonSelector.onFocusChangeListener = commonFocus
 
-        // ✅ ADICIONADO: LÓGICA DE TROCA DE ABAS
+        // ✅ LÓGICA DE TROCA DE ABAS
         tabLayout?.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
                 when (tab?.position) {
                     0 -> { // EPISÓDIOS
                         rvEpisodes.visibility = View.VISIBLE
-                        rvSuggestions?.visibility = View.GONE
                         tvPlot.visibility = View.GONE
                         tvCast.visibility = View.GONE
-                        btnSeasonSelector.visibility = View.VISIBLE
-                    }
-                    1 -> { // SUGESTÕES
-                        rvEpisodes.visibility = View.GONE
-                        rvSuggestions?.visibility = View.VISIBLE
-                        tvPlot.visibility = View.GONE
-                        tvCast.visibility = View.GONE
-                        btnSeasonSelector.visibility = View.GONE
-                        carregarSugestoesTMDB()
                     }
                     2 -> { // DETALHES
                         rvEpisodes.visibility = View.GONE
-                        rvSuggestions?.visibility = View.GONE
                         tvPlot.visibility = View.VISIBLE
                         tvCast.visibility = View.VISIBLE
                         tvPlot.setTextColor(Color.WHITE)
-                        btnSeasonSelector.visibility = View.GONE
+                    }
+                    1 -> { // SUGESTÕES
+                        rvEpisodes.visibility = View.GONE
+                        tvPlot.visibility = View.GONE
+                        tvCast.visibility = View.GONE
                     }
                 }
             }
@@ -255,11 +240,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
     }
 
     private fun inicializarViews() {
-        // ✅ INCLUSÃO DAS NOVAS VIEWS NO SEU MÉTODO ORIGINAL
         appBarLayout = findViewById(R.id.appBar)
         tabLayout = findViewById(R.id.tabLayout)
         
-        // Inicializa as abas caso o TabLayout exista
         if (tabLayout?.tabCount == 0) {
             tabLayout?.addTab(tabLayout!!.newTab().setText("EPISÓDIOS"))
             tabLayout?.addTab(tabLayout!!.newTab().setText("SUGESTÕES"))
@@ -274,22 +257,14 @@ class SeriesDetailsActivity : AppCompatActivity() {
         tvRating = findViewById(R.id.tvRating)
         tvGenre = findViewById(R.id.tvGenre)
         tvPlot = findViewById(R.id.tvPlot)
-
         tvCast = findViewById(R.id.tvCast)
         recyclerCast = findViewById(R.id.recyclerCast)
         recyclerCast.visibility = View.GONE 
-
         btnSeasonSelector = findViewById(R.id.btnSeasonSelector)
         rvEpisodes = findViewById(R.id.recyclerEpisodes)
-        
-        // ✅ INICIALIZAR RECYCLER DE SUGESTÕES
-        rvSuggestions = findViewById(R.id.recyclerSuggestions)
-        rvSuggestions?.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-
         btnPlaySeries = findViewById(R.id.btnPlay)
         btnFavoriteSeries = findViewById(R.id.btnFavorite)
         btnResume = findViewById(R.id.btnResume)
-
         btnDownloadEpisodeArea = findViewById(R.id.btnDownloadArea)
         imgDownloadEpisodeState = findViewById(R.id.imgDownloadState)
         tvDownloadEpisodeState = findViewById(R.id.tvDownloadState)
@@ -429,13 +404,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 val body = response.body()?.string() ?: return
                 try {
                     val d = JSONObject(body)
-                    
-                    // Salvar gênero para sugestões
                     val gs = d.optJSONArray("genres")
-                    if (gs != null && gs.length() > 0) {
-                        tmdbGenreId = gs.getJSONObject(0).getInt("id")
-                    }
-
                     val genresList = mutableListOf<String>()
                     if (gs != null) for (i in 0 until gs.length()) genresList.add(gs.getJSONObject(i).getString("name"))
 
@@ -453,28 +422,6 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         tvCast.text = "Elenco: ${castNames.joinToString(", ")}"
                     }
                 } catch(e: Exception) { }
-            }
-        })
-    }
-    
-    // ✅ ADICIONADO: CARREGAR SUGESTÕES VIA TMDB
-    private fun carregarSugestoesTMDB() {
-        if (tmdbGenreId == 0) return
-        val apiKey = "9b73f5dd15b8165b1b57419be2f29128"
-        val url = "https://api.themoviedb.org/3/discover/tv?api_key=$apiKey&with_genres=$tmdbGenreId&language=pt-BR&sort_by=popularity.desc"
-
-        client.newCall(Request.Builder().url(url).build()).enqueue(object : okhttp3.Callback {
-            override fun onFailure(call: okhttp3.Call, e: IOException) {}
-            override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
-                val body = response.body()?.string() ?: return
-                try {
-                    val results = JSONObject(body).getJSONArray("results")
-                    val list = mutableListOf<JSONObject>()
-                    for (i in 0 until results.length()) list.add(results.getJSONObject(i))
-                    runOnUiThread { 
-                        // rvSuggestions?.adapter = SuggestionAdapter(list) 
-                    }
-                } catch (e: Exception) {}
             }
         })
     }
@@ -744,7 +691,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         class VH(v: View) : RecyclerView.ViewHolder(v) {
             val tvTitle: TextView = v.findViewById(R.id.tvEpisodeTitle)
             val imgThumb: ImageView = v.findViewById(R.id.imgEpisodeThumb)
-            // ✅ CORREÇÃO APLICADA: O ID CORRETO É tvEpisodePlot
+            // ✅ ADICIONADO: REFERÊNCIA PARA A SINOPSE DO EPISÓDIO
             val tvPlotEp: TextView = v.findViewById(R.id.tvEpisodePlot)
         }
 
@@ -755,7 +702,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
             val ep = list[position]
             holder.tvTitle.text = "E${ep.episode_num.toString().padStart(2, '0')} - ${ep.title}"
             
-            // ✅ PREENCHE A SINOPSE DO EPISÓDIO NO ITEM DA LISTA
+            // ✅ EXIBE A SINOPSE DO EPISÓDIO (E NÃO DA SÉRIE)
             holder.tvPlotEp.text = ep.info?.plot ?: "Sem descrição disponível."
 
             val capaUrl = ep.info?.movie_image ?: ""

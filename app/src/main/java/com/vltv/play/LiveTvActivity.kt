@@ -75,6 +75,8 @@ class LiveTvActivity : AppCompatActivity() {
 
         rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
         rvCategories.setHasFixedSize(true)
+        rvCategories.setItemViewCacheSize(50) // ✅ AUMENTO DE CACHE PARA NAVEGAÇÃO RÁPIDA
+        rvCategories.overScrollMode = View.OVER_SCROLL_NEVER // ✅ REMOVE TREMEDIRA NO FINAL
 
         rvCategories.isFocusable = true
         rvCategories.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
@@ -84,6 +86,7 @@ class LiveTvActivity : AppCompatActivity() {
         rvChannels.isFocusable = true
         rvChannels.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
         rvChannels.setHasFixedSize(true)
+        rvChannels.setItemViewCacheSize(100) // ✅ CACHE EXTRA PARA EVITAR TRAVAMENTO NOS CANAIS
 
         rvCategories.requestFocus()
 
@@ -376,15 +379,17 @@ class LiveTvActivity : AppCompatActivity() {
             holder.itemView.isFocusable = true
             holder.itemView.isClickable = true
 
-            // ✅ APLICAÇÃO DO FOCO NEON E ZOOM 1.15f NOS CANAIS
+            // ✅ APLICAÇÃO DO FOCO NEON + ZOOM 1.15f + TEXTO MAIOR
             holder.itemView.setOnFocusChangeListener { view, hasFocus ->
-                holder.tvName.setTextColor(if (hasFocus) Color.YELLOW else Color.WHITE)
-                
                 if (hasFocus) {
+                    holder.tvName.setTextColor(Color.YELLOW)
+                    holder.tvName.textSize = 20f // ✅ AUMENTO DO NOME DO CANAL NA TV
                     view.setBackgroundResource(R.drawable.bg_focus_neon)
                     view.animate().scaleX(1.15f).scaleY(1.15f).setDuration(200).start()
                     view.elevation = 20f
                 } else {
+                    holder.tvName.setTextColor(Color.WHITE)
+                    holder.tvName.textSize = 16f // ✅ VOLTA AO TAMANHO PADRÃO
                     view.setBackgroundResource(0)
                     view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start()
                     view.elevation = 4f

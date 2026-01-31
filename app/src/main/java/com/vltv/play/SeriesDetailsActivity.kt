@@ -31,11 +31,11 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 
-// Importante: Certifique-se de que CastAdapter e CastMember estÃ£o no projeto
+// Importante: Certifique-se de que CastAdapter e CastMember estão no projeto
 import com.vltv.play.CastAdapter
 import com.vltv.play.CastMember
 
-// âœ… IMPORTAÃ‡Ã•ES ADICIONADAS PARA A LOGO
+// ✅ IMPORTAÇÕES ADICIONADAS PARA A LOGO
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -52,10 +52,10 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private lateinit var imgPoster: ImageView
     private lateinit var imgBackground: ImageView
     private lateinit var tvTitle: TextView
-    private lateinit var imgTitleLogo: ImageView // âœ… ADICIONADO
+    private lateinit var imgTitleLogo: ImageView // ✅ ADICIONADO
     private lateinit var tvRating: TextView
     private lateinit var tvGenre: TextView
-    private lateinit var tvCast: TextView // TÃ­tulo "Elenco"
+    private lateinit var tvCast: TextView // Título "Elenco"
     private lateinit var recyclerCast: RecyclerView // Lista de bolinhas (Novo)
     private lateinit var tvPlot: TextView
     private lateinit var btnSeasonSelector: TextView
@@ -68,7 +68,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private lateinit var tvDownloadEpisodeState: TextView
 
     private lateinit var btnDownloadSeason: Button
-    private lateinit var btnResume: Button // BotÃ£o Continuar
+    private lateinit var btnResume: Button // Botão Continuar
 
     private var episodesBySeason: Map<String, List<EpisodeStream>> = emptyMap()
     private var sortedSeasons: List<String> = emptyList()
@@ -84,7 +84,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_series_details)
 
-        // âœ… ADICIONE O CÃ“DIGO EXATAMENTE AQUI:
+        // ✅ ADICIONE O CÓDIGO EXATAMENTE AQUI:
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
@@ -104,7 +104,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
         tvTitle.text = seriesName
         tvRating.text = "Nota: $seriesRating"
-        tvGenre.text = "GÃªnero: Buscando..."
+        tvGenre.text = "Gênero: Buscando..."
         tvCast.text = "Elenco:"
         tvPlot.text = "Carregando sinopse..."
 
@@ -154,7 +154,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         btnPlaySeries.setOnClickListener {
             val ep = currentEpisode
             if (ep == null) {
-                Toast.makeText(this, "Selecione um episÃ³dio.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Selecione um episódio.", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
             abrirPlayer(ep, false)
@@ -168,11 +168,31 @@ class SeriesDetailsActivity : AppCompatActivity() {
         restaurarEstadoDownload()
         setupDownloadButtons()
 
-        // âœ… MEMÃ“RIA DE LOGOS
+        // ✅ MEMÓRIA DE LOGOS
         tentarCarregarLogoCache()
 
         carregarSeriesInfo()
         sincronizarDadosTMDB()
+
+        // ✅ APLICAÇÃO DE FOCO NOS BOTÕES PRINCIPAIS
+        val commonFocus = View.OnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                v.setBackgroundResource(R.drawable.bg_focus_neon)
+                if (v is Button) v.setTextColor(Color.YELLOW)
+                v.animate().scaleX(1.15f).scaleY(1.15f).setDuration(150).start()
+            } else {
+                if (v is Button) {
+                    v.setBackgroundResource(android.R.drawable.btn_default)
+                    v.setTextColor(Color.WHITE)
+                } else {
+                    v.setBackgroundResource(0)
+                }
+                v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
+            }
+        }
+        btnPlaySeries.onFocusChangeListener = commonFocus
+        btnResume.onFocusChangeListener = commonFocus
+        btnSeasonSelector.onFocusChangeListener = commonFocus
     }
 
     private fun inicializarViews() {
@@ -187,7 +207,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
         tvCast = findViewById(R.id.tvCast)
         recyclerCast = findViewById(R.id.recyclerCast)
-        recyclerCast.visibility = View.GONE // âœ… MUDANÃ‡A: OCULTA O RECYCLERVIEW DE FOTOS
+        recyclerCast.visibility = View.GONE // ✅ MUDANÇA: OCULTA O RECYCLERVIEW DE FOTOS
 
         btnSeasonSelector = findViewById(R.id.btnSeasonSelector)
         rvEpisodes = findViewById(R.id.recyclerEpisodes)
@@ -228,9 +248,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
             AlertDialog.Builder(this)
                 .setTitle("Baixar temporada")
-                .setMessage("Baixar todos os ${lista.size} episÃ³dios?")
+                .setMessage("Baixar todos os ${lista.size} episódios?")
                 .setPositiveButton("Sim") { _, _ -> baixarTemporadaAtual(lista) }
-                .setNegativeButton("NÃ£o", null)
+                .setNegativeButton("Não", null)
                 .show()
         }
     }
@@ -245,7 +265,6 @@ class SeriesDetailsActivity : AppCompatActivity() {
         cleanName = cleanName.trim().replace(Regex("\\s+"), " ")
 
         val encodedName = try { URLEncoder.encode(cleanName, "UTF-8") } catch(e:Exception) { cleanName }
-        // âœ… CORREÃ‡ÃƒO 1: Adicionado &region=BR para priorizar nomes brasileiros
         val url = "https://api.themoviedb.org/3/search/tv?api_key=$apiKey&query=$encodedName&language=pt-BR&region=BR"
 
         client.newCall(Request.Builder().url(url).build()).enqueue(object : okhttp3.Callback {
@@ -265,7 +284,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
                             buscarDetalhesTMDB(tmdbId, apiKey)
                             runOnUiThread {
                                 val sinopse = show.optString("overview")
-                                tvPlot.text = if (sinopse.isNotEmpty()) sinopse else "Sinopse indisponÃ­vel."
+                                tvPlot.text = if (sinopse.isNotEmpty()) sinopse else "Sinopse indisponível."
                                 val vote = show.optDouble("vote_average", 0.0)
                                 if (vote > 0) tvRating.text = "Nota: ${String.format("%.1f", vote)}"
                                 val backdropPath = show.optString("backdrop_path")
@@ -289,7 +308,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
     private fun buscarLogoSerieTraduzida(id: Int, key: String) {
         val imagesUrl = "https://api.themoviedb.org/3/tv/$id/images?api_key=$key&include_image_language=pt,en,null"
-        client.newCall(Request.Builder().url(imagesUrl).build()).enqueue(object : okhttp3.Callback {
+        client.newCall(Request.Builder().url(url).build()).enqueue(object : okhttp3.Callback {
             override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
                 val body = response.body()?.string()
                 if (body != null) {
@@ -298,7 +317,6 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         val logos = obj.optJSONArray("logos")
                         if (logos != null && logos.length() > 0) {
                             var logoPath: String? = null
-                            // âœ… CORREÃ‡ÃƒO 2: LaÃ§o 'for' para priorizar a logo em PortuguÃªs (pt)
                             for (i in 0 until logos.length()) {
                                 val logo = logos.getJSONObject(i)
                                 if (logo.optString("iso_639_1") == "pt") {
@@ -306,7 +324,6 @@ class SeriesDetailsActivity : AppCompatActivity() {
                                     break
                                 }
                             }
-                            // Caso nÃ£o encontre PT, usa a primeira (geralmente EN ou Original)
                             if (logoPath == null) logoPath = logos.getJSONObject(0).getString("file_path")
                             val finalUrl = "https://image.tmdb.org/t/p/w500$logoPath"
                             getSharedPreferences("vltv_logos_cache", Context.MODE_PRIVATE)
@@ -352,8 +369,8 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         }
                     }
                     runOnUiThread {
-                        tvGenre.text = "GÃªnero: ${if (genresList.isEmpty()) "Variados" else genresList.joinToString(", ")}"
-                        tvCast.text = "Elenco: ${castNames.joinToString(", ")}" // âœ… MUDANÃ‡A: ELENCO PARA TEXTO
+                        tvGenre.text = "Gênero: ${if (genresList.isEmpty()) "Variados" else genresList.joinToString(", ")}"
+                        tvCast.text = "Elenco: ${castNames.joinToString(", ")}"
                     }
                 } catch(e: Exception) { }
             }
@@ -414,16 +431,15 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         episodesBySeason = body.episodes ?: emptyMap()
                         sortedSeasons = episodesBySeason.keys.sortedBy { it.toIntOrNull() ?: 0 }
                         if (sortedSeasons.isNotEmpty()) mudarTemporada(sortedSeasons.first())
-                        else btnSeasonSelector.text = "IndisponÃ­vel"
+                        else btnSeasonSelector.text = "Indisponível"
                     }
                 }
                 override fun onFailure(call: Call<SeriesInfoResponse>, t: Throwable) {
-                    Toast.makeText(this@SeriesDetailsActivity, "Erro de conexÃ£o", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@SeriesDetailsActivity, "Erro de conexão", Toast.LENGTH_SHORT).show()
                 }
             })
     }
 
-    // ESTILO DISNEY+: X CENTRALIZADO EM BAIXO COM FOCO NEON
     private fun mostrarSeletorDeTemporada() {
         if (sortedSeasons.isEmpty()) return
         val dialog = BottomSheetDialog(this, R.style.DialogTemporadaTransparente)
@@ -471,10 +487,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
             override fun getItemCount() = sortedSeasons.size
         }
 
-        // O BOTÃƒO X IGUAL AO DISNEY+
         val btnClose = TextView(this)
         val closeParams = LinearLayout.LayoutParams(80.toPx(), 80.toPx())
-        closeParams.topMargin = 20.toPx() // DistÃ¢ncia da lista para o X
+        closeParams.topMargin = 20.toPx() 
         btnClose.layoutParams = closeParams
         btnClose.text = "X"
         btnClose.gravity = Gravity.CENTER
@@ -483,7 +498,6 @@ class SeriesDetailsActivity : AppCompatActivity() {
         btnClose.isFocusable = true
         btnClose.isClickable = true
         
-        // FOCO NEON NO X
         btnClose.setOnFocusChangeListener { v, hasFocus ->
             if (hasFocus) {
                 v.setBackgroundResource(R.drawable.bg_focus_neon)
@@ -498,7 +512,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         btnClose.setOnClickListener { dialog.dismiss() }
 
         root.addView(rvSeasons)
-        root.addView(btnClose) // X embaixo como na foto
+        root.addView(btnClose) 
         dialog.setContentView(root)
         
         dialog.setOnShowListener {

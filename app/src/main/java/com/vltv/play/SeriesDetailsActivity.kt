@@ -423,33 +423,20 @@ class SeriesDetailsActivity : AppCompatActivity() {
             })
     }
 
-    // =========================================================================
-    // NOVA FUNÇÃO: SELETOR DE TEMPORADA CENTRALIZADO E TRANSPARENTE (ESTILO OVERLAY)
-    // =========================================================================
     private fun mostrarSeletorDeTemporada() {
         if (sortedSeasons.isEmpty()) return
-
-        // Usamos o estilo transparente definido no themes.xml
         val dialog = BottomSheetDialog(this, R.style.DialogTemporadaTransparente)
-        
-        // Layout principal
         val root = LinearLayout(this)
-        root.layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        )
+        root.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT)
         root.orientation = LinearLayout.VERTICAL
-        root.gravity = Gravity.CENTER_HORIZONTAL
+        root.gravity = Gravity.CENTER
         root.setPadding(0, 30, 0, 30)
         root.setBackgroundColor(Color.TRANSPARENT)
 
-        // RecyclerView com altura limitada para permitir o scroll
         val rvSeasons = RecyclerView(this)
-        // Definimos uma largura fixa (250dp) e uma altura máxima (ex: 400dp) para a coluna
-        val rvParams = LinearLayout.LayoutParams(250.toPx(), 400.toPx()) 
+        val rvParams = LinearLayout.LayoutParams(250.toPx(), 400.toPx())
         rvSeasons.layoutParams = rvParams
         rvSeasons.layoutManager = LinearLayoutManager(this)
-        rvSeasons.setBackgroundColor(Color.TRANSPARENT)
 
         rvSeasons.adapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
             override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
@@ -463,6 +450,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 tv.isClickable = true
                 return object : RecyclerView.ViewHolder(tv) {}
             }
+
             override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
                 val season = sortedSeasons[position]
                 val tv = holder.itemView as TextView
@@ -491,11 +479,35 @@ class SeriesDetailsActivity : AppCompatActivity() {
         btnClose.setPadding(0, 25, 0, 25)
         btnClose.isFocusable = true
         btnClose.isClickable = true
+        
+        // âœ… FOCO NEON NO BOTÃƒO DE FECHAR
+        btnClose.setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                v.setBackgroundResource(R.drawable.bg_focus_neon)
+                (v as TextView).setTextColor(Color.YELLOW)
+                v.animate().scaleX(1.15f).scaleY(1.15f).setDuration(150).start()
+            } else {
+                v.setBackgroundResource(0)
+                (v as TextView).setTextColor(Color.WHITE)
+                v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
+            }
+        }
         btnClose.setOnClickListener { dialog.dismiss() }
 
         root.addView(rvSeasons)
         root.addView(btnClose)
         dialog.setContentView(root)
+        
+        // âœ… CORREÃ‡ÃƒO COMPORTAMENTO (BEHAVIOR) PARA CENTRALIZAR
+        dialog.setOnShowListener {
+            val bottomSheet = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+            bottomSheet?.let {
+                val behavior = com.google.android.material.bottomsheet.BottomSheetBehavior.from(it)
+                behavior.state = com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED
+                behavior.peekHeight = resources.displayMetrics.heightPixels
+                it.setBackgroundColor(Color.TRANSPARENT)
+            }
+        }
         dialog.show()
     }
 
@@ -653,4 +665,3 @@ class SeriesDetailsActivity : AppCompatActivity() {
         override fun getItemCount() = list.size
     }
 }
-

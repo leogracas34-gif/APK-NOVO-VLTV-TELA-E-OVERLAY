@@ -14,15 +14,14 @@
 
         <com.google.android.material.appbar.CollapsingToolbarLayout
             android:layout_width="match_parent"
-            android:layout_height="480dp"
+            android:layout_height="520dp"
             app:layout_scrollFlags="scroll|exitUntilCollapsed">
 
             <ImageView
-                android:id="@+id/imgSeriePoster"
+                android:id="@+id/imgBackground"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:scaleType="centerCrop"
-                android:src="@drawable/ic_launcher" 
                 app:layout_collapseMode="parallax" />
 
             <View
@@ -37,32 +36,73 @@
                 android:orientation="vertical"
                 android:padding="32dp">
 
+                <ImageView
+                    android:id="@+id/imgTitleLogo"
+                    android:layout_width="320dp"
+                    android:layout_height="140dp"
+                    android:visibility="gone"
+                    android:scaleType="fitStart" />
+
                 <TextView
-                    android:id="@+id/tvSerieTitle"
+                    android:id="@+id/tvTitle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="NOME DA SÉRIE"
                     android:textColor="#FFFFFF"
-                    android:textSize="38sp"
+                    android:textSize="36sp"
                     android:textStyle="bold" />
 
                 <TextView
+                    android:id="@+id/tvRating"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="2025 • 4K • Temporadas"
-                    android:textColor="#CCCCCC"
-                    android:layout_marginTop="8dp"/>
+                    android:textColor="#FFD700"
+                    android:layout_marginTop="8dp"
+                    android:textStyle="bold" />
 
-                <Button
-                    android:id="@+id/btnAssistir"
+                <TextView
+                    android:id="@+id/tvGenre"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp"
-                    android:background="@drawable/bg_button_assistir"
-                    android:text="▶ ASSISTIR"
-                    android:textColor="#000000"
-                    android:paddingHorizontal="24dp"
-                    android:focusable="true" />
+                    android:textColor="#CCCCCC"
+                    android:textSize="14sp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="16dp">
+
+                    <Button
+                        android:id="@+id/btnPlay"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_button_assistir"
+                        android:text="▶ ASSISTIR"
+                        android:textColor="#000000"
+                        android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/btnResume"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:backgroundTint="#33FFFFFF"
+                        android:text="CONTINUAR"
+                        android:textColor="#FFFFFF"
+                        android:visibility="gone" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/btnSeasonSelector"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:padding="12dp"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"
+                    android:focusable="true"
+                    android:clickable="true" />
+
             </LinearLayout>
 
         </com.google.android.material.appbar.CollapsingToolbarLayout>
@@ -73,7 +113,6 @@
             android:layout_height="wrap_content"
             android:background="#0A0A0A"
             app:tabIndicatorColor="#FFFFFF"
-            app:tabIndicatorHeight="2dp"
             app:tabSelectedTextColor="#FFFFFF"
             app:tabTextColor="#88FFFFFF" />
             
@@ -84,27 +123,12 @@
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <androidx.core.widget.NestedScrollView
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerEpisodes"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior">
-
-        <LinearLayout
-            android:id="@+id/containerEpisodios"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="16dp">
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="1000dp"
-                android:text="Aqui aparecerão os episódios..."
-                android:textColor="#333333"
-                android:gravity="center_horizontal"
-                android:paddingTop="50dp" />
-
-        </LinearLayout>
-    </androidx.core.widget.NestedScrollView>
+        app:layout_behavior="@string/appbar_scrolling_view_behavior"
+        android:padding="8dp"
+        android:clipToPadding="false" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

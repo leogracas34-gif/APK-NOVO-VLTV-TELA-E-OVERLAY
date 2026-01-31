@@ -30,6 +30,7 @@ import kotlinx.coroutines.*
 import org.json.JSONObject
 import java.net.URL
 import java.net.URLEncoder
+import android.graphics.Color
 
 // ✅ MANTIDO: Sem redeclaração de EpisodeData
 class VodActivity : AppCompatActivity() {

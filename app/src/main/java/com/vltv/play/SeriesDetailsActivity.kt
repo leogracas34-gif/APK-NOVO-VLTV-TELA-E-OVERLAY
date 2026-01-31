@@ -423,7 +423,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
             })
     }
 
-    // âœ… ESTILO DISNEY+: X CENTRALIZADO EM BAIXO COM FOCO NEON
+    // ESTILO DISNEY+: X CENTRALIZADO EM BAIXO COM FOCO NEON
     private fun mostrarSeletorDeTemporada() {
         if (sortedSeasons.isEmpty()) return
         val dialog = BottomSheetDialog(this, R.style.DialogTemporadaTransparente)
@@ -471,12 +471,12 @@ class SeriesDetailsActivity : AppCompatActivity() {
             override fun getItemCount() = sortedSeasons.size
         }
 
-        // âœ… O BOTÃƒO X IGUAL AO DISNEY+
+        // O BOTÃƒO X IGUAL AO DISNEY+
         val btnClose = TextView(this)
         val closeParams = LinearLayout.LayoutParams(80.toPx(), 80.toPx())
         closeParams.topMargin = 20.toPx() // DistÃ¢ncia da lista para o X
         btnClose.layoutParams = closeParams
-        btnClose.text = "✖"
+        btnClose.text = "X"
         btnClose.gravity = Gravity.CENTER
         btnClose.textSize = 35f
         btnClose.setTextColor(Color.WHITE)

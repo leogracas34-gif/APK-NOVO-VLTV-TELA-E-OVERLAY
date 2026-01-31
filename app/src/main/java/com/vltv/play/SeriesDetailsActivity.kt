@@ -88,7 +88,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_series_details)
+        setContentView(R.layout.activity_serie_details)
 
         // ✅ ADICIONE O CÓDIGO EXATAMENTE AQUI:
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)

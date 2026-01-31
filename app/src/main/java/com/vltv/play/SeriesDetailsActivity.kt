@@ -140,7 +140,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         rvEpisodes.isFocusableInTouchMode = true
         rvEpisodes.setHasFixedSize(true)
         
-        // ✅ ALTERADO: MUDANÇA DE GRID PARA LINEAR (UM EMBAIXO DO OUTRO)
+        // ✅ ALTERADO: MUDANÇA PARA LINEAR (UM EMBAIXO DO OUTRO)
         rvEpisodes.layoutManager = LinearLayoutManager(this)
 
         rvEpisodes.addOnChildAttachStateChangeListener(object : RecyclerView.OnChildAttachStateChangeListener {
@@ -215,8 +215,8 @@ class SeriesDetailsActivity : AppCompatActivity() {
         btnPlaySeries.onFocusChangeListener = commonFocus
         btnResume.onFocusChangeListener = commonFocus
         btnSeasonSelector.onFocusChangeListener = commonFocus
-        
-        // ✅ ADICIONADO: LÓGICA DAS ABAS (EPISÓDIOS, DETALHES, SUGESTÕES)
+
+        // ✅ ADICIONADO: LÓGICA DE TROCA DE ABAS
         tabLayout?.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
                 when (tab?.position) {
@@ -231,7 +231,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         tvCast.visibility = View.VISIBLE
                         tvPlot.setTextColor(Color.WHITE)
                     }
-                    1 -> { // SUGESTÕES (EM BREVE)
+                    1 -> { // SUGESTÕES
                         rvEpisodes.visibility = View.GONE
                         tvPlot.visibility = View.GONE
                         tvCast.visibility = View.GONE
@@ -701,6 +701,8 @@ class SeriesDetailsActivity : AppCompatActivity() {
         class VH(v: View) : RecyclerView.ViewHolder(v) {
             val tvTitle: TextView = v.findViewById(R.id.tvEpisodeTitle)
             val imgThumb: ImageView = v.findViewById(R.id.imgEpisodeThumb)
+            // ✅ ADICIONADO: VIEW PARA A SINOPSE DO EPISÓDIO NO ADAPTER
+            val tvPlotEp: TextView = v.findViewById(R.id.tvEpisodePlot)
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
@@ -709,6 +711,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
         override fun onBindViewHolder(holder: VH, position: Int) {
             val ep = list[position]
             holder.tvTitle.text = "E${ep.episode_num.toString().padStart(2, '0')} - ${ep.title}"
+            
+            // ✅ ADICIONADO: PREENCHE A SINOPSE DO EPISÓDIO
+            holder.tvPlotEp.text = ep.info?.plot ?: "Sem descrição disponível."
 
             val capaUrl = ep.info?.movie_image ?: ""
 
@@ -727,7 +732,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
                 if (hasFocus) {
                     view.setBackgroundResource(R.drawable.bg_focus_neon)
-                    view.animate().scaleX(1.15f).scaleY(1.15f).setDuration(200).start()
+                    view.animate().scaleX(1.10f).scaleY(1.10f).setDuration(200).start()
                     view.elevation = 15f
                 } else {
                     view.setBackgroundResource(0)

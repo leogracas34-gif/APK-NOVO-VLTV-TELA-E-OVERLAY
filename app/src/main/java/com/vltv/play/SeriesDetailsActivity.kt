@@ -423,6 +423,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
             })
     }
 
+    // âœ… ESTILO DISNEY+: X CENTRALIZADO EM BAIXO COM FOCO NEON
     private fun mostrarSeletorDeTemporada() {
         if (sortedSeasons.isEmpty()) return
         val dialog = BottomSheetDialog(this, R.style.DialogTemporadaTransparente)
@@ -430,21 +431,20 @@ class SeriesDetailsActivity : AppCompatActivity() {
         root.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT)
         root.orientation = LinearLayout.VERTICAL
         root.gravity = Gravity.CENTER
-        root.setPadding(0, 30, 0, 30)
         root.setBackgroundColor(Color.TRANSPARENT)
 
         val rvSeasons = RecyclerView(this)
-        val rvParams = LinearLayout.LayoutParams(250.toPx(), 400.toPx())
+        val rvParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, 300.toPx())
         rvSeasons.layoutParams = rvParams
         rvSeasons.layoutManager = LinearLayoutManager(this)
 
         rvSeasons.adapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
             override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
                 val tv = TextView(parent.context)
-                tv.layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                tv.setPadding(20, 35, 20, 35)
+                tv.layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                tv.setPadding(40, 25, 40, 25)
                 tv.gravity = Gravity.CENTER
-                tv.textSize = 22f
+                tv.textSize = 24f
                 tv.setTextColor(Color.WHITE)
                 tv.isFocusable = true
                 tv.isClickable = true
@@ -457,8 +457,8 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 tv.text = "Temporada $season"
                 tv.setOnFocusChangeListener { v, hasFocus ->
                     if (hasFocus) {
-                        v.setBackgroundColor(Color.parseColor("#FFD700"))
-                        (v as TextView).setTextColor(Color.BLACK)
+                        v.setBackgroundColor(Color.parseColor("#33FFFFFF"))
+                        (v as TextView).setTextColor(Color.YELLOW)
                         v.animate().scaleX(1.1f).scaleY(1.1f).setDuration(150).start()
                     } else {
                         v.setBackgroundColor(Color.TRANSPARENT)
@@ -471,16 +471,19 @@ class SeriesDetailsActivity : AppCompatActivity() {
             override fun getItemCount() = sortedSeasons.size
         }
 
+        // âœ… O BOTÃƒO X IGUAL AO DISNEY+
         val btnClose = TextView(this)
-        btnClose.layoutParams = LinearLayout.LayoutParams(250.toPx(), ViewGroup.LayoutParams.WRAP_CONTENT)
-        btnClose.text = "âœ• FECHAR"
+        val closeParams = LinearLayout.LayoutParams(80.toPx(), 80.toPx())
+        closeParams.topMargin = 50.toPx() // DistÃ¢ncia da lista para o X
+        btnClose.layoutParams = closeParams
+        btnClose.text = "âœ•"
         btnClose.gravity = Gravity.CENTER
+        btnClose.textSize = 35f
         btnClose.setTextColor(Color.WHITE)
-        btnClose.setPadding(0, 25, 0, 25)
         btnClose.isFocusable = true
         btnClose.isClickable = true
         
-        // âœ… FOCO NEON NO BOTÃƒO DE FECHAR
+        // FOCO NEON NO X
         btnClose.setOnFocusChangeListener { v, hasFocus ->
             if (hasFocus) {
                 v.setBackgroundResource(R.drawable.bg_focus_neon)
@@ -495,10 +498,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
         btnClose.setOnClickListener { dialog.dismiss() }
 
         root.addView(rvSeasons)
-        root.addView(btnClose)
+        root.addView(btnClose) // X embaixo como na foto
         dialog.setContentView(root)
         
-        // âœ… CORREÃ‡ÃƒO COMPORTAMENTO (BEHAVIOR) PARA CENTRALIZAR
         dialog.setOnShowListener {
             val bottomSheet = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
             bottomSheet?.let {
@@ -590,7 +592,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
             val eid = ep.id.toIntOrNull() ?: continue
             DownloadHelper.enqueueDownload(this, montarUrlEpisodio(ep), "${seriesName}_T${currentSeason}E${ep.episode_num}.mp4", logicalId = "series_$eid", type = "series")
         }
-        Toast.makeText(this, "Baixando episÃ³dios...", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, "Baixando episódios...", Toast.LENGTH_LONG).show()
     }
 
     private fun getProgressText(): String {

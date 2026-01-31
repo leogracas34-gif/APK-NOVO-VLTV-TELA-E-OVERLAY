@@ -308,7 +308,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
     private fun buscarLogoSerieTraduzida(id: Int, key: String) {
         val imagesUrl = "https://api.themoviedb.org/3/tv/$id/images?api_key=$key&include_image_language=pt,en,null"
-        client.newCall(Request.Builder().url(url).build()).enqueue(object : okhttp3.Callback {
+        client.newCall(Request.Builder().url(imagesUrl).build()).enqueue(object : okhttp3.Callback {
             override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
                 val body = response.body()?.string()
                 if (body != null) {

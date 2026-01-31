@@ -82,6 +82,8 @@ class VodActivity : AppCompatActivity() {
 
         rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
         rvCategories.setHasFixedSize(true)
+        rvCategories.setItemViewCacheSize(50) // ✅ CACHE PARA NAVEGAÇÃO RÁPIDA
+        rvCategories.overScrollMode = View.OVER_SCROLL_NEVER // ✅ REMOVE TREMEDEIRA
         rvCategories.isFocusable = true
         rvCategories.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
 
@@ -89,6 +91,7 @@ class VodActivity : AppCompatActivity() {
         rvMovies.isFocusable = true
         rvMovies.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
         rvMovies.setHasFixedSize(true)
+        rvMovies.setItemViewCacheSize(100) // ✅ CACHE PARA EVITAR LAG NOS PÔSTERES
 
         rvCategories.requestFocus()
         carregarCategorias()
@@ -235,10 +238,14 @@ class VodActivity : AppCompatActivity() {
             h.tvName.setBackgroundColor(if (isSel) 0xFF252525.toInt() else 0x00000000)
             h.itemView.setOnFocusChangeListener { view, hasFocus ->
                 if (hasFocus) {
-                    h.tvName.setTextColor(getColor(R.color.red_primary))
+                    h.tvName.setTextColor(Color.YELLOW) // ✅ AMARELO NO FOCO
+                    h.tvName.textSize = 20f // ✅ TEXTO MAIOR NA TV
+                    view.setBackgroundResource(R.drawable.bg_focus_neon)
                     view.animate().scaleX(1.10f).scaleY(1.10f).setDuration(150).start()
                 } else {
+                    h.tvName.textSize = 16f
                     view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
+                    view.setBackgroundResource(0)
                     if (selectedPos != h.adapterPosition) h.tvName.setTextColor(getColor(R.color.gray_text))
                 }
             }
@@ -295,11 +302,15 @@ class VodActivity : AppCompatActivity() {
 
             h.itemView.setOnFocusChangeListener { view, hasFocus ->
                 if (hasFocus) {
+                    h.tvName.setTextColor(Color.YELLOW) // ✅ AMARELO NO FILME
+                    h.tvName.textSize = 18f // ✅ NOME DO FILME MAIOR
                     view.setBackgroundResource(R.drawable.bg_focus_neon)
                     view.animate().scaleX(1.15f).scaleY(1.15f).setDuration(150).start()
-                    view.elevation = 10f
+                    view.elevation = 20f
                     if (h.imgLogo.visibility != View.VISIBLE) h.tvName.visibility = View.VISIBLE
                 } else {
+                    h.tvName.setTextColor(Color.WHITE)
+                    h.tvName.textSize = 14f
                     view.setBackgroundResource(0)
                     view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
                     view.elevation = 4f

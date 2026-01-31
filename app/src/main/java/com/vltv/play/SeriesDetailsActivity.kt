@@ -474,9 +474,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
         // âœ… O BOTÃƒO X IGUAL AO DISNEY+
         val btnClose = TextView(this)
         val closeParams = LinearLayout.LayoutParams(80.toPx(), 80.toPx())
-        closeParams.topMargin = 50.toPx() // DistÃ¢ncia da lista para o X
+        closeParams.topMargin = 20.toPx() // DistÃ¢ncia da lista para o X
         btnClose.layoutParams = closeParams
-        btnClose.text = "âœ•"
+        btnClose.text = "✖"
         btnClose.gravity = Gravity.CENTER
         btnClose.textSize = 35f
         btnClose.setTextColor(Color.WHITE)

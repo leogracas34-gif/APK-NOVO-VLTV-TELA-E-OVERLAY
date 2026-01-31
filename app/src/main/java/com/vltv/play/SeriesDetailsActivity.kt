@@ -75,6 +75,10 @@ class SeriesDetailsActivity : AppCompatActivity() {
     // ✅ NOVAS VARIÁVEIS PARA O LAYOUT (INCLUÍDAS)
     private var appBarLayout: AppBarLayout? = null
     private var tabLayout: TabLayout? = null
+    
+    // ✅ ADICIONADO PARA SUGESTÕES
+    private var rvSuggestions: RecyclerView? = null
+    private var tmdbGenreId: Int = 0
 
     private var episodesBySeason: Map<String, List<EpisodeStream>> = emptyMap()
     private var sortedSeasons: List<String> = emptyList()
@@ -222,19 +226,26 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 when (tab?.position) {
                     0 -> { // EPISÓDIOS
                         rvEpisodes.visibility = View.VISIBLE
+                        rvSuggestions?.visibility = View.GONE
                         tvPlot.visibility = View.GONE
                         tvCast.visibility = View.GONE
-                    }
-                    2 -> { // DETALHES
-                        rvEpisodes.visibility = View.GONE
-                        tvPlot.visibility = View.VISIBLE
-                        tvCast.visibility = View.VISIBLE
-                        tvPlot.setTextColor(Color.WHITE)
+                        btnSeasonSelector.visibility = View.VISIBLE
                     }
                     1 -> { // SUGESTÕES
                         rvEpisodes.visibility = View.GONE
+                        rvSuggestions?.visibility = View.VISIBLE
                         tvPlot.visibility = View.GONE
                         tvCast.visibility = View.GONE
+                        btnSeasonSelector.visibility = View.GONE
+                        carregarSugestoesTMDB()
+                    }
+                    2 -> { // DETALHES
+                        rvEpisodes.visibility = View.GONE
+                        rvSuggestions?.visibility = View.GONE
+                        tvPlot.visibility = View.VISIBLE
+                        tvCast.visibility = View.VISIBLE
+                        tvPlot.setTextColor(Color.WHITE)
+                        btnSeasonSelector.visibility = View.GONE
                     }
                 }
             }
@@ -270,6 +281,10 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
         btnSeasonSelector = findViewById(R.id.btnSeasonSelector)
         rvEpisodes = findViewById(R.id.recyclerEpisodes)
+        
+        // ✅ INICIALIZAR RECYCLER DE SUGESTÕES
+        rvSuggestions = findViewById(R.id.recyclerSuggestions)
+        rvSuggestions?.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
 
         btnPlaySeries = findViewById(R.id.btnPlay)
         btnFavoriteSeries = findViewById(R.id.btnFavorite)
@@ -414,7 +429,13 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 val body = response.body()?.string() ?: return
                 try {
                     val d = JSONObject(body)
+                    
+                    // Salvar gênero para sugestões
                     val gs = d.optJSONArray("genres")
+                    if (gs != null && gs.length() > 0) {
+                        tmdbGenreId = gs.getJSONObject(0).getInt("id")
+                    }
+
                     val genresList = mutableListOf<String>()
                     if (gs != null) for (i in 0 until gs.length()) genresList.add(gs.getJSONObject(i).getString("name"))
 
@@ -432,6 +453,28 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         tvCast.text = "Elenco: ${castNames.joinToString(", ")}"
                     }
                 } catch(e: Exception) { }
+            }
+        })
+    }
+    
+    // ✅ ADICIONADO: CARREGAR SUGESTÕES VIA TMDB
+    private fun carregarSugestoesTMDB() {
+        if (tmdbGenreId == 0) return
+        val apiKey = "9b73f5dd15b8165b1b57419be2f29128"
+        val url = "https://api.themoviedb.org/3/discover/tv?api_key=$apiKey&with_genres=$tmdbGenreId&language=pt-BR&sort_by=popularity.desc"
+
+        client.newCall(Request.Builder().url(url).build()).enqueue(object : okhttp3.Callback {
+            override fun onFailure(call: okhttp3.Call, e: IOException) {}
+            override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                val body = response.body()?.string() ?: return
+                try {
+                    val results = JSONObject(body).getJSONArray("results")
+                    val list = mutableListOf<JSONObject>()
+                    for (i in 0 until results.length()) list.add(results.getJSONObject(i))
+                    runOnUiThread { 
+                        // rvSuggestions?.adapter = SuggestionAdapter(list) 
+                    }
+                } catch (e: Exception) {}
             }
         })
     }

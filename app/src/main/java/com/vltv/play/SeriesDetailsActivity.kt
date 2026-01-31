@@ -701,7 +701,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         class VH(v: View) : RecyclerView.ViewHolder(v) {
             val tvTitle: TextView = v.findViewById(R.id.tvEpisodeTitle)
             val imgThumb: ImageView = v.findViewById(R.id.imgEpisodeThumb)
-            // ✅ ADICIONADO: VIEW PARA A SINOPSE DO EPISÓDIO NO ADAPTER
+            // ✅ CORREÇÃO APLICADA: O ID CORRETO É tvEpisodePlot
             val tvPlotEp: TextView = v.findViewById(R.id.tvEpisodePlot)
         }
 
@@ -712,7 +712,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
             val ep = list[position]
             holder.tvTitle.text = "E${ep.episode_num.toString().padStart(2, '0')} - ${ep.title}"
             
-            // ✅ ADICIONADO: PREENCHE A SINOPSE DO EPISÓDIO
+            // ✅ PREENCHE A SINOPSE DO EPISÓDIO NO ITEM DA LISTA
             holder.tvPlotEp.text = ep.info?.plot ?: "Sem descrição disponível."
 
             val capaUrl = ep.info?.movie_image ?: ""

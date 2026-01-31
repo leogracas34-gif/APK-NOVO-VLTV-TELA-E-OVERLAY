@@ -14,7 +14,7 @@
 
         <com.google.android.material.appbar.CollapsingToolbarLayout
             android:layout_width="match_parent"
-            android:layout_height="400dp"
+            android:layout_height="330dp" 
             app:layout_scrollFlags="scroll|exitUntilCollapsed">
 
             <ImageView
@@ -36,7 +36,9 @@
                 android:orientation="vertical"
                 android:paddingLeft="32dp"
                 android:paddingRight="32dp"
-                android:paddingBottom="0dp"> <ImageView
+                android:paddingBottom="8dp"> 
+
+                <ImageView
                     android:id="@+id/imgTitleLogo"
                     android:layout_width="280dp"
                     android:layout_height="100dp"
@@ -107,7 +109,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:layout_marginBottom="16dp" 
+                    android:layout_marginBottom="8dp" 
                     android:padding="10dp"
                     android:textColor="#FFFFFF"
                     android:textStyle="bold"
@@ -143,11 +145,20 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="8dp"> <androidx.recyclerview.widget.RecyclerView
+            android:padding="8dp"> 
+
+            <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/recyclerEpisodes"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:nestedScrollingEnabled="false" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recyclerSuggestions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                android:layout_marginTop="16dp" />
 
             <TextView 
                 android:id="@+id/tvPlot" 

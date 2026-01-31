@@ -98,6 +98,8 @@ class SeriesActivity : AppCompatActivity() {
 
         rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
         rvCategories.setHasFixedSize(true)
+        rvCategories.setItemViewCacheSize(60) // ✅ CACHE PARA NAVEGAÇÃO RÁPIDA
+        rvCategories.overScrollMode = View.OVER_SCROLL_NEVER // ✅ REMOVE TREMEDEIRA
         rvCategories.isFocusable = true
         rvCategories.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
 
@@ -105,6 +107,7 @@ class SeriesActivity : AppCompatActivity() {
         rvSeries.isFocusable = true
         rvSeries.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
         rvSeries.setHasFixedSize(true)
+        rvSeries.setItemViewCacheSize(100) // ✅ CACHE PARA PÔSTERES
 
         carregarCategorias()
     }
@@ -424,14 +427,17 @@ class SeriesActivity : AppCompatActivity() {
             holder.itemView.isFocusable = true
             holder.itemView.isClickable = true
 
-            holder.itemView.setOnFocusChangeListener { _, hasFocus ->
+            holder.itemView.setOnFocusChangeListener { view, hasFocus ->
                 if (hasFocus) {
-                    holder.tvName.setTextColor(holder.itemView.context.getColor(R.color.red_primary))
-                    holder.tvName.setBackgroundColor(0xFF252525.toInt())
-                    // ✅ ADICIONADO: Animação leve para categoria
-                    holder.itemView.animate().scaleX(1.05f).scaleY(1.05f).setDuration(150).start()
+                    // ✅ FOCO AMARELO + NEON + ZOOM NAS CATEGORIAS
+                    holder.tvName.setTextColor(Color.YELLOW)
+                    holder.tvName.textSize = 20f
+                    view.setBackgroundResource(R.drawable.bg_focus_neon)
+                    view.animate().scaleX(1.05f).scaleY(1.05f).setDuration(150).start()
                 } else {
-                    holder.itemView.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
+                    holder.tvName.textSize = 16f
+                    view.setBackgroundResource(0)
+                    view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
                     if (selectedPos != holder.adapterPosition) {
                         holder.tvName.setTextColor(holder.itemView.context.getColor(R.color.gray_text))
                         holder.tvName.setBackgroundColor(0x00000000)
@@ -509,19 +515,21 @@ class SeriesActivity : AppCompatActivity() {
 
             holder.itemView.setOnFocusChangeListener { view, hasFocus ->
                 if (hasFocus) {
-                    // ✅ FOCO NEON ADICIONADO: Escala 1.15f + Background Neon
+                    // ✅ FOCO AMARELO + NEON + ZOOM 1.15f
+                    holder.tvName.setTextColor(Color.YELLOW)
+                    holder.tvName.textSize = 18f
                     view.animate().scaleX(1.15f).scaleY(1.15f).setDuration(150).start()
-                    view.elevation = 10f
+                    view.elevation = 20f
                     view.setBackgroundResource(R.drawable.bg_focus_neon) // Aplica borda neon
                     if (holder.imgLogo.visibility != View.VISIBLE) holder.tvName.visibility = View.VISIBLE
-                    holder.tvName.setTextColor(0xFF00C6FF.toInt()) 
                     view.alpha = 1.0f
                 } else {
+                    holder.tvName.setTextColor(Color.WHITE)
+                    holder.tvName.textSize = 14f
                     view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
                     view.elevation = 4f
                     view.setBackgroundResource(0) // Remove borda
                     holder.tvName.visibility = View.GONE
-                    holder.tvName.setTextColor(0xFFFFFFFF.toInt())
                     view.alpha = 0.8f
                 }
             }

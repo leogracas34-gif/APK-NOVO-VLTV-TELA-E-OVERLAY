@@ -295,6 +295,8 @@ class DetailsActivity : AppCompatActivity() {
         recyclerEpisodes.apply { 
             layoutManager = if (isTelevisionDevice()) GridLayoutManager(this@DetailsActivity, 6) else LinearLayoutManager(this@DetailsActivity, LinearLayoutManager.HORIZONTAL, false) 
             adapter = episodesAdapter 
+            setHasFixedSize(true)
+            setItemViewCacheSize(20) // ✅ CACHE ADICIONADO PARA FLUIDEZ
         } 
     } 
 
@@ -306,15 +308,22 @@ class DetailsActivity : AppCompatActivity() {
     } 
 
     private fun setupEventos() { 
-        // ✅ FOCO NEON ADICIONADO AOS BOTÕES (ZOOM 1.15f)
+        // ✅ FOCO NEON + AMARELO + ZOOM 1.15f INTEGRADO AOS BOTÕES
         val focusListener = View.OnFocusChangeListener { v, hasFocus -> 
             if (hasFocus) { 
                 v.setBackgroundResource(R.drawable.bg_focus_neon) 
+                if (v is Button) v.setTextColor(android.graphics.Color.YELLOW) // ✅ AMARELO NO TEXTO DO BOTÃO
                 v.animate().scaleX(1.15f).scaleY(1.15f).setDuration(150).start() 
+                v.elevation = 25f
             } else { 
-                if (v is Button) v.setBackgroundResource(R.drawable.bg_button_default) 
-                else v.setBackgroundResource(0) 
+                if (v is Button) {
+                    v.setBackgroundResource(R.drawable.bg_button_default) 
+                    v.setTextColor(android.graphics.Color.WHITE) // ✅ VOLTA PARA BRANCO
+                } else {
+                    v.setBackgroundResource(0) 
+                }
                 v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start() 
+                v.elevation = 4f
             } 
         } 
         btnPlay.onFocusChangeListener = focusListener 
@@ -427,18 +436,23 @@ class DetailsActivity : AppCompatActivity() {
         inner class ViewHolder(val v: View) : RecyclerView.ViewHolder(v) { 
             fun bind(e: EpisodeData) { 
                 v.isFocusable = true 
-                v.findViewById<TextView>(R.id.tvEpisodeTitle).text = "S${e.season}E${e.episode}: ${e.title}" 
+                val tvTitleEp = v.findViewById<TextView>(R.id.tvEpisodeTitle)
+                tvTitleEp.text = "S${e.season}E${e.episode}: ${e.title}" 
                 Glide.with(v.context).load(e.thumb).centerCrop().into(v.findViewById(R.id.imgEpisodeThumb)) 
                 v.setOnClickListener { onEpisodeClick(e) } 
 
-                // ✅ FOCO NEON NOS EPISÓDIOS
+                // ✅ FOCO NEON NOS EPISÓDIOS COM ZOOM E AMARELO
                 v.setOnFocusChangeListener { view, hasFocus ->
                     if (hasFocus) {
+                        tvTitleEp.setTextColor(android.graphics.Color.YELLOW)
                         view.setBackgroundResource(R.drawable.bg_focus_neon)
                         view.animate().scaleX(1.15f).scaleY(1.15f).setDuration(200).start()
+                        view.elevation = 20f
                     } else {
+                        tvTitleEp.setTextColor(android.graphics.Color.WHITE)
                         view.setBackgroundResource(0)
                         view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start()
+                        view.elevation = 4f
                     }
                 }
             } 

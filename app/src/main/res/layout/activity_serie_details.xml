@@ -14,7 +14,7 @@
 
         <com.google.android.material.appbar.CollapsingToolbarLayout
             android:layout_width="match_parent"
-            android:layout_height="330dp" 
+            android:layout_height="350dp" 
             app:layout_scrollFlags="scroll|exitUntilCollapsed">
 
             <ImageView
@@ -34,14 +34,12 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="bottom"
                 android:orientation="vertical"
-                android:paddingLeft="32dp"
-                android:paddingRight="32dp"
-                android:paddingBottom="8dp"> 
+                android:padding="32dp">
 
                 <ImageView
                     android:id="@+id/imgTitleLogo"
-                    android:layout_width="280dp"
-                    android:layout_height="100dp"
+                    android:layout_width="320dp"
+                    android:layout_height="140dp"
                     android:visibility="gone"
                     android:scaleType="fitStart" />
 
@@ -55,8 +53,8 @@
 
                 <ImageView
                     android:id="@+id/imgPoster"
-                    android:layout_width="100dp"
-                    android:layout_height="150dp"
+                    android:layout_width="120dp"
+                    android:layout_height="180dp"
                     android:visibility="gone" />
 
                 <TextView
@@ -64,7 +62,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:textColor="#FFD700"
-                    android:layout_marginTop="4dp" />
+                    android:layout_marginTop="8dp" />
 
                 <TextView
                     android:id="@+id/tvGenre"
@@ -76,7 +74,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:layout_marginTop="12dp">
+                    android:layout_marginTop="16dp">
 
                     <Button
                         android:id="@+id/btnPlay"
@@ -84,8 +82,7 @@
                         android:layout_height="wrap_content"
                         android:background="@drawable/bg_button_assistir"
                         android:text="▶ ASSISTIR"
-                        android:textColor="#000000"
-                        android:textStyle="bold" />
+                        android:textColor="#000000" />
 
                     <Button
                         android:id="@+id/btnResume"
@@ -97,8 +94,8 @@
                     
                     <ImageButton
                         android:id="@+id/btnFavorite"
-                        android:layout_width="45dp"
-                        android:layout_height="45dp"
+                        android:layout_width="50dp"
+                        android:layout_height="50dp"
                         android:layout_marginStart="12dp"
                         android:background="?attr/selectableItemBackgroundBorderless"
                         android:src="@android:drawable/btn_star_big_off" />
@@ -108,12 +105,19 @@
                     android:id="@+id/btnSeasonSelector"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:layout_marginBottom="8dp" 
-                    android:padding="10dp"
+                    android:layout_marginTop="16dp"
+                    android:padding="12dp"
                     android:textColor="#FFFFFF"
-                    android:textStyle="bold"
                     android:focusable="true" />
+
+                <TextView android:id="@+id/tvPlot" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
+                <TextView android:id="@+id/tvCast" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
+                <androidx.recyclerview.widget.RecyclerView android:id="@+id/recyclerCast" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
+                <LinearLayout android:id="@+id/btnDownloadArea" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone">
+                    <ImageView android:id="@+id/imgDownloadState" android:layout_width="0dp" android:layout_height="0dp" />
+                    <TextView android:id="@+id/tvDownloadState" android:layout_width="0dp" android:layout_height="0dp" />
+                </LinearLayout>
+                <Button android:id="@+id/btnDownloadSeason" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
 
             </LinearLayout>
 
@@ -124,75 +128,14 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="#0A0A0A"
-            app:tabIndicatorColor="#FFFFFF"
-            app:tabSelectedTextColor="#FFFFFF"
-            app:tabTextColor="#88FFFFFF" />
-            
-        <View 
-            android:layout_width="match_parent" 
-            android:layout_height="1dp" 
-            android:background="#22FFFFFF"/>
+            app:tabIndicatorColor="#FFFFFF" />
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <androidx.core.widget.NestedScrollView
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerEpisodes"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="8dp"> 
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/recyclerEpisodes"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:nestedScrollingEnabled="false" />
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/recyclerSuggestions"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:visibility="gone"
-                android:layout_marginTop="16dp" />
-
-            <TextView 
-                android:id="@+id/tvPlot" 
-                android:layout_width="match_parent" 
-                android:layout_height="wrap_content" 
-                android:textColor="#FFFFFF"
-                android:textSize="16sp"
-                android:visibility="gone"
-                android:layout_marginTop="16dp"
-                android:padding="16dp" />
-
-            <TextView 
-                android:id="@+id/tvCast" 
-                android:layout_width="match_parent" 
-                android:layout_height="wrap_content" 
-                android:textColor="#CCCCCC"
-                android:textSize="14sp"
-                android:visibility="gone"
-                android:layout_marginTop="8dp"
-                android:padding="16dp" />
-
-            <androidx.recyclerview.widget.RecyclerView 
-                android:id="@+id/recyclerCast" 
-                android:layout_width="match_parent" 
-                android:layout_height="wrap_content" 
-                android:visibility="gone" />
-
-            <LinearLayout android:id="@+id/btnDownloadArea" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone">
-                <ImageView android:id="@+id/imgDownloadState" android:layout_width="0dp" android:layout_height="0dp" />
-                <TextView android:id="@+id/tvDownloadState" android:layout_width="0dp" android:layout_height="0dp" />
-            </LinearLayout>
-            <Button android:id="@+id/btnDownloadSeason" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
-
-        </LinearLayout>
-    </androidx.core.widget.NestedScrollView>
+        app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

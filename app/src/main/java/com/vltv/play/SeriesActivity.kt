@@ -28,6 +28,7 @@ import com.bumptech.glide.request.target.Target
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
+import android.graphics.Color
 
 // --- IMPORTAÇÕES PARA A API DO TMDB E PERFORMANCE ---
 import kotlinx.coroutines.CoroutineScope

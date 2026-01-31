@@ -35,11 +35,13 @@ import androidx.core.view.WindowInsetsControllerCompat
 import com.vltv.play.CastAdapter
 import com.vltv.play.CastMember
 
-// ✅ IMPORTAÇÕES ADICIONADAS PARA A LOGO
+// ✅ IMPORTAÇÕES ADICIONADAS PARA A LOGO E LAYOUT
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.google.android.material.appbar.AppBarLayout
+import com.google.android.material.tabs.TabLayout
 
 class SeriesDetailsActivity : AppCompatActivity() {
 
@@ -70,6 +72,10 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private lateinit var btnDownloadSeason: Button
     private lateinit var btnResume: Button // Botão Continuar
 
+    // ✅ NOVAS VARIÁVEIS PARA O LAYOUT (INCLUÍDAS)
+    private var appBarLayout: AppBarLayout? = null
+    private var tabLayout: TabLayout? = null
+
     private var episodesBySeason: Map<String, List<EpisodeStream>> = emptyMap()
     private var sortedSeasons: List<String> = emptyList()
     private var currentSeason: String = ""
@@ -96,6 +102,20 @@ class SeriesDetailsActivity : AppCompatActivity() {
         seriesRating = intent.getStringExtra("rating") ?: "0.0"
 
         inicializarViews()
+
+        // ✅ INCLUSÃO DO EFEITO DE ROLAGEM (ADICIONADO)
+        appBarLayout?.addOnOffsetChangedListener { appBar, verticalOffset ->
+            val percentage = Math.abs(verticalOffset).toFloat() / appBar.totalScrollRange
+            val alphaValue = if (percentage > 0.6f) 0f else 1f - (percentage * 1.5f).coerceAtMost(1f)
+            
+            tvTitle.alpha = alphaValue
+            imgTitleLogo.alpha = alphaValue
+            btnPlaySeries.alpha = alphaValue
+            btnResume.alpha = alphaValue
+            btnFavoriteSeries.alpha = alphaValue
+            tvRating.alpha = alphaValue
+            tvGenre.alpha = alphaValue
+        }
 
         if (isTelevisionDevice()) {
             btnDownloadEpisodeArea.visibility = View.GONE
@@ -196,6 +216,15 @@ class SeriesDetailsActivity : AppCompatActivity() {
     }
 
     private fun inicializarViews() {
+        // ✅ INCLUSÃO DAS NOVAS VIEWS NO SEU MÉTODO ORIGINAL
+        appBarLayout = findViewById(R.id.appBar)
+        tabLayout = findViewById(R.id.tabLayout)
+        
+        // Inicializa as abas caso o TabLayout exista
+        tabLayout?.addTab(tabLayout!!.newTab().setText("EPISÓDIOS"))
+        tabLayout?.addTab(tabLayout!!.newTab().setText("SUGESTÕES"))
+        tabLayout?.addTab(tabLayout!!.newTab().setText("DETALHES"))
+
         imgPoster = findViewById(R.id.imgPoster)
         imgBackground = try { findViewById(R.id.imgBackground) } catch (e: Exception) { imgPoster }
         tvTitle = findViewById(R.id.tvTitle)

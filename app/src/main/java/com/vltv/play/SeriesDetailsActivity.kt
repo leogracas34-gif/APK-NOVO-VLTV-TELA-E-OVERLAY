@@ -423,20 +423,33 @@ class SeriesDetailsActivity : AppCompatActivity() {
             })
     }
 
+    // =========================================================================
+    // NOVA FUNÇÃO: SELETOR DE TEMPORADA CENTRALIZADO E TRANSPARENTE (ESTILO OVERLAY)
+    // =========================================================================
     private fun mostrarSeletorDeTemporada() {
         if (sortedSeasons.isEmpty()) return
+
+        // Usamos o estilo transparente definido no themes.xml
         val dialog = BottomSheetDialog(this, R.style.DialogTemporadaTransparente)
+        
+        // Layout principal
         val root = LinearLayout(this)
-        root.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT)
+        root.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
         root.orientation = LinearLayout.VERTICAL
-        root.gravity = Gravity.CENTER
+        root.gravity = Gravity.CENTER_HORIZONTAL
         root.setPadding(0, 30, 0, 30)
         root.setBackgroundColor(Color.TRANSPARENT)
 
+        // RecyclerView com altura limitada para permitir o scroll
         val rvSeasons = RecyclerView(this)
-        val rvParams = LinearLayout.LayoutParams(250.toPx(), 400.toPx())
+        // Definimos uma largura fixa (250dp) e uma altura máxima (ex: 400dp) para a coluna
+        val rvParams = LinearLayout.LayoutParams(250.toPx(), 400.toPx()) 
         rvSeasons.layoutParams = rvParams
         rvSeasons.layoutManager = LinearLayoutManager(this)
+        rvSeasons.setBackgroundColor(Color.TRANSPARENT)
 
         rvSeasons.adapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
             override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {

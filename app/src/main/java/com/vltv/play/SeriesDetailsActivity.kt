@@ -139,7 +139,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
         rvEpisodes.isFocusable = true
         rvEpisodes.isFocusableInTouchMode = true
         rvEpisodes.setHasFixedSize(true)
-        rvEpisodes.layoutManager = androidx.recyclerview.widget.GridLayoutManager(this, 4)
+        
+        // ✅ ALTERADO: MUDANÇA DE GRID PARA LINEAR (UM EMBAIXO DO OUTRO)
+        rvEpisodes.layoutManager = LinearLayoutManager(this)
 
         rvEpisodes.addOnChildAttachStateChangeListener(object : RecyclerView.OnChildAttachStateChangeListener {
             override fun onChildViewAttachedToWindow(view: View) {
@@ -213,6 +215,32 @@ class SeriesDetailsActivity : AppCompatActivity() {
         btnPlaySeries.onFocusChangeListener = commonFocus
         btnResume.onFocusChangeListener = commonFocus
         btnSeasonSelector.onFocusChangeListener = commonFocus
+        
+        // ✅ ADICIONADO: LÓGICA DAS ABAS (EPISÓDIOS, DETALHES, SUGESTÕES)
+        tabLayout?.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: TabLayout.Tab?) {
+                when (tab?.position) {
+                    0 -> { // EPISÓDIOS
+                        rvEpisodes.visibility = View.VISIBLE
+                        tvPlot.visibility = View.GONE
+                        tvCast.visibility = View.GONE
+                    }
+                    2 -> { // DETALHES
+                        rvEpisodes.visibility = View.GONE
+                        tvPlot.visibility = View.VISIBLE
+                        tvCast.visibility = View.VISIBLE
+                        tvPlot.setTextColor(Color.WHITE)
+                    }
+                    1 -> { // SUGESTÕES (EM BREVE)
+                        rvEpisodes.visibility = View.GONE
+                        tvPlot.visibility = View.GONE
+                        tvCast.visibility = View.GONE
+                    }
+                }
+            }
+            override fun onTabUnselected(tab: TabLayout.Tab?) {}
+            override fun onTabReselected(tab: TabLayout.Tab?) {}
+        })
     }
 
     private fun inicializarViews() {
@@ -221,9 +249,11 @@ class SeriesDetailsActivity : AppCompatActivity() {
         tabLayout = findViewById(R.id.tabLayout)
         
         // Inicializa as abas caso o TabLayout exista
-        tabLayout?.addTab(tabLayout!!.newTab().setText("EPISÓDIOS"))
-        tabLayout?.addTab(tabLayout!!.newTab().setText("SUGESTÕES"))
-        tabLayout?.addTab(tabLayout!!.newTab().setText("DETALHES"))
+        if (tabLayout?.tabCount == 0) {
+            tabLayout?.addTab(tabLayout!!.newTab().setText("EPISÓDIOS"))
+            tabLayout?.addTab(tabLayout!!.newTab().setText("SUGESTÕES"))
+            tabLayout?.addTab(tabLayout!!.newTab().setText("DETALHES"))
+        }
 
         imgPoster = findViewById(R.id.imgPoster)
         imgBackground = try { findViewById(R.id.imgBackground) } catch (e: Exception) { imgPoster }
@@ -236,7 +266,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
         tvCast = findViewById(R.id.tvCast)
         recyclerCast = findViewById(R.id.recyclerCast)
-        recyclerCast.visibility = View.GONE // ✅ MUDANÇA: OCULTA O RECYCLERVIEW DE FOTOS
+        recyclerCast.visibility = View.GONE 
 
         btnSeasonSelector = findViewById(R.id.btnSeasonSelector)
         rvEpisodes = findViewById(R.id.recyclerEpisodes)

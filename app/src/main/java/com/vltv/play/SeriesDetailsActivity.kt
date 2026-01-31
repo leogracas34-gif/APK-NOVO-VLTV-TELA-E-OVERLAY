@@ -463,7 +463,6 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 tv.isClickable = true
                 return object : RecyclerView.ViewHolder(tv) {}
             }
-
             override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
                 val season = sortedSeasons[position]
                 val tv = holder.itemView as TextView

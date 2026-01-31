@@ -4,6 +4,7 @@ import android.app.PictureInPictureParams
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
+import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -92,7 +93,13 @@ class PlayerActivity : AppCompatActivity() {
                     if (remaining in 1..60_000) {
                         val seconds = (remaining / 1000L).toInt()
                         tvNextEpisodeTitle.text = "Próximo episódio em ${seconds}s"
-                        nextEpisodeContainer.visibility = View.VISIBLE
+                        
+                        // ✅ AJUSTE DE FOCO TV: Se o botão estava invisível e agora vai aparecer
+                        if (nextEpisodeContainer.visibility != View.VISIBLE) {
+                            nextEpisodeContainer.visibility = View.VISIBLE
+                            btnPlayNextEpisode.requestFocus() // ✅ Força o controle a ir para o botão
+                        }
+                        
                         if (remaining <= 1000L) {
                             nextEpisodeContainer.visibility = View.GONE
                         }
@@ -133,11 +140,16 @@ class PlayerActivity : AppCompatActivity() {
 
         btnPlayNextEpisode.isFocusable = true
         btnPlayNextEpisode.isFocusableInTouchMode = true
+        
+        // ✅ PADRÃO NEON + AMARELO NO BOTÃO DE PRÓXIMO
         btnPlayNextEpisode.setOnFocusChangeListener { view, hasFocus ->
-            btnPlayNextEpisode.isSelected = hasFocus
             if (hasFocus) {
-                view.animate().scaleX(1.1f).scaleY(1.1f).setDuration(150).start()
+                view.setBackgroundResource(R.drawable.bg_focus_neon)
+                btnPlayNextEpisode.setTextColor(Color.YELLOW)
+                view.animate().scaleX(1.15f).scaleY(1.15f).setDuration(150).start()
             } else {
+                view.setBackgroundResource(0) // Ou seu background padrão
+                btnPlayNextEpisode.setTextColor(Color.WHITE)
                 view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
             }
         }
@@ -565,6 +577,12 @@ class PlayerActivity : AppCompatActivity() {
         if (action == KeyEvent.ACTION_DOWN) {
             when (keyCode) {
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+                    // ✅ FOCO TV: Se o botão de próximo estiver visível, o OK clica nele
+                    if (nextEpisodeContainer.visibility == View.VISIBLE) {
+                        btnPlayNextEpisode.performClick()
+                        return true
+                    }
+                    
                     if (playerView.isControllerFullyVisible) {
                         if (p.isPlaying) p.pause() else p.play()
                     } else {
@@ -574,6 +592,12 @@ class PlayerActivity : AppCompatActivity() {
                 }
 
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
+                    // ✅ FOCO TV: Se o botão de próximo estiver visível, o foco vai pra ele ao apertar pra baixo
+                    if (nextEpisodeContainer.visibility == View.VISIBLE) {
+                        btnPlayNextEpisode.requestFocus()
+                        return true
+                    }
+                    
                     if (!playerView.isControllerFullyVisible) {
                         playerView.showController()
                     }

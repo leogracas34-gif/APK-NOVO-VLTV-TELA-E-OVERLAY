@@ -2,50 +2,77 @@
 <androidx.cardview.widget.CardView 
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="wrap_content"
+    android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_margin="6dp"
-    app:cardCornerRadius="8dp"
-    app:cardElevation="4dp"
-    app:cardBackgroundColor="#222222"
+    app:cardCornerRadius="10dp"
+    app:cardElevation="0dp"
+    app:cardBackgroundColor="#1AFFFFFF"
     android:focusable="true"
     android:clickable="true"
-    android:foreground="?attr/selectableItemBackground">
+    android:foreground="@drawable/bg_episodio_item">
 
-    <FrameLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="8dp">
 
-        <ImageView
-            android:id="@+id/imgEpisodeThumb"
-            android:layout_width="160dp"
-            android:layout_height="90dp"
-            android:scaleType="centerCrop"
-            android:src="@android:color/darker_gray" />
+        <FrameLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content">
 
-        <View
-            android:layout_width="160dp"
-            android:layout_height="90dp"
-            android:background="@drawable/gradient_shadow" />
+            <androidx.cardview.widget.CardView
+                android:layout_width="160dp"
+                android:layout_height="95dp"
+                app:cardCornerRadius="6dp"
+                app:cardElevation="0dp">
 
-        <ImageView
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:layout_gravity="center"
-            android:src="@android:drawable/ic_media_play"
-            app:tint="#80FFFFFF" />
+                <ImageView
+                    android:id="@+id/imgEpisodeThumb"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="centerCrop"
+                    android:src="@android:color/darker_gray" />
 
-        <TextView
-            android:id="@+id/tvEpisodeTitle"
-            android:layout_width="160dp"
-            android:layout_height="wrap_content"
-            android:layout_gravity="bottom"
-            android:background="#D9000000"
-            android:padding="6dp"
-            android:text="Carregando..."
-            android:textColor="#FFFFFF"
-            android:textSize="12sp"
-            android:maxLines="2"
-            android:ellipsize="end" />
-    </FrameLayout>
+                <ImageView
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:layout_gravity="center"
+                    android:src="@android:drawable/ic_media_play"
+                    app:tint="#B3FFFFFF" />
+            </androidx.cardview.widget.CardView>
+        </FrameLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:layout_marginStart="12dp"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/tvEpisodeTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="Nome do Episódio" />
+
+            <TextView
+                android:id="@+id/tvEpisodePlot"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textColor="#BBBBBB"
+                android:textSize="13sp"
+                android:maxLines="3"
+                android:ellipsize="end"
+                android:text="Aqui aparecerá o trecho de informação sobre o episódio conforme o sistema carregar." />
+
+        </LinearLayout>
+    </LinearLayout>
 </androidx.cardview.widget.CardView>

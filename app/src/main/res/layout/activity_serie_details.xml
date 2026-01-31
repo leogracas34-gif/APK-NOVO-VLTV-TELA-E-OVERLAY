@@ -51,20 +51,24 @@
                     android:textSize="36sp"
                     android:textStyle="bold" />
 
+                <ImageView
+                    android:id="@+id/imgPoster"
+                    android:layout_width="120dp"
+                    android:layout_height="180dp"
+                    android:visibility="gone" />
+
                 <TextView
                     android:id="@+id/tvRating"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:textColor="#FFD700"
-                    android:layout_marginTop="8dp"
-                    android:textStyle="bold" />
+                    android:layout_marginTop="8dp" />
 
                 <TextView
                     android:id="@+id/tvGenre"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textColor="#CCCCCC"
-                    android:textSize="14sp" />
+                    android:textColor="#CCCCCC" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -78,18 +82,23 @@
                         android:layout_height="wrap_content"
                         android:background="@drawable/bg_button_assistir"
                         android:text="▶ ASSISTIR"
-                        android:textColor="#000000"
-                        android:textStyle="bold" />
+                        android:textColor="#000000" />
 
                     <Button
                         android:id="@+id/btnResume"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="12dp"
-                        android:backgroundTint="#33FFFFFF"
                         android:text="CONTINUAR"
-                        android:textColor="#FFFFFF"
                         android:visibility="gone" />
+                    
+                    <ImageButton
+                        android:id="@+id/btnFavorite"
+                        android:layout_width="50dp"
+                        android:layout_height="50dp"
+                        android:layout_marginStart="12dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:src="@android:drawable/btn_star_big_off" />
                 </LinearLayout>
 
                 <TextView
@@ -99,9 +108,16 @@
                     android:layout_marginTop="16dp"
                     android:padding="12dp"
                     android:textColor="#FFFFFF"
-                    android:textStyle="bold"
-                    android:focusable="true"
-                    android:clickable="true" />
+                    android:focusable="true" />
+
+                <TextView android:id="@+id/tvPlot" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
+                <TextView android:id="@+id/tvCast" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
+                <androidx.recyclerview.widget.RecyclerView android:id="@+id/recyclerCast" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
+                <LinearLayout android:id="@+id/btnDownloadArea" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone">
+                    <ImageView android:id="@+id/imgDownloadState" android:layout_width="0dp" android:layout_height="0dp" />
+                    <TextView android:id="@+id/tvDownloadState" android:layout_width="0dp" android:layout_height="0dp" />
+                </LinearLayout>
+                <Button android:id="@+id/btnDownloadSeason" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
 
             </LinearLayout>
 
@@ -112,14 +128,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="#0A0A0A"
-            app:tabIndicatorColor="#FFFFFF"
-            app:tabSelectedTextColor="#FFFFFF"
-            app:tabTextColor="#88FFFFFF" />
-            
-        <View 
-            android:layout_width="match_parent" 
-            android:layout_height="1dp" 
-            android:background="#22FFFFFF"/>
+            app:tabIndicatorColor="#FFFFFF" />
 
     </com.google.android.material.appbar.AppBarLayout>
 
@@ -127,8 +136,6 @@
         android:id="@+id/recyclerEpisodes"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior"
-        android:padding="8dp"
-        android:clipToPadding="false" />
+        app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

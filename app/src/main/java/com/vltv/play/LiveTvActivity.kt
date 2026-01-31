@@ -2,6 +2,7 @@ package com.vltv.play
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
 import android.util.Base64
 import android.view.KeyEvent
@@ -78,7 +79,7 @@ class LiveTvActivity : AppCompatActivity() {
         rvCategories.isFocusable = true
         rvCategories.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
 
-        // Mantendo o GridLayoutManager (5 colunas) como você pediu
+        // Mantendo o GridLayoutManager (4 colunas)
         rvChannels.layoutManager = GridLayoutManager(this, 4)
         rvChannels.isFocusable = true
         rvChannels.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
@@ -269,7 +270,7 @@ class LiveTvActivity : AppCompatActivity() {
     }
 
     // --------------------
-    // ADAPTER DAS CATEGORIAS
+    // ADAPTER DAS CATEGORIAS (COM FOCO NEON)
     // --------------------
     inner class CategoryAdapter(
         private val list: List<LiveCategory>,
@@ -292,27 +293,14 @@ class LiveTvActivity : AppCompatActivity() {
             val item = list[position]
             holder.tvName.text = item.name
 
-            if (selectedPos == position) {
-                holder.tvName.setTextColor(holder.itemView.context.getColor(R.color.red_primary))
-                holder.tvName.setBackgroundColor(0xFF252525.toInt())
-            } else {
-                holder.tvName.setTextColor(holder.itemView.context.getColor(R.color.gray_text))
-                holder.tvName.setBackgroundColor(0x00000000)
-            }
+            // Logica de cor original preservada, mas integrada ao FocusListener
+            atualizarEstiloCategoria(holder, position == selectedPos, false)
 
             holder.itemView.isFocusable = true
             holder.itemView.isClickable = true
 
             holder.itemView.setOnFocusChangeListener { _, hasFocus ->
-                if (hasFocus) {
-                    holder.tvName.setTextColor(holder.itemView.context.getColor(R.color.red_primary))
-                    holder.tvName.setBackgroundColor(0xFF252525.toInt())
-                } else {
-                    if (selectedPos != holder.adapterPosition) {
-                        holder.tvName.setTextColor(holder.itemView.context.getColor(R.color.gray_text))
-                        holder.tvName.setBackgroundColor(0x00000000)
-                    }
-                }
+                atualizarEstiloCategoria(holder, selectedPos == position, hasFocus)
             }
 
             holder.itemView.setOnClickListener {
@@ -323,11 +311,29 @@ class LiveTvActivity : AppCompatActivity() {
             }
         }
 
+        private fun atualizarEstiloCategoria(holder: VH, isSelected: Boolean, hasFocus: Boolean) {
+            if (hasFocus) {
+                holder.tvName.setTextColor(Color.YELLOW)
+                holder.itemView.setBackgroundResource(R.drawable.bg_focus_neon)
+                holder.itemView.animate().scaleX(1.1f).scaleY(1.1f).setDuration(150).start()
+            } else {
+                holder.itemView.setBackgroundResource(0)
+                holder.itemView.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
+                if (isSelected) {
+                    holder.tvName.setTextColor(holder.itemView.context.getColor(R.color.red_primary))
+                    holder.tvName.setBackgroundColor(0xFF252525.toInt())
+                } else {
+                    holder.tvName.setTextColor(holder.itemView.context.getColor(R.color.gray_text))
+                    holder.tvName.setBackgroundColor(0x00000000)
+                }
+            }
+        }
+
         override fun getItemCount() = list.size
     }
 
     // --------------------
-    // ADAPTER DOS CANAIS + EPG
+    // ADAPTER DOS CANAIS (COM FOCO NEON + ZOOM 1.15f)
     // --------------------
     inner class ChannelAdapter(
         private val list: List<LiveStream>,
@@ -356,7 +362,6 @@ class LiveTvActivity : AppCompatActivity() {
 
             holder.tvName.text = item.name
 
-            // ✅ AJUSTADO PARA USAR O CACHE DO PRELOAD
             Glide.with(holder.itemView.context)
                 .load(item.icon)
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
@@ -366,20 +371,29 @@ class LiveTvActivity : AppCompatActivity() {
                 .centerCrop()
                 .into(holder.imgLogo)
 
-            // Chamada do EPG corrigida
             carregarEpg(holder, item)
 
             holder.itemView.isFocusable = true
             holder.itemView.isClickable = true
 
-            holder.itemView.setOnFocusChangeListener { _, hasFocus ->
-                holder.itemView.alpha = if (hasFocus) 1.0f else 0.8f
+            // ✅ APLICAÇÃO DO FOCO NEON E ZOOM 1.15f NOS CANAIS
+            holder.itemView.setOnFocusChangeListener { view, hasFocus ->
+                holder.tvName.setTextColor(if (hasFocus) Color.YELLOW else Color.WHITE)
+                
+                if (hasFocus) {
+                    view.setBackgroundResource(R.drawable.bg_focus_neon)
+                    view.animate().scaleX(1.15f).scaleY(1.15f).setDuration(200).start()
+                    view.elevation = 20f
+                } else {
+                    view.setBackgroundResource(0)
+                    view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start()
+                    view.elevation = 4f
+                }
             }
 
             holder.itemView.setOnClickListener { onClick(item) }
         }
 
-        // Esta é a função decodeBase64 ROBUSTA do seu arquivo antigo
         private fun decodeBase64(text: String?): String {
             return try {
                 if (text.isNullOrEmpty()) "" else String(

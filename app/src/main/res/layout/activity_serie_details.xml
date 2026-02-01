@@ -106,9 +106,14 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:padding="12dp"
+                    android:paddingHorizontal="16dp"
+                    android:paddingVertical="10dp"
+                    android:background="#333333"
+                    android:text="Temporadas ▼"
                     android:textColor="#FFFFFF"
-                    android:focusable="true" />
+                    android:textStyle="bold"
+                    android:focusable="true"
+                    android:clickable="true" />
 
                 <TextView android:id="@+id/tvPlot" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
                 <TextView android:id="@+id/tvCast" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />

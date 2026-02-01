@@ -137,7 +137,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         tvCast.text = "Elenco:"
         tvPlot.text = "Carregando sinopse..."
 
-        // CORREÇÃO: Botão Cinza e Texto BRANCO
+        // ✅ LÓGICA DO ARQUIVO ANTIGO: Cor de fundo #333333
         btnSeasonSelector.setBackgroundColor(Color.parseColor("#333333"))
         btnSeasonSelector.setTextColor(Color.WHITE)
 
@@ -185,6 +185,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
             atualizarIconeFavoritoSerie(favs.contains(seriesId))
         }
 
+        // CHAMA A FUNÇÃO TRAZIDA DO ARQUIVO ANTIGO
         btnSeasonSelector.setOnClickListener { mostrarSeletorDeTemporada() }
 
         btnPlaySeries.setOnClickListener {
@@ -226,15 +227,15 @@ class SeriesDetailsActivity : AppCompatActivity() {
         btnPlaySeries.onFocusChangeListener = commonFocus
         btnResume.onFocusChangeListener = commonFocus
         
-        // CORREÇÃO: Foco especial para o botão de temporada para garantir texto branco
+        // Foco do Seletor (para garantir que não suma)
         btnSeasonSelector.onFocusChangeListener = View.OnFocusChangeListener { v, hasFocus ->
             if (hasFocus) {
                 v.setBackgroundResource(R.drawable.bg_focus_neon)
                 (v as TextView).setTextColor(Color.YELLOW)
                 v.animate().scaleX(1.15f).scaleY(1.15f).setDuration(150).start()
             } else {
-                v.setBackgroundColor(Color.parseColor("#333333")) // Volta pro fundo cinza
-                (v as TextView).setTextColor(Color.WHITE) // Volta pro texto branco
+                v.setBackgroundColor(Color.parseColor("#333333")) // Mantém cinza ao sair
+                (v as TextView).setTextColor(Color.WHITE)
                 v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
             }
         }
@@ -253,9 +254,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         recyclerSuggestions.visibility = View.GONE
                     }
                     2 -> { // DETALHES
-                        // CORREÇÃO: Expandir a tela para mostrar os dados que ficam no topo
-                        appBarLayout?.setExpanded(true, true)
-
+                        appBarLayout?.setExpanded(true, true) // Expande para mostrar
                         rvEpisodes.visibility = View.GONE
                         tvPlot.visibility = View.VISIBLE
                         tvCast.visibility = View.VISIBLE
@@ -610,27 +609,39 @@ class SeriesDetailsActivity : AppCompatActivity() {
             })
     }
 
+    // ✅✅✅ FUNÇÃO TRAZIDA DO SEU ARQUIVO ANTIGO (FUNCIONA PERFEITO)
     private fun mostrarSeletorDeTemporada() {
         if (sortedSeasons.isEmpty()) return
+
+        // Usamos o estilo transparente definido no themes.xml
         val dialog = BottomSheetDialog(this, R.style.DialogTemporadaTransparente)
+        
+        // Layout principal
         val root = LinearLayout(this)
-        root.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT)
+        root.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
         root.orientation = LinearLayout.VERTICAL
-        root.gravity = Gravity.CENTER
+        root.gravity = Gravity.CENTER_HORIZONTAL
+        root.setPadding(0, 30, 0, 30)
         root.setBackgroundColor(Color.TRANSPARENT)
 
+        // RecyclerView com altura limitada para permitir o scroll
         val rvSeasons = RecyclerView(this)
-        val rvParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, 300.toPx())
+        // Definimos uma largura fixa (250dp) e uma altura máxima (ex: 400dp) para a coluna
+        val rvParams = LinearLayout.LayoutParams(250.toPx(), 400.toPx()) 
         rvSeasons.layoutParams = rvParams
         rvSeasons.layoutManager = LinearLayoutManager(this)
+        rvSeasons.setBackgroundColor(Color.TRANSPARENT)
 
         rvSeasons.adapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
             override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
                 val tv = TextView(parent.context)
-                tv.layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                tv.setPadding(40, 25, 40, 25)
+                tv.layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                tv.setPadding(20, 35, 20, 35)
                 tv.gravity = Gravity.CENTER
-                tv.textSize = 24f
+                tv.textSize = 22f
                 tv.setTextColor(Color.WHITE)
                 tv.isFocusable = true
                 tv.isClickable = true
@@ -641,10 +652,11 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 val season = sortedSeasons[position]
                 val tv = holder.itemView as TextView
                 tv.text = "Temporada $season"
+                
                 tv.setOnFocusChangeListener { v, hasFocus ->
                     if (hasFocus) {
-                        v.setBackgroundColor(Color.parseColor("#33FFFFFF"))
-                        (v as TextView).setTextColor(Color.YELLOW)
+                        v.setBackgroundColor(Color.parseColor("#FFD700")) // Amarelo Ouro
+                        (v as TextView).setTextColor(Color.BLACK)
                         v.animate().scaleX(1.1f).scaleY(1.1f).setDuration(150).start()
                     } else {
                         v.setBackgroundColor(Color.TRANSPARENT)
@@ -652,49 +664,57 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
                     }
                 }
-                tv.setOnClickListener { mudarTemporada(season); dialog.dismiss() }
+
+                tv.setOnClickListener {
+                    mudarTemporada(season)
+                    dialog.dismiss()
+                }
             }
             override fun getItemCount() = sortedSeasons.size
         }
 
+        // Botão Fechar no rodapé da coluna
         val btnClose = TextView(this)
-        val closeParams = LinearLayout.LayoutParams(80.toPx(), 80.toPx())
-        closeParams.topMargin = 20.toPx() 
+        val closeParams = LinearLayout.LayoutParams(250.toPx(), ViewGroup.LayoutParams.WRAP_CONTENT)
+        closeParams.setMargins(0, 20, 0, 20)
         btnClose.layoutParams = closeParams
-        btnClose.text = "X"
+        btnClose.text = "✕ FECHAR"
         btnClose.gravity = Gravity.CENTER
-        btnClose.textSize = 35f
         btnClose.setTextColor(Color.WHITE)
+        btnClose.setPadding(0, 25, 0, 25)
         btnClose.isFocusable = true
         btnClose.isClickable = true
-        
+
         btnClose.setOnFocusChangeListener { v, hasFocus ->
             if (hasFocus) {
-                v.setBackgroundResource(R.drawable.bg_focus_neon)
-                (v as TextView).setTextColor(Color.YELLOW)
-                v.animate().scaleX(1.15f).scaleY(1.15f).setDuration(150).start()
+                (v as TextView).setTextColor(Color.RED)
+                v.setBackgroundColor(Color.parseColor("#33000000"))
             } else {
-                v.setBackgroundResource(0)
                 (v as TextView).setTextColor(Color.WHITE)
-                v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
+                v.setBackgroundColor(Color.TRANSPARENT)
             }
         }
         btnClose.setOnClickListener { dialog.dismiss() }
 
         root.addView(rvSeasons)
-        root.addView(btnClose) 
+        root.addView(btnClose)
+
         dialog.setContentView(root)
-        
-        dialog.setOnShowListener {
-            val bottomSheet = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
-            bottomSheet?.let {
-                val behavior = com.google.android.material.bottomsheet.BottomSheetBehavior.from(it)
-                behavior.state = com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED
-                behavior.peekHeight = resources.displayMetrics.heightPixels
-                it.setBackgroundColor(Color.TRANSPARENT)
-            }
+
+        // Configura o comportamento para não expandir para o topo automaticamente
+        val bottomSheet = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+        bottomSheet?.let {
+            val behavior = com.google.android.material.bottomsheet.BottomSheetBehavior.from(it)
+            // Mantém a altura que definirmos no layout, sem forçar tela cheia
+            behavior.peekHeight = 500.toPx() 
+            it.setBackgroundColor(Color.TRANSPARENT)
         }
+
         dialog.show()
+        
+        rvSeasons.postDelayed({
+            rvSeasons.findViewHolderForAdapterPosition(0)?.itemView?.requestFocus()
+        }, 150)
     }
 
     private fun Int.toPx(): Int = (this * resources.displayMetrics.density).toInt()

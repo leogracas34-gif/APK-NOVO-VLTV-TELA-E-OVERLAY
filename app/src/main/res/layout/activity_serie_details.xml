@@ -14,19 +14,19 @@
 
         <com.google.android.material.appbar.CollapsingToolbarLayout
             android:layout_width="match_parent"
-            android:layout_height="350dp" 
+            android:layout_height="wrap_content" 
             app:layout_scrollFlags="scroll|exitUntilCollapsed">
 
             <ImageView
                 android:id="@+id/imgBackground"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
+                android:layout_height="400dp"
                 android:scaleType="centerCrop"
                 app:layout_collapseMode="parallax" />
 
             <View
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
+                android:layout_height="400dp"
                 android:background="@drawable/gradient_black_full" />
 
             <LinearLayout
@@ -35,6 +35,10 @@
                 android:layout_gravity="bottom"
                 android:orientation="vertical"
                 android:padding="32dp">
+
+                <Space
+                    android:layout_width="match_parent"
+                    android:layout_height="250dp" />
 
                 <ImageView
                     android:id="@+id/imgTitleLogo"
@@ -120,28 +124,74 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:paddingHorizontal="16dp"
-                    android:paddingVertical="10dp"
-                    android:background="@android:color/transparent"
+                    android:paddingHorizontal="20dp"
+                    android:paddingVertical="12dp"
                     android:text="Temporadas ▼"
                     android:textColor="#FFFFFF"
+                    android:textSize="16sp"
                     android:textStyle="bold"
                     android:focusable="true"
                     android:clickable="true" />
 
-                <TextView android:id="@+id/tvPlot" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
+                <TextView 
+                    android:id="@+id/tvPlot" 
+                    android:layout_width="match_parent" 
+                    android:layout_height="wrap_content" 
+                    android:layout_marginTop="16dp"
+                    android:lineSpacingExtra="4dp"
+                    android:textColor="#DDDDDD"
+                    android:textSize="14sp"
+                    android:visibility="gone" />
                 
-                <TextView android:id="@+id/tvReleaseDate" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#AAAAAA" android:layout_marginTop="8dp" android:textSize="13sp" android:visibility="gone"/>
-                <TextView android:id="@+id/tvCreatedBy" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#AAAAAA" android:layout_marginTop="4dp" android:textSize="13sp" android:visibility="gone"/>
+                <TextView 
+                    android:id="@+id/tvReleaseDate" 
+                    android:layout_width="wrap_content" 
+                    android:layout_height="wrap_content" 
+                    android:textColor="#AAAAAA" 
+                    android:layout_marginTop="8dp" 
+                    android:textSize="13sp" 
+                    android:visibility="gone"/>
 
-                <TextView android:id="@+id/tvCast" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
-                <androidx.recyclerview.widget.RecyclerView android:id="@+id/recyclerCast" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
+                <TextView 
+                    android:id="@+id/tvCreatedBy" 
+                    android:layout_width="wrap_content" 
+                    android:layout_height="wrap_content" 
+                    android:textColor="#AAAAAA" 
+                    android:layout_marginTop="4dp" 
+                    android:textSize="13sp" 
+                    android:visibility="gone"/>
+
+                <TextView 
+                    android:id="@+id/tvCast" 
+                    android:layout_width="match_parent" 
+                    android:layout_height="wrap_content" 
+                    android:layout_marginTop="12dp"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+
+                <androidx.recyclerview.widget.RecyclerView 
+                    android:id="@+id/recyclerCast" 
+                    android:layout_width="match_parent" 
+                    android:layout_height="wrap_content" 
+                    android:layout_marginTop="8dp"
+                    android:visibility="gone" />
                 
-                <LinearLayout android:id="@+id/btnDownloadArea" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone">
-                    <ImageView android:id="@+id/imgDownloadState" android:layout_width="0dp" android:layout_height="0dp" />
-                    <TextView android:id="@+id/tvDownloadState" android:layout_width="0dp" android:layout_height="0dp" />
+                <LinearLayout 
+                    android:id="@+id/btnDownloadArea" 
+                    android:layout_width="wrap_content" 
+                    android:layout_height="wrap_content" 
+                    android:orientation="horizontal"
+                    android:visibility="gone">
+                    <ImageView android:id="@+id/imgDownloadState" android:layout_width="24dp" android:layout_height="24dp" />
+                    <TextView android:id="@+id/tvDownloadState" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:textColor="#FFF"/>
                 </LinearLayout>
-                <Button android:id="@+id/btnDownloadSeason" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
+
+                <Button 
+                    android:id="@+id/btnDownloadSeason" 
+                    android:layout_width="wrap_content" 
+                    android:layout_height="wrap_content" 
+                    android:visibility="gone" />
 
             </LinearLayout>
 
@@ -152,7 +202,9 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="#0A0A0A"
-            app:tabIndicatorColor="#FFFFFF" />
+            app:tabIndicatorColor="#FFFFFF"
+            app:tabSelectedTextColor="#FFFFFF"
+            app:tabTextColor="#888888" />
 
     </com.google.android.material.appbar.AppBarLayout>
 
@@ -160,12 +212,14 @@
         android:id="@+id/recyclerEpisodes"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:paddingBottom="20dp"
         app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerSuggestions"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:paddingBottom="20dp"
         app:layout_behavior="@string/appbar_scrolling_view_behavior"
         android:visibility="gone" />
 

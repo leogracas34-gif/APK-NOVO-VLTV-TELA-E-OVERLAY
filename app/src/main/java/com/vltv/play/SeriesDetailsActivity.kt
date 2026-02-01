@@ -12,6 +12,7 @@ import android.view.ViewGroup
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.GridLayoutManager // ✅ Importado para Grid Vertical
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
@@ -138,8 +139,8 @@ class SeriesDetailsActivity : AppCompatActivity() {
         tvCast.text = "Elenco:"
         tvPlot.text = "Carregando sinopse..."
 
-        // CORREÇÃO: Fundo transparente para não criar caixa cinza
-        btnSeasonSelector.setBackgroundColor(Color.TRANSPARENT)
+        // CORREÇÃO: Botão Cinza (#333333) para o texto aparecer
+        btnSeasonSelector.setBackgroundColor(Color.parseColor("#333333"))
 
         Glide.with(this)
             .load(seriesIcon)
@@ -168,9 +169,10 @@ class SeriesDetailsActivity : AppCompatActivity() {
             override fun onChildViewDetachedFromWindow(view: View) {}
         })
 
-        // Configuração da lista de sugestões (Horizontal)
-        recyclerSuggestions.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        // ✅ MUDANÇA: SUGESTÕES NA VERTICAL (GRID COM 3 COLUNAS)
+        recyclerSuggestions.layoutManager = GridLayoutManager(this, 3)
         recyclerSuggestions.setHasFixedSize(true)
+        // Adicionando espaçamento entre itens do grid se necessário, mas o layout do item já terá margem
 
         val isFavInicial = getFavSeries(this).contains(seriesId)
         atualizarIconeFavoritoSerie(isFavInicial)
@@ -843,18 +845,28 @@ class SeriesDetailsActivity : AppCompatActivity() {
         override fun getItemCount() = list.size
     }
 
-    // ✅ ADAPTER SIMPLES PARA AS SUGESTÕES
+    // ✅ ADAPTER MODIFICADO PARA INCLUIR O TÍTULO (DETALHES) E USAR GRID
     inner class SuggestionsAdapter(val items: List<JSONObject>) : RecyclerView.Adapter<SuggestionsAdapter.ViewHolder>() {
         inner class ViewHolder(v: View) : RecyclerView.ViewHolder(v) {
-            val img: ImageView = v.findViewById(android.R.id.icon) // Vamos usar um layout simples ou criar dinamicamente
+            val img: ImageView = v.findViewById(android.R.id.icon) 
+            val tvName: TextView = v.findViewById(android.R.id.text1) // Texto do Nome
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-            // Cria um CardView com ImageView dinamicamente para não precisar de outro XML agora
+            // ✅ CRIA UM CONTAINER LINEAR PARA TER IMAGEM + TEXTO
+            val container = LinearLayout(parent.context)
+            container.orientation = LinearLayout.VERTICAL
+            val params = ViewGroup.MarginLayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            params.setMargins(12, 12, 12, 12)
+            container.layoutParams = params
+            container.gravity = Gravity.CENTER_HORIZONTAL
+            container.isFocusable = true
+            container.isClickable = true
+
+            // CardView para a Imagem
             val card = androidx.cardview.widget.CardView(parent.context)
-            val params = ViewGroup.MarginLayoutParams(130.toPx(), 200.toPx())
-            params.setMargins(10, 10, 10, 10)
-            card.layoutParams = params
+            val cardParams = LinearLayout.LayoutParams(130.toPx(), 200.toPx())
+            card.layoutParams = cardParams
             card.radius = 12f
             card.cardElevation = 4f
             
@@ -862,8 +874,23 @@ class SeriesDetailsActivity : AppCompatActivity() {
             img.id = android.R.id.icon
             img.scaleType = ImageView.ScaleType.CENTER_CROP
             card.addView(img)
+
+            // TextView para o Nome
+            val tv = TextView(parent.context)
+            tv.id = android.R.id.text1
+            val tvParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            tvParams.topMargin = 8
+            tv.layoutParams = tvParams
+            tv.setTextColor(Color.WHITE)
+            tv.textSize = 12f
+            tv.maxLines = 2
+            tv.ellipsize = android.text.TextUtils.TruncateAt.END
+            tv.gravity = Gravity.CENTER
             
-            return ViewHolder(card)
+            container.addView(card)
+            container.addView(tv)
+            
+            return ViewHolder(container)
         }
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
@@ -871,24 +898,21 @@ class SeriesDetailsActivity : AppCompatActivity() {
             val posterPath = item.optString("poster_path")
             val name = item.optString("name")
             val id = item.optInt("id")
-            val rating = item.optDouble("vote_average", 0.0)
 
             Glide.with(holder.itemView.context)
                 .load("https://image.tmdb.org/t/p/w342$posterPath")
                 .into(holder.img)
 
+            holder.tvName.text = name // ✅ Mostra o nome da série
+
             holder.itemView.setOnClickListener {
-                // Ao clicar, tenta abrir a série
-                // Nota: Para abrir a série correta do seu servidor, precisaríamos buscar pelo nome no seu servidor.
-                // Como não temos essa busca reversa implementada aqui, vou apenas reiniciar a tela com os dados visuais do TMDB
-                // O ideal seria implementar uma busca no seu XtreamApi pelo nome 'name'
                 Toast.makeText(this@SeriesDetailsActivity, "Sugestão: $name", Toast.LENGTH_SHORT).show()
             }
             
             holder.itemView.setOnFocusChangeListener { v, hasFocus ->
                 if(hasFocus) {
-                    v.animate().scaleX(1.1f).scaleY(1.1f).start()
-                    v.setBackgroundResource(R.drawable.bg_focus_neon)
+                    v.animate().scaleX(1.05f).scaleY(1.05f).start()
+                    v.setBackgroundResource(R.drawable.bg_focus_neon) // Borda no item todo
                 } else {
                     v.animate().scaleX(1.0f).scaleY(1.0f).start()
                     v.setBackgroundResource(0)

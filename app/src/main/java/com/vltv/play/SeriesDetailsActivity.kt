@@ -31,11 +31,11 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 
-// Importante: Certifique-se de que CastAdapter e CastMember estão no projeto
+// Importante: Certifique-se de que CastAdapter e CastMember estÃ£o no projeto
 import com.vltv.play.CastAdapter
 import com.vltv.play.CastMember
 
-// ✅ IMPORTAÇÕES ADICIONADAS PARA A LOGO E LAYOUT
+// âœ… IMPORTAÃ‡Ã•ES ADICIONADAS PARA A LOGO E LAYOUT
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -57,7 +57,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private lateinit var imgTitleLogo: ImageView 
     private lateinit var tvRating: TextView
     private lateinit var tvGenre: TextView
-    private lateinit var tvCast: TextView // Título "Elenco"
+    private lateinit var tvCast: TextView // TÃ­tulo "Elenco"
     private lateinit var recyclerCast: RecyclerView 
     private lateinit var tvPlot: TextView
     private lateinit var btnSeasonSelector: TextView
@@ -70,9 +70,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private lateinit var tvDownloadEpisodeState: TextView
 
     private lateinit var btnDownloadSeason: Button
-    private lateinit var btnResume: Button // Botão Continuar
+    private lateinit var btnResume: Button // BotÃ£o Continuar
 
-    // ✅ NOVAS VARIÁVEIS PARA O LAYOUT (INCLUÍDAS)
+    // âœ… NOVAS VARIÃVEIS PARA O LAYOUT (INCLUÃDAS)
     private var appBarLayout: AppBarLayout? = null
     private var tabLayout: TabLayout? = null
 
@@ -90,7 +90,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_serie_details)
 
-        // ✅ MODO IMERSIVO ATIVADO
+        // âœ… MODO IMERSIVO ATIVADO
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
@@ -102,7 +102,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
         inicializarViews()
 
-        // ✅ EFEITO DE ALPHA NO SCROLL
+        // âœ… EFEITO DE ALPHA NO SCROLL
         appBarLayout?.addOnOffsetChangedListener { appBar, verticalOffset ->
             val percentage = Math.abs(verticalOffset).toFloat() / appBar.totalScrollRange
             val alphaValue = if (percentage > 0.6f) 0f else 1f - (percentage * 1.5f).coerceAtMost(1f)
@@ -123,7 +123,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
         tvTitle.text = seriesName
         tvRating.text = "Nota: $seriesRating"
-        tvGenre.text = "Gênero: Buscando..."
+        tvGenre.text = "GÃªnero: Buscando..."
         tvCast.text = "Elenco:"
         tvPlot.text = "Carregando sinopse..."
 
@@ -139,7 +139,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         rvEpisodes.isFocusableInTouchMode = true
         rvEpisodes.setHasFixedSize(true)
         
-        // ✅ LISTA VERTICAL PARA CABER A SINOPSE
+        // âœ… LISTA VERTICAL PARA CABER A SINOPSE
         rvEpisodes.layoutManager = LinearLayoutManager(this)
 
         rvEpisodes.addOnChildAttachStateChangeListener(object : RecyclerView.OnChildAttachStateChangeListener {
@@ -175,7 +175,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         btnPlaySeries.setOnClickListener {
             val ep = currentEpisode
             if (ep == null) {
-                Toast.makeText(this, "Selecione um episódio.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Selecione um episÃ³dio.", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
             abrirPlayer(ep, false)
@@ -192,7 +192,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         carregarSeriesInfo()
         sincronizarDadosTMDB()
 
-        // ✅ APLICAÇÃO DE FOCO NOS BOTÕES
+        // âœ… APLICAÃ‡ÃƒO DE FOCO NOS BOTÃ•ES
         val commonFocus = View.OnFocusChangeListener { v, hasFocus ->
             if (hasFocus) {
                 v.setBackgroundResource(R.drawable.bg_focus_neon)
@@ -212,11 +212,11 @@ class SeriesDetailsActivity : AppCompatActivity() {
         btnResume.onFocusChangeListener = commonFocus
         btnSeasonSelector.onFocusChangeListener = commonFocus
 
-        // ✅ LÓGICA DE TROCA DE ABAS
+        // âœ… LÃ“GICA DE TROCA DE ABAS
         tabLayout?.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
                 when (tab?.position) {
-                    0 -> { // EPISÓDIOS
+                    0 -> { // EPISÃ“DIOS
                         rvEpisodes.visibility = View.VISIBLE
                         tvPlot.visibility = View.GONE
                         tvCast.visibility = View.GONE
@@ -227,7 +227,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         tvCast.visibility = View.VISIBLE
                         tvPlot.setTextColor(Color.WHITE)
                     }
-                    1 -> { // SUGESTÕES
+                    1 -> { // SUGESTÃ•ES
                         rvEpisodes.visibility = View.GONE
                         tvPlot.visibility = View.GONE
                         tvCast.visibility = View.GONE
@@ -244,8 +244,8 @@ class SeriesDetailsActivity : AppCompatActivity() {
         tabLayout = findViewById(R.id.tabLayout)
         
         if (tabLayout?.tabCount == 0) {
-            tabLayout?.addTab(tabLayout!!.newTab().setText("EPISÓDIOS"))
-            tabLayout?.addTab(tabLayout!!.newTab().setText("SUGESTÕES"))
+            tabLayout?.addTab(tabLayout!!.newTab().setText("EPISÃ“DIOS"))
+            tabLayout?.addTab(tabLayout!!.newTab().setText("SUGESTÃ•ES"))
             tabLayout?.addTab(tabLayout!!.newTab().setText("DETALHES"))
         }
 
@@ -297,9 +297,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
             AlertDialog.Builder(this)
                 .setTitle("Baixar temporada")
-                .setMessage("Baixar todos os ${lista.size} episódios?")
+                .setMessage("Baixar todos os ${lista.size} episÃ³dios?")
                 .setPositiveButton("Sim") { _, _ -> baixarTemporadaAtual(lista) }
-                .setNegativeButton("Não", null)
+                .setNegativeButton("NÃ£o", null)
                 .show()
         }
     }
@@ -333,7 +333,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
                             buscarDetalhesTMDB(tmdbId, apiKey)
                             runOnUiThread {
                                 val sinopse = show.optString("overview")
-                                tvPlot.text = if (sinopse.isNotEmpty()) sinopse else "Sinopse indisponível."
+                                tvPlot.text = if (sinopse.isNotEmpty()) sinopse else "Sinopse indisponÃ­vel."
                                 val vote = show.optDouble("vote_average", 0.0)
                                 if (vote > 0) tvRating.text = "Nota: ${String.format("%.1f", vote)}"
                                 val backdropPath = show.optString("backdrop_path")
@@ -418,7 +418,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         }
                     }
                     runOnUiThread {
-                        tvGenre.text = "Gênero: ${if (genresList.isEmpty()) "Variados" else genresList.joinToString(", ")}"
+                        tvGenre.text = "GÃªnero: ${if (genresList.isEmpty()) "Variados" else genresList.joinToString(", ")}"
                         tvCast.text = "Elenco: ${castNames.joinToString(", ")}"
                     }
                 } catch(e: Exception) { }
@@ -480,11 +480,11 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         episodesBySeason = body.episodes ?: emptyMap()
                         sortedSeasons = episodesBySeason.keys.sortedBy { it.toIntOrNull() ?: 0 }
                         if (sortedSeasons.isNotEmpty()) mudarTemporada(sortedSeasons.first())
-                        else btnSeasonSelector.text = "Indisponível"
+                        else btnSeasonSelector.text = "IndisponÃ­vel"
                     }
                 }
                 override fun onFailure(call: Call<SeriesInfoResponse>, t: Throwable) {
-                    Toast.makeText(this@SeriesDetailsActivity, "Erro de conexão", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@SeriesDetailsActivity, "Erro de conexÃ£o", Toast.LENGTH_SHORT).show()
                 }
             })
     }
@@ -580,7 +580,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
     private fun mudarTemporada(seasonKey: String) {
         currentSeason = seasonKey
-        btnSeasonSelector.text = "Temporada $seasonKey ▼"
+        btnSeasonSelector.text = "Temporada $seasonKey â–¼"
         val lista = episodesBySeason[seasonKey] ?: emptyList()
         if (lista.isNotEmpty()) {
             currentEpisode = lista.first()
@@ -655,7 +655,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
             val eid = ep.id.toIntOrNull() ?: continue
             DownloadHelper.enqueueDownload(this, montarUrlEpisodio(ep), "${seriesName}_T${currentSeason}E${ep.episode_num}.mp4", logicalId = "series_$eid", type = "series")
         }
-        Toast.makeText(this, "Baixando episódios...", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, "Baixando episÃ³dios...", Toast.LENGTH_LONG).show()
     }
 
     private fun getProgressText(): String {
@@ -691,7 +691,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         class VH(v: View) : RecyclerView.ViewHolder(v) {
             val tvTitle: TextView = v.findViewById(R.id.tvEpisodeTitle)
             val imgThumb: ImageView = v.findViewById(R.id.imgEpisodeThumb)
-            // ✅ ADICIONADO: REFERÊNCIA PARA A SINOPSE DO EPISÓDIO
+            // âœ… ADICIONADO: REFERÃŠNCIA PARA A SINOPSE DO EPISÃ“DIO
             val tvPlotEp: TextView = v.findViewById(R.id.tvEpisodePlot)
         }
 
@@ -702,8 +702,8 @@ class SeriesDetailsActivity : AppCompatActivity() {
             val ep = list[position]
             holder.tvTitle.text = "E${ep.episode_num.toString().padStart(2, '0')} - ${ep.title}"
             
-            // ✅ EXIBE A SINOPSE DO EPISÓDIO (E NÃO DA SÉRIE)
-            holder.tvPlotEp.text = ep.info?.plot ?: "Sem descrição disponível."
+            // âœ… EXIBE A SINOPSE DO EPISÃ“DIO (E NÃƒO DA SÃ‰RIE)
+            holder.tvPlotEp.text = ep.info?.plot ?: "Sem descriÃ§Ã£o disponÃ­vel."
 
             val capaUrl = ep.info?.movie_image ?: ""
 
@@ -718,17 +718,18 @@ class SeriesDetailsActivity : AppCompatActivity() {
             holder.itemView.setOnClickListener { onClick(ep, position) }
 
             holder.itemView.setOnFocusChangeListener { view, hasFocus ->
-    holder.tvTitle.setTextColor(if (hasFocus) Color.YELLOW else Color.WHITE)
-    if (hasFocus) {
-        // Quando tem foco: mostra a borda neon e aumenta um pouco
-        view.setBackgroundResource(R.drawable.bg_focus_neon)
-        view.animate().scaleX(1.05f).scaleY(1.05f).setDuration(200).start()
-    } else {
-        // Quando NÃO tem foco: fica TOTALMENTE transparente e volta ao tamanho normal
-        view.setBackgroundColor(Color.TRANSPARENT) 
-        view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start()
-    }
-}
+                holder.tvTitle.setTextColor(if (hasFocus) Color.YELLOW else Color.WHITE)
+
+                if (hasFocus) {
+                    view.setBackgroundResource(R.drawable.bg_focus_neon)
+                    view.animate().scaleX(1.10f).scaleY(1.10f).setDuration(200).start()
+                    view.elevation = 15f
+                } else {
+                    view.setBackgroundResource(0)
+                    view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start()
+                    view.elevation = 4f
+                }
+            }
         }
 
         override fun getItemCount() = list.size

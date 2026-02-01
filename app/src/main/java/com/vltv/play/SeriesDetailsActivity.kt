@@ -137,7 +137,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         tvCast.text = "Elenco:"
         tvPlot.text = "Carregando sinopse..."
 
-        // ✅ LÓGICA DO ARQUIVO ANTIGO: Cor de fundo #333333
+        // ✅ LÓGICA DO ARQUIVO ANTIGO: Cor de fundo #333333 e Texto Branco
         btnSeasonSelector.setBackgroundColor(Color.parseColor("#333333"))
         btnSeasonSelector.setTextColor(Color.WHITE)
 
@@ -227,7 +227,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         btnPlaySeries.onFocusChangeListener = commonFocus
         btnResume.onFocusChangeListener = commonFocus
         
-        // Foco do Seletor (para garantir que não suma)
+        // ✅ LÓGICA DO ARQUIVO ANTIGO: Foco do Seletor (Amarelo no foco, Branco e Cinza normal)
         btnSeasonSelector.onFocusChangeListener = View.OnFocusChangeListener { v, hasFocus ->
             if (hasFocus) {
                 v.setBackgroundResource(R.drawable.bg_focus_neon)
@@ -235,7 +235,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 v.animate().scaleX(1.15f).scaleY(1.15f).setDuration(150).start()
             } else {
                 v.setBackgroundColor(Color.parseColor("#333333")) // Mantém cinza ao sair
-                (v as TextView).setTextColor(Color.WHITE)
+                (v as TextView).setTextColor(Color.WHITE) // Garante branco
                 v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
             }
         }
@@ -609,14 +609,12 @@ class SeriesDetailsActivity : AppCompatActivity() {
             })
     }
 
-    // ✅✅✅ FUNÇÃO TRAZIDA DO SEU ARQUIVO ANTIGO (FUNCIONA PERFEITO)
+    // ✅✅✅ FUNÇÃO TRAZIDA E ADAPTADA DO SEU ARQUIVO ANTIGO
     private fun mostrarSeletorDeTemporada() {
         if (sortedSeasons.isEmpty()) return
 
-        // Usamos o estilo transparente definido no themes.xml
         val dialog = BottomSheetDialog(this, R.style.DialogTemporadaTransparente)
         
-        // Layout principal
         val root = LinearLayout(this)
         root.layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
@@ -627,9 +625,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         root.setPadding(0, 30, 0, 30)
         root.setBackgroundColor(Color.TRANSPARENT)
 
-        // RecyclerView com altura limitada para permitir o scroll
         val rvSeasons = RecyclerView(this)
-        // Definimos uma largura fixa (250dp) e uma altura máxima (ex: 400dp) para a coluna
         val rvParams = LinearLayout.LayoutParams(250.toPx(), 400.toPx()) 
         rvSeasons.layoutParams = rvParams
         rvSeasons.layoutManager = LinearLayoutManager(this)
@@ -673,7 +669,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
             override fun getItemCount() = sortedSeasons.size
         }
 
-        // Botão Fechar no rodapé da coluna
+        // Botão Fechar
         val btnClose = TextView(this)
         val closeParams = LinearLayout.LayoutParams(250.toPx(), ViewGroup.LayoutParams.WRAP_CONTENT)
         closeParams.setMargins(0, 20, 0, 20)
@@ -701,11 +697,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
         dialog.setContentView(root)
 
-        // Configura o comportamento para não expandir para o topo automaticamente
         val bottomSheet = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
         bottomSheet?.let {
             val behavior = com.google.android.material.bottomsheet.BottomSheetBehavior.from(it)
-            // Mantém a altura que definirmos no layout, sem forçar tela cheia
             behavior.peekHeight = 500.toPx() 
             it.setBackgroundColor(Color.TRANSPARENT)
         }

@@ -718,18 +718,17 @@ class SeriesDetailsActivity : AppCompatActivity() {
             holder.itemView.setOnClickListener { onClick(ep, position) }
 
             holder.itemView.setOnFocusChangeListener { view, hasFocus ->
-                holder.tvTitle.setTextColor(if (hasFocus) Color.YELLOW else Color.WHITE)
-
-                if (hasFocus) {
-                    view.setBackgroundResource(R.drawable.bg_focus_neon)
-                    view.animate().scaleX(1.10f).scaleY(1.10f).setDuration(200).start()
-                    view.elevation = 15f
-                } else {
-                    view.setBackgroundResource(0)
-                    view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start()
-                    view.elevation = 4f
-                }
-            }
+    holder.tvTitle.setTextColor(if (hasFocus) Color.YELLOW else Color.WHITE)
+    if (hasFocus) {
+        // Quando tem foco: mostra a borda neon e aumenta um pouco
+        view.setBackgroundResource(R.drawable.bg_focus_neon)
+        view.animate().scaleX(1.05f).scaleY(1.05f).setDuration(200).start()
+    } else {
+        // Quando NÃO tem foco: fica TOTALMENTE transparente e volta ao tamanho normal
+        view.setBackgroundColor(Color.TRANSPARENT) 
+        view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start()
+    }
+}
         }
 
         override fun getItemCount() = list.size

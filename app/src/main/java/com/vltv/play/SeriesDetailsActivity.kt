@@ -12,7 +12,7 @@ import android.view.ViewGroup
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.recyclerview.widget.GridLayoutManager // ✅ Importado para Grid Vertical
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
@@ -36,7 +36,6 @@ import androidx.core.view.WindowInsetsControllerCompat
 import com.vltv.play.CastAdapter
 import com.vltv.play.CastMember
 
-// ✅ IMPORTAÇÕES ADICIONADAS PARA A LOGO E LAYOUT
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -58,7 +57,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private lateinit var imgTitleLogo: ImageView 
     private lateinit var tvRating: TextView
     private lateinit var tvGenre: TextView
-    private lateinit var tvCast: TextView // Título "Elenco"
+    private lateinit var tvCast: TextView
     private lateinit var recyclerCast: RecyclerView 
     private lateinit var tvPlot: TextView
     private lateinit var btnSeasonSelector: TextView
@@ -71,13 +70,12 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private lateinit var tvDownloadEpisodeState: TextView
 
     private lateinit var btnDownloadSeason: Button
-    private lateinit var btnResume: Button // Botão Continuar
+    private lateinit var btnResume: Button
 
-    // ✅ NOVAS VARIÁVEIS PARA O LAYOUT (INCLUÍDAS)
     private var appBarLayout: AppBarLayout? = null
     private var tabLayout: TabLayout? = null
 
-    // ✅ NOVAS VIEWS (SUGESTÕES E DETALHES)
+    // VIEWS DE SUGESTÕES E DETALHES
     private lateinit var recyclerSuggestions: RecyclerView
     private lateinit var llTechBadges: LinearLayout
     private lateinit var tvBadge4k: TextView
@@ -101,7 +99,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_serie_details)
 
-        // ✅ MODO IMERSIVO ATIVADO
+        // MODO IMERSIVO
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
@@ -112,9 +110,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
         seriesRating = intent.getStringExtra("rating") ?: "0.0"
 
         inicializarViews()
-        verificarTecnologias(seriesName) // Verifica se é 4K, HDR, etc no nome
+        verificarTecnologias(seriesName)
 
-        // ✅ EFEITO DE ALPHA NO SCROLL
+        // EFEITO DE ALPHA NO SCROLL
         appBarLayout?.addOnOffsetChangedListener { appBar, verticalOffset ->
             val percentage = Math.abs(verticalOffset).toFloat() / appBar.totalScrollRange
             val alphaValue = if (percentage > 0.6f) 0f else 1f - (percentage * 1.5f).coerceAtMost(1f)
@@ -139,7 +137,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         tvCast.text = "Elenco:"
         tvPlot.text = "Carregando sinopse..."
 
-        // CORREÇÃO: Botão Cinza (#333333) e Texto BRANCO forçado
+        // CORREÇÃO: Botão Cinza e Texto BRANCO
         btnSeasonSelector.setBackgroundColor(Color.parseColor("#333333"))
         btnSeasonSelector.setTextColor(Color.WHITE)
 
@@ -153,7 +151,6 @@ class SeriesDetailsActivity : AppCompatActivity() {
         rvEpisodes.isFocusableInTouchMode = true
         rvEpisodes.setHasFixedSize(true)
         
-        // ✅ LISTA VERTICAL PARA CABER A SINOPSE
         rvEpisodes.layoutManager = LinearLayoutManager(this)
 
         rvEpisodes.addOnChildAttachStateChangeListener(object : RecyclerView.OnChildAttachStateChangeListener {
@@ -170,10 +167,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
             override fun onChildViewDetachedFromWindow(view: View) {}
         })
 
-        // ✅ MUDANÇA: SUGESTÕES NA VERTICAL (GRID COM 3 COLUNAS)
+        // SUGESTÕES NA VERTICAL (GRID COM 3 COLUNAS)
         recyclerSuggestions.layoutManager = GridLayoutManager(this, 3)
         recyclerSuggestions.setHasFixedSize(true)
-        // Adicionando espaçamento entre itens do grid se necessário, mas o layout do item já terá margem
 
         val isFavInicial = getFavSeries(this).contains(seriesId)
         atualizarIconeFavoritoSerie(isFavInicial)
@@ -211,7 +207,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         carregarSeriesInfo()
         sincronizarDadosTMDB()
 
-        // ✅ APLICAÇÃO DE FOCO NOS BOTÕES
+        // FOCO NOS BOTÕES
         val commonFocus = View.OnFocusChangeListener { v, hasFocus ->
             if (hasFocus) {
                 v.setBackgroundResource(R.drawable.bg_focus_neon)
@@ -229,9 +225,21 @@ class SeriesDetailsActivity : AppCompatActivity() {
         }
         btnPlaySeries.onFocusChangeListener = commonFocus
         btnResume.onFocusChangeListener = commonFocus
-        btnSeasonSelector.onFocusChangeListener = commonFocus
+        
+        // CORREÇÃO: Foco especial para o botão de temporada para garantir texto branco
+        btnSeasonSelector.onFocusChangeListener = View.OnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                v.setBackgroundResource(R.drawable.bg_focus_neon)
+                (v as TextView).setTextColor(Color.YELLOW)
+                v.animate().scaleX(1.15f).scaleY(1.15f).setDuration(150).start()
+            } else {
+                v.setBackgroundColor(Color.parseColor("#333333")) // Volta pro fundo cinza
+                (v as TextView).setTextColor(Color.WHITE) // Volta pro texto branco
+                v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
+            }
+        }
 
-        // ✅ LÓGICA DE TROCA DE ABAS
+        // LÓGICA DE TROCA DE ABAS
         tabLayout?.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
                 when (tab?.position) {
@@ -245,13 +253,12 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         recyclerSuggestions.visibility = View.GONE
                     }
                     2 -> { // DETALHES
-                        // CORREÇÃO: Expandir o AppBar para mostrar os detalhes que ficam no topo
+                        // CORREÇÃO: Expandir a tela para mostrar os dados que ficam no topo
                         appBarLayout?.setExpanded(true, true)
 
                         rvEpisodes.visibility = View.GONE
                         tvPlot.visibility = View.VISIBLE
                         tvCast.visibility = View.VISIBLE
-                        // CORREÇÃO: Tornar o elenco e detalhes visíveis
                         recyclerCast.visibility = View.VISIBLE
                         tvReleaseDate.visibility = View.VISIBLE
                         tvCreatedBy.visibility = View.VISIBLE
@@ -265,7 +272,6 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         recyclerCast.visibility = View.GONE
                         tvReleaseDate.visibility = View.GONE
                         tvCreatedBy.visibility = View.GONE
-                        // MOSTRAR SUGESTÕES
                         recyclerSuggestions.visibility = View.VISIBLE
                     }
                 }
@@ -293,7 +299,6 @@ class SeriesDetailsActivity : AppCompatActivity() {
         tvRating = findViewById(R.id.tvRating)
         tvGenre = findViewById(R.id.tvGenre)
         
-        // NOVAS VIEWS DE BADGES
         llTechBadges = findViewById(R.id.llTechBadges)
         tvBadge4k = findViewById(R.id.tvBadge4k)
         tvBadgeHdr = findViewById(R.id.tvBadgeHdr)
@@ -302,7 +307,6 @@ class SeriesDetailsActivity : AppCompatActivity() {
         
         tvPlot = findViewById(R.id.tvPlot)
         
-        // NOVAS VIEWS DE DETALHES
         tvReleaseDate = findViewById(R.id.tvReleaseDate)
         tvCreatedBy = findViewById(R.id.tvCreatedBy)
 
@@ -310,7 +314,6 @@ class SeriesDetailsActivity : AppCompatActivity() {
         recyclerCast = findViewById(R.id.recyclerCast)
         recyclerCast.visibility = View.GONE 
         
-        // VIEW DE SUGESTÕES
         recyclerSuggestions = findViewById(R.id.recyclerSuggestions)
         
         btnSeasonSelector = findViewById(R.id.btnSeasonSelector)
@@ -474,7 +477,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
     }
 
     private fun buscarDetalhesTMDB(id: Int, key: String) {
-        // CORREÇÃO: Mudei 'similar' para 'recommendations' para trazer séries mais parecidas
+        // CORREÇÃO: 'recommendations' para mais precisão
         val url = "https://api.themoviedb.org/3/tv/$id?api_key=$key&append_to_response=credits,recommendations&language=pt-BR"
         client.newCall(Request.Builder().url(url).build()).enqueue(object : okhttp3.Callback {
             override fun onFailure(call: okhttp3.Call, e: IOException) {}
@@ -506,8 +509,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         }
                     }
 
-                    // SUGESTÕES (SÉRIES PARECIDAS)
-                    // CORREÇÃO: Usar 'recommendations'
+                    // CORREÇÃO: Lendo 'recommendations'
                     val similar = d.optJSONObject("recommendations")
                     val similarResults = similar?.optJSONArray("results")
                     val sugestoesList = ArrayList<JSONObject>()
@@ -521,13 +523,15 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         tvGenre.text = "Gênero: ${if (genresList.isEmpty()) "Variados" else genresList.joinToString(", ")}"
                         tvCast.text = "Elenco: ${castNames.joinToString(", ")}"
                         
-                        // Preencher Data e Criador
+                        // Preencher Data e Criador e garantir visibilidade
                         if (firstAirDate.isNotEmpty()) {
                             val ano = firstAirDate.split("-")[0]
                             tvReleaseDate.text = "Lançamento: $ano"
+                            tvReleaseDate.visibility = View.VISIBLE
                         }
                         if (creatorsList.isNotEmpty()) {
                             tvCreatedBy.text = "Criado por: ${creatorsList.joinToString(", ")}"
+                            tvCreatedBy.visibility = View.VISIBLE
                         }
 
                         // Configurar Adapter de Sugestões
@@ -855,15 +859,14 @@ class SeriesDetailsActivity : AppCompatActivity() {
         override fun getItemCount() = list.size
     }
 
-    // ✅ ADAPTER MODIFICADO PARA INCLUIR O TÍTULO (DETALHES) E USAR GRID
+    // ✅ ADAPTER MODIFICADO PARA CLIQUE NA SUGESTÃO
     inner class SuggestionsAdapter(val items: List<JSONObject>) : RecyclerView.Adapter<SuggestionsAdapter.ViewHolder>() {
         inner class ViewHolder(v: View) : RecyclerView.ViewHolder(v) {
             val img: ImageView = v.findViewById(android.R.id.icon) 
-            val tvName: TextView = v.findViewById(android.R.id.text1) // Texto do Nome
+            val tvName: TextView = v.findViewById(android.R.id.text1)
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-            // ✅ CRIA UM CONTAINER LINEAR PARA TER IMAGEM + TEXTO
             val container = LinearLayout(parent.context)
             container.orientation = LinearLayout.VERTICAL
             val params = ViewGroup.MarginLayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
@@ -873,7 +876,6 @@ class SeriesDetailsActivity : AppCompatActivity() {
             container.isFocusable = true
             container.isClickable = true
 
-            // CardView para a Imagem
             val card = androidx.cardview.widget.CardView(parent.context)
             val cardParams = LinearLayout.LayoutParams(130.toPx(), 200.toPx())
             card.layoutParams = cardParams
@@ -885,7 +887,6 @@ class SeriesDetailsActivity : AppCompatActivity() {
             img.scaleType = ImageView.ScaleType.CENTER_CROP
             card.addView(img)
 
-            // TextView para o Nome
             val tv = TextView(parent.context)
             tv.id = android.R.id.text1
             val tvParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
@@ -908,21 +909,28 @@ class SeriesDetailsActivity : AppCompatActivity() {
             val posterPath = item.optString("poster_path")
             val name = item.optString("name")
             val id = item.optInt("id")
+            val rating = item.optDouble("vote_average", 0.0)
 
             Glide.with(holder.itemView.context)
                 .load("https://image.tmdb.org/t/p/w342$posterPath")
                 .into(holder.img)
 
-            holder.tvName.text = name // ✅ Mostra o nome da série
+            holder.tvName.text = name
 
+            // CORREÇÃO: Clique para abrir a Activity (Aviso: Pode não ter vídeo no servidor Xtream)
             holder.itemView.setOnClickListener {
-                Toast.makeText(this@SeriesDetailsActivity, "Sugestão: $name", Toast.LENGTH_SHORT).show()
+                val intent = Intent(holder.itemView.context, SeriesDetailsActivity::class.java)
+                intent.putExtra("series_id", id) // OBS: Este é o ID do TMDB
+                intent.putExtra("name", name)
+                intent.putExtra("icon", "https://image.tmdb.org/t/p/w342$posterPath")
+                intent.putExtra("rating", rating.toString())
+                holder.itemView.context.startActivity(intent)
             }
             
             holder.itemView.setOnFocusChangeListener { v, hasFocus ->
                 if(hasFocus) {
                     v.animate().scaleX(1.05f).scaleY(1.05f).start()
-                    v.setBackgroundResource(R.drawable.bg_focus_neon) // Borda no item todo
+                    v.setBackgroundResource(R.drawable.bg_focus_neon)
                 } else {
                     v.animate().scaleX(1.0f).scaleY(1.0f).start()
                     v.setBackgroundResource(0)

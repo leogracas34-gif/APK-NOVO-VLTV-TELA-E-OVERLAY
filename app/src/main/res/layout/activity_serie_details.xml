@@ -109,7 +109,7 @@
                     android:paddingHorizontal="16dp"
                     android:paddingVertical="10dp"
                     android:background="@android:color/transparent"
-                    android:text="Temporadas ▼"
+                    android:text="Temporadas▼"
                     android:textColor="#FFFFFF"
                     android:textStyle="bold"
                     android:focusable="true"

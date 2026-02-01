@@ -139,8 +139,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
         tvCast.text = "Elenco:"
         tvPlot.text = "Carregando sinopse..."
 
-        // CORREÇÃO: Botão Cinza (#333333) para o texto aparecer
+        // CORREÇÃO: Botão Cinza (#333333) e Texto BRANCO forçado
         btnSeasonSelector.setBackgroundColor(Color.parseColor("#333333"))
+        btnSeasonSelector.setTextColor(Color.WHITE)
 
         Glide.with(this)
             .load(seriesIcon)
@@ -244,6 +245,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         recyclerSuggestions.visibility = View.GONE
                     }
                     2 -> { // DETALHES
+                        // CORREÇÃO: Expandir o AppBar para mostrar os detalhes que ficam no topo
+                        appBarLayout?.setExpanded(true, true)
+
                         rvEpisodes.visibility = View.GONE
                         tvPlot.visibility = View.VISIBLE
                         tvCast.visibility = View.VISIBLE
@@ -470,8 +474,8 @@ class SeriesDetailsActivity : AppCompatActivity() {
     }
 
     private fun buscarDetalhesTMDB(id: Int, key: String) {
-        // ADICIONADO 'similar' e 'content_ratings' NA CHAMADA
-        val url = "https://api.themoviedb.org/3/tv/$id?api_key=$key&append_to_response=credits,similar&language=pt-BR"
+        // CORREÇÃO: Mudei 'similar' para 'recommendations' para trazer séries mais parecidas
+        val url = "https://api.themoviedb.org/3/tv/$id?api_key=$key&append_to_response=credits,recommendations&language=pt-BR"
         client.newCall(Request.Builder().url(url).build()).enqueue(object : okhttp3.Callback {
             override fun onFailure(call: okhttp3.Call, e: IOException) {}
             override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
@@ -503,7 +507,8 @@ class SeriesDetailsActivity : AppCompatActivity() {
                     }
 
                     // SUGESTÕES (SÉRIES PARECIDAS)
-                    val similar = d.optJSONObject("similar")
+                    // CORREÇÃO: Usar 'recommendations'
+                    val similar = d.optJSONObject("recommendations")
                     val similarResults = similar?.optJSONArray("results")
                     val sugestoesList = ArrayList<JSONObject>()
                     if (similarResults != null) {
@@ -589,7 +594,10 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         episodesBySeason = body.episodes ?: emptyMap()
                         sortedSeasons = episodesBySeason.keys.sortedBy { it.toIntOrNull() ?: 0 }
                         if (sortedSeasons.isNotEmpty()) mudarTemporada(sortedSeasons.first())
-                        else btnSeasonSelector.text = "Indisponível"
+                        else {
+                            btnSeasonSelector.text = "Indisponível"
+                            btnSeasonSelector.setTextColor(Color.WHITE)
+                        }
                     }
                 }
                 override fun onFailure(call: Call<SeriesInfoResponse>, t: Throwable) {
@@ -690,6 +698,8 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private fun mudarTemporada(seasonKey: String) {
         currentSeason = seasonKey
         btnSeasonSelector.text = "Temporada $seasonKey ▼"
+        btnSeasonSelector.setTextColor(Color.WHITE) // Garante que o texto fique branco
+        
         val lista = episodesBySeason[seasonKey] ?: emptyList()
         if (lista.isNotEmpty()) {
             currentEpisode = lista.first()

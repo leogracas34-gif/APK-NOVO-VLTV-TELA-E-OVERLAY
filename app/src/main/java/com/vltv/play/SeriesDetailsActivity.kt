@@ -609,27 +609,45 @@ class SeriesDetailsActivity : AppCompatActivity() {
             })
     }
 
-    // ✅✅✅ FUNÇÃO TRAZIDA E ADAPTADA DO SEU ARQUIVO ANTIGO
+    // ✅✅✅ FUNÇÃO COM O X FIXO NO RODAPÉ DA COLUNA TRANSPARENTE
     private fun mostrarSeletorDeTemporada() {
         if (sortedSeasons.isEmpty()) return
 
         val dialog = BottomSheetDialog(this, R.style.DialogTemporadaTransparente)
         
-        val root = LinearLayout(this)
-        root.layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
+        // RelativeLayout permite travar o X no rodapé
+        val root = RelativeLayout(this)
+        root.layoutParams = ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, 
+            500.toPx()
         )
-        root.orientation = LinearLayout.VERTICAL
-        root.gravity = Gravity.CENTER_HORIZONTAL
-        root.setPadding(0, 30, 0, 30)
         root.setBackgroundColor(Color.TRANSPARENT)
 
+        // Botão X (ImageButton) - TRAVADO NO RODAPÉ
+        val btnClose = ImageButton(this)
+        btnClose.id = View.generateViewId()
+        val closeParams = RelativeLayout.LayoutParams(65.toPx(), 65.toPx())
+        closeParams.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM) // Aqui trava ele embaixo
+        closeParams.addRule(RelativeLayout.CENTER_HORIZONTAL)
+        closeParams.setMargins(0, 0, 0, 30.toPx())
+        btnClose.layoutParams = closeParams
+        btnClose.setImageResource(android.R.drawable.ic_menu_close_clear_cancel) // Ícone X
+        btnClose.setColorFilter(Color.WHITE)
+        btnClose.background = null
+        btnClose.scaleType = ImageView.ScaleType.FIT_CENTER
+        btnClose.setPadding(10.toPx(), 10.toPx(), 10.toPx(), 10.toPx())
+        btnClose.isFocusable = true
+        btnClose.isClickable = true
+        btnClose.setOnClickListener { dialog.dismiss() }
+
+        // Lista de Temporadas (RecyclerView)
         val rvSeasons = RecyclerView(this)
-        val rvParams = LinearLayout.LayoutParams(250.toPx(), 400.toPx()) 
+        val rvParams = RelativeLayout.LayoutParams(250.toPx(), ViewGroup.LayoutParams.WRAP_CONTENT)
+        rvParams.addRule(RelativeLayout.ABOVE, btnClose.id) // Fica acima do botão X
+        rvParams.addRule(RelativeLayout.CENTER_HORIZONTAL)
+        rvParams.setMargins(0, 30.toPx(), 0, 20.toPx())
         rvSeasons.layoutParams = rvParams
         rvSeasons.layoutManager = LinearLayoutManager(this)
-        rvSeasons.setBackgroundColor(Color.TRANSPARENT)
 
         rvSeasons.adapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
             override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
@@ -669,31 +687,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
             override fun getItemCount() = sortedSeasons.size
         }
 
-        // Botão Fechar
-        val btnClose = TextView(this)
-        val closeParams = LinearLayout.LayoutParams(250.toPx(), ViewGroup.LayoutParams.WRAP_CONTENT)
-        closeParams.setMargins(0, 20, 0, 20)
-        btnClose.layoutParams = closeParams
-        btnClose.text = "✕ FECHAR"
-        btnClose.gravity = Gravity.CENTER
-        btnClose.setTextColor(Color.WHITE)
-        btnClose.setPadding(0, 25, 0, 25)
-        btnClose.isFocusable = true
-        btnClose.isClickable = true
-
-        btnClose.setOnFocusChangeListener { v, hasFocus ->
-            if (hasFocus) {
-                (v as TextView).setTextColor(Color.RED)
-                v.setBackgroundColor(Color.parseColor("#33000000"))
-            } else {
-                (v as TextView).setTextColor(Color.WHITE)
-                v.setBackgroundColor(Color.TRANSPARENT)
-            }
-        }
-        btnClose.setOnClickListener { dialog.dismiss() }
-
-        root.addView(rvSeasons)
+        // Adiciona as views ao RelativeLayout
         root.addView(btnClose)
+        root.addView(rvSeasons)
 
         dialog.setContentView(root)
 

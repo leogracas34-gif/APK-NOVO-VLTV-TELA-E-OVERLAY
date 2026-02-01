@@ -71,6 +71,20 @@
                     android:textColor="#CCCCCC" />
 
                 <LinearLayout
+                    android:id="@+id/llTechBadges"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="8dp"
+                    android:visibility="gone">
+                    
+                    <TextView android:id="@+id/tvBadge4k" android:text="4K UHD" android:background="#33FFFFFF" android:paddingHorizontal="6dp" android:paddingVertical="2dp" android:layout_marginEnd="8dp" android:textColor="#FFF" android:textSize="10sp" android:textStyle="bold" android:layout_width="wrap_content" android:layout_height="wrap_content" android:visibility="gone"/>
+                    <TextView android:id="@+id/tvBadgeHdr" android:text="HDR10" android:background="#33FFFFFF" android:paddingHorizontal="6dp" android:paddingVertical="2dp" android:layout_marginEnd="8dp" android:textColor="#FFF" android:textSize="10sp" android:textStyle="bold" android:layout_width="wrap_content" android:layout_height="wrap_content" android:visibility="gone"/>
+                    <TextView android:id="@+id/tvBadgeDolby" android:text="DOLBY VISION" android:background="#33FFFFFF" android:paddingHorizontal="6dp" android:paddingVertical="2dp" android:layout_marginEnd="8dp" android:textColor="#FFF" android:textSize="10sp" android:textStyle="bold" android:layout_width="wrap_content" android:layout_height="wrap_content" android:visibility="gone"/>
+                    <TextView android:id="@+id/tvBadge51" android:text="5.1" android:background="#33FFFFFF" android:paddingHorizontal="6dp" android:paddingVertical="2dp" android:layout_marginEnd="8dp" android:textColor="#FFF" android:textSize="10sp" android:textStyle="bold" android:layout_width="wrap_content" android:layout_height="wrap_content" android:visibility="gone"/>
+                </LinearLayout>
+
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
@@ -109,15 +123,20 @@
                     android:paddingHorizontal="16dp"
                     android:paddingVertical="10dp"
                     android:background="@android:color/transparent"
-                    android:text="Temporadas▼"
+                    android:text="Temporadas ▼"
                     android:textColor="#FFFFFF"
                     android:textStyle="bold"
                     android:focusable="true"
                     android:clickable="true" />
 
                 <TextView android:id="@+id/tvPlot" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
+                
+                <TextView android:id="@+id/tvReleaseDate" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#AAAAAA" android:layout_marginTop="8dp" android:textSize="13sp" android:visibility="gone"/>
+                <TextView android:id="@+id/tvCreatedBy" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#AAAAAA" android:layout_marginTop="4dp" android:textSize="13sp" android:visibility="gone"/>
+
                 <TextView android:id="@+id/tvCast" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
                 <androidx.recyclerview.widget.RecyclerView android:id="@+id/recyclerCast" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
+                
                 <LinearLayout android:id="@+id/btnDownloadArea" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone">
                     <ImageView android:id="@+id/imgDownloadState" android:layout_width="0dp" android:layout_height="0dp" />
                     <TextView android:id="@+id/tvDownloadState" android:layout_width="0dp" android:layout_height="0dp" />
@@ -142,5 +161,12 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         app:layout_behavior="@string/appbar_scrolling_view_behavior" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerSuggestions"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior"
+        android:visibility="gone" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

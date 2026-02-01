@@ -127,7 +127,8 @@ class SeriesDetailsActivity : AppCompatActivity() {
         tvCast.text = "Elenco:"
         tvPlot.text = "Carregando sinopse..."
 
-        btnSeasonSelector.setBackgroundColor(Color.parseColor("#333333"))
+        // CORREÇÃO: Fundo transparente para não criar caixa cinza
+        btnSeasonSelector.setBackgroundColor(Color.TRANSPARENT)
 
         Glide.with(this)
             .load(seriesIcon)
@@ -220,17 +221,21 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         rvEpisodes.visibility = View.VISIBLE
                         tvPlot.visibility = View.GONE
                         tvCast.visibility = View.GONE
+                        recyclerCast.visibility = View.GONE
                     }
                     2 -> { // DETALHES
                         rvEpisodes.visibility = View.GONE
                         tvPlot.visibility = View.VISIBLE
                         tvCast.visibility = View.VISIBLE
+                        // CORREÇÃO: Tornar o elenco visível na aba detalhes
+                        recyclerCast.visibility = View.VISIBLE
                         tvPlot.setTextColor(Color.WHITE)
                     }
                     1 -> { // SUGESTÃ•ES
                         rvEpisodes.visibility = View.GONE
                         tvPlot.visibility = View.GONE
                         tvCast.visibility = View.GONE
+                        recyclerCast.visibility = View.GONE
                     }
                 }
             }
@@ -725,7 +730,8 @@ class SeriesDetailsActivity : AppCompatActivity() {
                     view.animate().scaleX(1.10f).scaleY(1.10f).setDuration(200).start()
                     view.elevation = 15f
                 } else {
-                    view.setBackgroundResource(0)
+                    // CORREÇÃO: Usar bg_episodio_item (transparente) em vez de remover o fundo (0)
+                    view.setBackgroundResource(R.drawable.bg_episodio_item)
                     view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start()
                     view.elevation = 4f
                 }

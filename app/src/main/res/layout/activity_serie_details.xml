@@ -224,4 +224,39 @@
         app:layout_behavior="@string/appbar_scrolling_view_behavior"
         android:visibility="gone" />
 
+    <RelativeLayout
+        android:id="@+id/overlaySeasonSelector"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#B3000000"
+        android:visibility="gone"
+        android:elevation="10dp"
+        android:clickable="true"
+        android:focusable="true">
+
+        <ImageButton
+            android:id="@+id/btnCloseSelector"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:layout_alignParentBottom="true"
+            android:layout_centerHorizontal="true"
+            android:layout_marginBottom="32dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            app:tint="#FFFFFF"
+            android:scaleType="fitCenter"
+            android:padding="12dp"
+            android:contentDescription="Fechar" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerSeasonsSelect"
+            android:layout_width="280dp"
+            android:layout_height="wrap_content"
+            android:layout_above="@id/btnCloseSelector"
+            android:layout_centerInParent="true"
+            android:layout_marginBottom="24dp"
+            android:layout_marginTop="60dp" />
+
+    </RelativeLayout>
+
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

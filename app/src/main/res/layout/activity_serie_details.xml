@@ -35,8 +35,7 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="bottom"
                 android:orientation="vertical"
-                android:padding="32dp"
-                android:layout_marginBottom="50dp">
+                android:padding="32dp">
 
                 <Space
                     android:layout_width="match_parent"
@@ -224,20 +223,5 @@
         android:paddingBottom="20dp"
         app:layout_behavior="@string/appbar_scrolling_view_behavior"
         android:visibility="gone" />
-
-    <ImageButton
-        android:id="@+id/btnClose"
-        android:layout_width="60dp"
-        android:layout_height="60dp"
-        android:layout_gravity="bottom|center_horizontal"
-        android:layout_marginBottom="24dp"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:src="@android:drawable/ic_menu_close_clear_cancel"
-        app:tint="#FFFFFF"
-        android:scaleType="fitCenter"
-        android:padding="10dp"
-        android:contentDescription="Fechar"
-        android:focusable="true"
-        android:clickable="true" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

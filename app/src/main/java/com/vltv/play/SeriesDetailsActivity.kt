@@ -615,6 +615,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
             })
     }
 
+    // ✅ FUNÇÃO CORRIGIDA PARA A TEMPORADA 1 SEMPRE APARECER NO TOPO
     private fun mostrarSeletorDeTemporada() {
         if (sortedSeasons.isEmpty()) return
 
@@ -655,9 +656,13 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
         val rvSeasons = RecyclerView(this)
         val rvParams = RelativeLayout.LayoutParams(250.toPx(), ViewGroup.LayoutParams.WRAP_CONTENT)
+        
+        // ✅ CORREÇÃO: Alinhado ao topo para garantir a Temporada 1 no topo da lista
+        rvParams.addRule(RelativeLayout.ALIGN_PARENT_TOP) 
         rvParams.addRule(RelativeLayout.ABOVE, btnClose.id)
         rvParams.addRule(RelativeLayout.CENTER_HORIZONTAL)
-        rvParams.setMargins(0, 30.toPx(), 0, 20.toPx())
+        rvParams.setMargins(0, 10.toPx(), 0, 10.toPx())
+        
         rvSeasons.layoutParams = rvParams
         rvSeasons.layoutManager = LinearLayoutManager(this)
 
@@ -681,8 +686,8 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 
                 tv.setOnFocusChangeListener { v, hasFocus ->
                     if (hasFocus) {
-                        v.setBackgroundColor(Color.parseColor("#FFD700"))
-                        (v as TextView).setTextColor(Color.BLACK)
+                        v.setBackgroundResource(R.drawable.bg_focus_neon)
+                        (v as TextView).setTextColor(Color.YELLOW)
                         v.animate().scaleX(1.1f).scaleY(1.1f).setDuration(150).start()
                     } else {
                         v.setBackgroundColor(Color.TRANSPARENT)
@@ -831,7 +836,6 @@ class SeriesDetailsActivity : AppCompatActivity() {
         setDownloadState(DownloadState.valueOf(saved!!), ep)
     }
 
-    // ✅ ADICIONADO: Proteção de Rede no onDestroy
     override fun onDestroy() {
         client.dispatcher().cancelAll()
         super.onDestroy()

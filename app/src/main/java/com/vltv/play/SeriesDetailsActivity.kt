@@ -609,43 +609,52 @@ class SeriesDetailsActivity : AppCompatActivity() {
             })
     }
 
-    // ✅✅✅ FUNÇÃO COM O X FIXO NO RODAPÉ DA COLUNA TRANSPARENTE
+    // ✅✅✅ FUNÇÃO CORRIGIDA: FOCO E POSICIONAMENTO DO BOTÃO X
     private fun mostrarSeletorDeTemporada() {
         if (sortedSeasons.isEmpty()) return
 
         val dialog = BottomSheetDialog(this, R.style.DialogTemporadaTransparente)
         
-        // RelativeLayout permite travar o X no rodapé
+        // RELATIVE LAYOUT COM TAMANHO DEFINIDO
         val root = RelativeLayout(this)
-        root.layoutParams = ViewGroup.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, 
-            500.toPx()
-        )
+        val rootParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 500.toPx())
+        root.layoutParams = rootParams
         root.setBackgroundColor(Color.TRANSPARENT)
 
-        // Botão X (ImageButton) - TRAVADO NO RODAPÉ
+        // Botão X - TRAVADO NO RODAPÉ
         val btnClose = ImageButton(this)
         btnClose.id = View.generateViewId()
         val closeParams = RelativeLayout.LayoutParams(65.toPx(), 65.toPx())
-        closeParams.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM) // Aqui trava ele embaixo
+        closeParams.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM)
         closeParams.addRule(RelativeLayout.CENTER_HORIZONTAL)
-        closeParams.setMargins(0, 0, 0, 30.toPx())
+        closeParams.setMargins(0, 10.toPx(), 0, 30.toPx())
         btnClose.layoutParams = closeParams
-        btnClose.setImageResource(android.R.drawable.ic_menu_close_clear_cancel) // Ícone X
+        btnClose.setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
         btnClose.setColorFilter(Color.WHITE)
         btnClose.background = null
         btnClose.scaleType = ImageView.ScaleType.FIT_CENTER
-        btnClose.setPadding(10.toPx(), 10.toPx(), 10.toPx(), 10.toPx())
         btnClose.isFocusable = true
         btnClose.isClickable = true
+
+        // FOCO DO BOTÃO X
+        btnClose.setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                v.setBackgroundResource(R.drawable.bg_focus_neon)
+                v.animate().scaleX(1.15f).scaleY(1.15f).setDuration(150).start()
+            } else {
+                v.setBackgroundResource(0)
+                v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
+            }
+        }
         btnClose.setOnClickListener { dialog.dismiss() }
 
-        // Lista de Temporadas (RecyclerView)
+        // LISTA DE TEMPORADAS
         val rvSeasons = RecyclerView(this)
-        val rvParams = RelativeLayout.LayoutParams(250.toPx(), ViewGroup.LayoutParams.WRAP_CONTENT)
-        rvParams.addRule(RelativeLayout.ABOVE, btnClose.id) // Fica acima do botão X
+        val rvParams = RelativeLayout.LayoutParams(250.toPx(), RelativeLayout.LayoutParams.WRAP_CONTENT)
+        rvParams.addRule(RelativeLayout.ALIGN_PARENT_TOP)
+        rvParams.addRule(RelativeLayout.ABOVE, btnClose.id)
         rvParams.addRule(RelativeLayout.CENTER_HORIZONTAL)
-        rvParams.setMargins(0, 30.toPx(), 0, 20.toPx())
+        rvParams.setMargins(0, 30.toPx(), 0, 10.toPx())
         rvSeasons.layoutParams = rvParams
         rvSeasons.layoutManager = LinearLayoutManager(this)
 
@@ -666,10 +675,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 val season = sortedSeasons[position]
                 val tv = holder.itemView as TextView
                 tv.text = "Temporada $season"
-                
                 tv.setOnFocusChangeListener { v, hasFocus ->
                     if (hasFocus) {
-                        v.setBackgroundColor(Color.parseColor("#FFD700")) // Amarelo Ouro
+                        v.setBackgroundColor(Color.parseColor("#FFD700"))
                         (v as TextView).setTextColor(Color.BLACK)
                         v.animate().scaleX(1.1f).scaleY(1.1f).setDuration(150).start()
                     } else {
@@ -678,33 +686,22 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
                     }
                 }
-
-                tv.setOnClickListener {
-                    mudarTemporada(season)
-                    dialog.dismiss()
-                }
+                tv.setOnClickListener { mudarTemporada(season); dialog.dismiss() }
             }
             override fun getItemCount() = sortedSeasons.size
         }
 
-        // Adiciona as views ao RelativeLayout
         root.addView(btnClose)
         root.addView(rvSeasons)
-
         dialog.setContentView(root)
 
         val bottomSheet = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
         bottomSheet?.let {
             val behavior = com.google.android.material.bottomsheet.BottomSheetBehavior.from(it)
-            behavior.peekHeight = 500.toPx() 
+            behavior.peekHeight = 500.toPx()
             it.setBackgroundColor(Color.TRANSPARENT)
         }
-
         dialog.show()
-        
-        rvSeasons.postDelayed({
-            rvSeasons.findViewHolderForAdapterPosition(0)?.itemView?.requestFocus()
-        }, 150)
     }
 
     private fun Int.toPx(): Int = (this * resources.displayMetrics.density).toInt()
@@ -869,7 +866,6 @@ class SeriesDetailsActivity : AppCompatActivity() {
         override fun getItemCount() = list.size
     }
 
-    // ✅ ADAPTER MODIFICADO PARA CLIQUE NA SUGESTÃO
     inner class SuggestionsAdapter(val items: List<JSONObject>) : RecyclerView.Adapter<SuggestionsAdapter.ViewHolder>() {
         inner class ViewHolder(v: View) : RecyclerView.ViewHolder(v) {
             val img: ImageView = v.findViewById(android.R.id.icon) 
@@ -927,10 +923,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
             holder.tvName.text = name
 
-            // CORREÇÃO: Clique para abrir a Activity (Aviso: Pode não ter vídeo no servidor Xtream)
             holder.itemView.setOnClickListener {
                 val intent = Intent(holder.itemView.context, SeriesDetailsActivity::class.java)
-                intent.putExtra("series_id", id) // OBS: Este é o ID do TMDB
+                intent.putExtra("series_id", id)
                 intent.putExtra("name", name)
                 intent.putExtra("icon", "https://image.tmdb.org/t/p/w342$posterPath")
                 intent.putExtra("rating", rating.toString())

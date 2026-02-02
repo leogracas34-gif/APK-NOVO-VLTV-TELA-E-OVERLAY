@@ -394,6 +394,8 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private fun sincronizarDadosTMDB() {
         val apiKey = "9b73f5dd15b8165b1b57419be2f29128"
         var cleanName = seriesName
+        
+        // VASSOURA: Limpeza do nome para busca e display
         cleanName = cleanName.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
         cleanName = cleanName.replace(Regex("\\b\\d{4}\\b"), "")
         val lixo = listOf("FHD", "HD", "SD", "4K", "8K", "H265", "LEG", "DUBLADO", "DUB", "|", "-", "_", ".")
@@ -405,7 +407,8 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
         client.newCall(Request.Builder().url(url).build()).enqueue(object : okhttp3.Callback {
             override fun onFailure(call: okhttp3.Call, e: IOException) {
-                runOnUiThread { tvTitle.visibility = View.VISIBLE; tvTitle.text = seriesName }
+                // ✅ CORREÇÃO: Usa o nome limpo em caso de erro
+                runOnUiThread { tvTitle.visibility = View.VISIBLE; tvTitle.text = cleanName }
             }
             override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
                 val body = response.body()?.string()
@@ -416,7 +419,10 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         if (results != null && results.length() > 0) {
                             val show = results.getJSONObject(0)
                             val tmdbId = show.getInt("id")
-                            buscarLogoSerieTraduzida(tmdbId, apiKey)
+                            
+                            // Passa o nome limpo para a função de logo
+                            buscarLogoSerieTraduzida(tmdbId, apiKey, cleanName)
+                            
                             buscarDetalhesTMDB(tmdbId, apiKey)
                             runOnUiThread {
                                 val sinopse = show.optString("overview")
@@ -432,17 +438,18 @@ class SeriesDetailsActivity : AppCompatActivity() {
                                 Glide.with(this@SeriesDetailsActivity).load(seriesIcon).placeholder(R.mipmap.ic_launcher).centerCrop().into(imgPoster)
                             }
                         } else {
-                            runOnUiThread { tvTitle.visibility = View.VISIBLE; tvTitle.text = seriesName }
+                            // ✅ CORREÇÃO: Usa o nome limpo se não achar nada
+                            runOnUiThread { tvTitle.visibility = View.VISIBLE; tvTitle.text = cleanName }
                         }
                     } catch (e: Exception) {
-                        runOnUiThread { tvTitle.visibility = View.VISIBLE; tvTitle.text = seriesName }
+                        runOnUiThread { tvTitle.visibility = View.VISIBLE; tvTitle.text = cleanName }
                     }
                 }
             }
         })
     }
 
-    private fun buscarLogoSerieTraduzida(id: Int, key: String) {
+    private fun buscarLogoSerieTraduzida(id: Int, key: String, nomeLimpo: String) {
         val imagesUrl = "https://api.themoviedb.org/3/tv/$id/images?api_key=$key&include_image_language=pt,en,null"
         client.newCall(Request.Builder().url(imagesUrl).build()).enqueue(object : okhttp3.Callback {
             override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
@@ -470,15 +477,16 @@ class SeriesDetailsActivity : AppCompatActivity() {
                                 Glide.with(this@SeriesDetailsActivity).load(finalUrl).diskCacheStrategy(DiskCacheStrategy.ALL).into(imgTitleLogo)
                             }
                         } else {
-                            runOnUiThread { tvTitle.visibility = View.VISIBLE; tvTitle.text = seriesName }
+                            // ✅ CORREÇÃO: Usa o nome limpo se não achar logo
+                            runOnUiThread { tvTitle.visibility = View.VISIBLE; tvTitle.text = nomeLimpo }
                         }
                     } catch (e: Exception) {
-                        runOnUiThread { tvTitle.visibility = View.VISIBLE; tvTitle.text = seriesName }
+                        runOnUiThread { tvTitle.visibility = View.VISIBLE; tvTitle.text = nomeLimpo }
                     }
                 }
             }
             override fun onFailure(call: okhttp3.Call, e: IOException) {
-                runOnUiThread { tvTitle.visibility = View.VISIBLE; tvTitle.text = seriesName }
+                runOnUiThread { tvTitle.visibility = View.VISIBLE; tvTitle.text = nomeLimpo }
             }
         })
     }

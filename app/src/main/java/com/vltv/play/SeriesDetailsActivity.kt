@@ -253,17 +253,6 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         tvCreatedBy.visibility = View.GONE
                         recyclerSuggestions.visibility = View.GONE
                     }
-                    2 -> { // DETALHES
-                        appBarLayout?.setExpanded(true, true) // Expande para mostrar
-                        rvEpisodes.visibility = View.GONE
-                        tvPlot.visibility = View.VISIBLE
-                        tvCast.visibility = View.VISIBLE
-                        recyclerCast.visibility = View.VISIBLE
-                        tvReleaseDate.visibility = View.VISIBLE
-                        tvCreatedBy.visibility = View.VISIBLE
-                        recyclerSuggestions.visibility = View.GONE
-                        tvPlot.setTextColor(Color.WHITE)
-                    }
                     1 -> { // SUGESTÕES
                         rvEpisodes.visibility = View.GONE
                         tvPlot.visibility = View.GONE
@@ -272,6 +261,25 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         tvReleaseDate.visibility = View.GONE
                         tvCreatedBy.visibility = View.GONE
                         recyclerSuggestions.visibility = View.VISIBLE
+                    }
+                    2 -> { // DETALHES
+                        // ✅ CORREÇÃO: Garante visibilidade total das informações
+                        rvEpisodes.visibility = View.GONE
+                        recyclerSuggestions.visibility = View.GONE
+                        
+                        tvPlot.visibility = View.VISIBLE
+                        tvCast.visibility = View.VISIBLE
+                        recyclerCast.visibility = View.VISIBLE
+                        tvReleaseDate.visibility = View.VISIBLE
+                        tvCreatedBy.visibility = View.VISIBLE
+                        
+                        tvPlot.setTextColor(Color.WHITE)
+                        tvCast.setTextColor(Color.WHITE)
+                        tvReleaseDate.setTextColor(Color.WHITE)
+                        tvCreatedBy.setTextColor(Color.WHITE)
+                        
+                        // Foco na aba para não perder navegação
+                        tabLayout?.requestFocus()
                     }
                 }
             }
@@ -476,7 +484,6 @@ class SeriesDetailsActivity : AppCompatActivity() {
     }
 
     private fun buscarDetalhesTMDB(id: Int, key: String) {
-        // CORREÇÃO: 'recommendations' para mais precisão
         val url = "https://api.themoviedb.org/3/tv/$id?api_key=$key&append_to_response=credits,recommendations&language=pt-BR"
         client.newCall(Request.Builder().url(url).build()).enqueue(object : okhttp3.Callback {
             override fun onFailure(call: okhttp3.Call, e: IOException) {}
@@ -508,7 +515,6 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         }
                     }
 
-                    // CORREÇÃO: Lendo 'recommendations'
                     val similar = d.optJSONObject("recommendations")
                     val similarResults = similar?.optJSONArray("results")
                     val sugestoesList = ArrayList<JSONObject>()
@@ -609,34 +615,34 @@ class SeriesDetailsActivity : AppCompatActivity() {
             })
     }
 
-    // ✅✅✅ FUNÇÃO CORRIGIDA: FOCO E POSICIONAMENTO DO BOTÃO X
     private fun mostrarSeletorDeTemporada() {
         if (sortedSeasons.isEmpty()) return
 
         val dialog = BottomSheetDialog(this, R.style.DialogTemporadaTransparente)
         
-        // RELATIVE LAYOUT COM TAMANHO DEFINIDO
         val root = RelativeLayout(this)
-        val rootParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 500.toPx())
-        root.layoutParams = rootParams
+        root.layoutParams = ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, 
+            500.toPx()
+        )
         root.setBackgroundColor(Color.TRANSPARENT)
 
-        // Botão X - TRAVADO NO RODAPÉ
         val btnClose = ImageButton(this)
         btnClose.id = View.generateViewId()
         val closeParams = RelativeLayout.LayoutParams(65.toPx(), 65.toPx())
         closeParams.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM)
         closeParams.addRule(RelativeLayout.CENTER_HORIZONTAL)
-        closeParams.setMargins(0, 10.toPx(), 0, 30.toPx())
+        closeParams.setMargins(0, 0, 0, 30.toPx())
         btnClose.layoutParams = closeParams
         btnClose.setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
         btnClose.setColorFilter(Color.WHITE)
         btnClose.background = null
         btnClose.scaleType = ImageView.ScaleType.FIT_CENTER
+        btnClose.setPadding(10.toPx(), 10.toPx(), 10.toPx(), 10.toPx())
         btnClose.isFocusable = true
         btnClose.isClickable = true
+        btnClose.setOnClickListener { dialog.dismiss() }
 
-        // FOCO DO BOTÃO X
         btnClose.setOnFocusChangeListener { v, hasFocus ->
             if (hasFocus) {
                 v.setBackgroundResource(R.drawable.bg_focus_neon)
@@ -646,15 +652,12 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
             }
         }
-        btnClose.setOnClickListener { dialog.dismiss() }
 
-        // LISTA DE TEMPORADAS
         val rvSeasons = RecyclerView(this)
-        val rvParams = RelativeLayout.LayoutParams(250.toPx(), RelativeLayout.LayoutParams.WRAP_CONTENT)
-        rvParams.addRule(RelativeLayout.ALIGN_PARENT_TOP)
+        val rvParams = RelativeLayout.LayoutParams(250.toPx(), ViewGroup.LayoutParams.WRAP_CONTENT)
         rvParams.addRule(RelativeLayout.ABOVE, btnClose.id)
         rvParams.addRule(RelativeLayout.CENTER_HORIZONTAL)
-        rvParams.setMargins(0, 30.toPx(), 0, 10.toPx())
+        rvParams.setMargins(0, 30.toPx(), 0, 20.toPx())
         rvSeasons.layoutParams = rvParams
         rvSeasons.layoutManager = LinearLayoutManager(this)
 
@@ -675,6 +678,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 val season = sortedSeasons[position]
                 val tv = holder.itemView as TextView
                 tv.text = "Temporada $season"
+                
                 tv.setOnFocusChangeListener { v, hasFocus ->
                     if (hasFocus) {
                         v.setBackgroundColor(Color.parseColor("#FFD700"))
@@ -686,22 +690,32 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
                     }
                 }
-                tv.setOnClickListener { mudarTemporada(season); dialog.dismiss() }
+
+                tv.setOnClickListener {
+                    mudarTemporada(season)
+                    dialog.dismiss()
+                }
             }
             override fun getItemCount() = sortedSeasons.size
         }
 
         root.addView(btnClose)
         root.addView(rvSeasons)
+
         dialog.setContentView(root)
 
         val bottomSheet = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
         bottomSheet?.let {
             val behavior = com.google.android.material.bottomsheet.BottomSheetBehavior.from(it)
-            behavior.peekHeight = 500.toPx()
+            behavior.peekHeight = 500.toPx() 
             it.setBackgroundColor(Color.TRANSPARENT)
         }
+
         dialog.show()
+        
+        rvSeasons.postDelayed({
+            rvSeasons.findViewHolderForAdapterPosition(0)?.itemView?.requestFocus()
+        }, 150)
     }
 
     private fun Int.toPx(): Int = (this * resources.displayMetrics.density).toInt()
@@ -709,7 +723,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private fun mudarTemporada(seasonKey: String) {
         currentSeason = seasonKey
         btnSeasonSelector.text = "Temporada $seasonKey ▼"
-        btnSeasonSelector.setTextColor(Color.WHITE) // Garante que o texto fique branco
+        btnSeasonSelector.setTextColor(Color.WHITE)
         
         val lista = episodesBySeason[seasonKey] ?: emptyList()
         if (lista.isNotEmpty()) {
@@ -817,11 +831,16 @@ class SeriesDetailsActivity : AppCompatActivity() {
         setDownloadState(DownloadState.valueOf(saved!!), ep)
     }
 
+    // ✅ ADICIONADO: Proteção de Rede no onDestroy
+    override fun onDestroy() {
+        client.dispatcher().cancelAll()
+        super.onDestroy()
+    }
+
     class EpisodeAdapter(val list: List<EpisodeStream>, private val onClick: (EpisodeStream, Int) -> Unit) : RecyclerView.Adapter<EpisodeAdapter.VH>() {
         class VH(v: View) : RecyclerView.ViewHolder(v) {
             val tvTitle: TextView = v.findViewById(R.id.tvEpisodeTitle)
             val imgThumb: ImageView = v.findViewById(R.id.imgEpisodeThumb)
-            // ✅ ADICIONADO: REFERÊNCIA PARA A SINOPSE DO EPISÓDIO
             val tvPlotEp: TextView = v.findViewById(R.id.tvEpisodePlot)
         }
 
@@ -831,8 +850,6 @@ class SeriesDetailsActivity : AppCompatActivity() {
         override fun onBindViewHolder(holder: VH, position: Int) {
             val ep = list[position]
             holder.tvTitle.text = "E${ep.episode_num.toString().padStart(2, '0')} - ${ep.title}"
-            
-            // ✅ EXIBE A SINOPSE DO EPISÓDIO (E NÃO DA SÉRIE)
             holder.tvPlotEp.text = ep.info?.plot ?: "Sem descrição disponível."
 
             val capaUrl = ep.info?.movie_image ?: ""
@@ -855,7 +872,6 @@ class SeriesDetailsActivity : AppCompatActivity() {
                     view.animate().scaleX(1.10f).scaleY(1.10f).setDuration(200).start()
                     view.elevation = 15f
                 } else {
-                    // CORREÇÃO: Usar bg_episodio_item (transparente) em vez de remover o fundo (0)
                     view.setBackgroundResource(R.drawable.bg_episodio_item)
                     view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start()
                     view.elevation = 4f

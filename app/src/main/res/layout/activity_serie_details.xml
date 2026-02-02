@@ -120,19 +120,41 @@
                         android:src="@android:drawable/btn_star_big_off" />
                 </LinearLayout>
 
-                <TextView
-                    android:id="@+id/btnSeasonSelector"
+                <RelativeLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:paddingHorizontal="20dp"
-                    android:paddingVertical="12dp"
-                    android:text="Temporadas ▼"
-                    android:textColor="#FFFFFF"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:focusable="true"
-                    android:clickable="true" />
+                    android:layout_marginTop="16dp">
+
+                    <TextView
+                        android:id="@+id/btnSeasonSelector"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:paddingHorizontal="20dp"
+                        android:paddingVertical="12dp"
+                        android:text="Temporadas ▼"
+                        android:textColor="#FFFFFF"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:focusable="true"
+                        android:clickable="true" />
+
+                    <TextView
+                        android:id="@+id/btnCloseSeasonSelectorText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_toEndOf="@id/btnSeasonSelector"
+                        android:layout_centerVertical="true"
+                        android:layout_marginStart="10dp"
+                        android:padding="8dp"
+                        android:text="X"
+                        android:textColor="#FFFFFF"
+                        android:textSize="20sp"
+                        android:textStyle="bold"
+                        android:visibility="gone"
+                        android:focusable="true"
+                        android:clickable="true" />
+
+                </RelativeLayout>
 
                 <TextView 
                     android:id="@+id/tvPlot" 
@@ -223,40 +245,5 @@
         android:paddingBottom="20dp"
         app:layout_behavior="@string/appbar_scrolling_view_behavior"
         android:visibility="gone" />
-
-    <RelativeLayout
-        android:id="@+id/overlaySeasonSelector"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="#B3000000"
-        android:visibility="gone"
-        android:elevation="10dp"
-        android:clickable="true"
-        android:focusable="true">
-
-        <ImageButton
-            android:id="@+id/btnCloseSelector"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
-            android:layout_alignParentBottom="true"
-            android:layout_centerHorizontal="true"
-            android:layout_marginBottom="32dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_menu_close_clear_cancel"
-            app:tint="#FFFFFF"
-            android:scaleType="fitCenter"
-            android:padding="12dp"
-            android:contentDescription="Fechar" />
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/recyclerSeasonsSelect"
-            android:layout_width="280dp"
-            android:layout_height="wrap_content"
-            android:layout_above="@id/btnCloseSelector"
-            android:layout_centerInParent="true"
-            android:layout_marginBottom="24dp"
-            android:layout_marginTop="60dp" />
-
-    </RelativeLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -2,7 +2,6 @@ package com.vltv.play
 
 import android.content.Context
 import android.content.Intent
-import android.content.res.Configuration
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.View
@@ -32,7 +31,7 @@ class HomeActivity : AppCompatActivity() {
         binding = ActivityHomeBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Esconder barras do sistema (Full Screen)
+        // Modo Full Screen (Imersivo)
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
@@ -46,21 +45,21 @@ class HomeActivity : AppCompatActivity() {
         super.onResume()
         carregarBannerAlternado()
         
-        // Reset do estado da busca ao voltar
+        // Reset do estado da busca ao voltar para a Home
         binding.etSearch.setText("")
         binding.etSearch.clearFocus()
         binding.cardBanner.requestFocus()
     }
 
     private fun setupClicks() {
-        // Função para aplicar o efeito PREMIUM em qualquer View
+        // Função para aplicar o efeito PREMIUM de foco
         fun aplicarEfeitoPremium(view: View, scale: Float = 1.15f) {
             view.setOnFocusChangeListener { v, hasFocus ->
                 if (hasFocus) {
                     v.animate()
                         .scaleX(scale)
                         .scaleY(scale)
-                        .translationZ(15f) // Elevação visual
+                        .translationZ(15f)
                         .setDuration(250)
                         .start()
                 } else {
@@ -74,23 +73,31 @@ class HomeActivity : AppCompatActivity() {
             }
         }
 
-        // Aplicando efeito nos botões principais
+        // Aplicando efeito visual nos componentes
         aplicarEfeitoPremium(binding.cardLiveTv)
         aplicarEfeitoPremium(binding.cardMovies)
         aplicarEfeitoPremium(binding.cardSeries)
         aplicarEfeitoPremium(binding.cardKids)
-        aplicarEfeitoPremium(binding.cardBanner, 1.03f) // Banner cresce menos por ser grande
+        aplicarEfeitoPremium(binding.cardBanner, 1.03f) 
         aplicarEfeitoPremium(binding.btnSettings)
         aplicarEfeitoPremium(binding.etSearch, 1.05f)
 
-        // Cliques dos botões
+        // Cliques das categorias
         binding.cardLiveTv.setOnClickListener { startActivity(Intent(this, LiveTvActivity::class.java).putExtra("SHOW_PREVIEW", true)) }
         binding.cardMovies.setOnClickListener { startActivity(Intent(this, VodActivity::class.java).putExtra("SHOW_PREVIEW", false)) }
         binding.cardSeries.setOnClickListener { startActivity(Intent(this, SeriesActivity::class.java).putExtra("SHOW_PREVIEW", false)) }
         binding.cardKids.setOnClickListener { startActivity(Intent(this, KidsActivity::class.java).putExtra("SHOW_PREVIEW", false)) }
         
+        // ✅ CORREÇÃO DA TELA FANTASMA: Escondendo o teclado e limpando foco antes de abrir a busca
         binding.etSearch.setOnClickListener {
-            startActivity(Intent(this, SearchActivity::class.java).putExtra("initial_query", ""))
+            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.hideSoftInputFromWindow(binding.etSearch.windowToken, 0)
+            binding.etSearch.clearFocus()
+
+            val intent = Intent(this, SearchActivity::class.java)
+            intent.putExtra("initial_query", "")
+            intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION) // Evita sobreposição visual na transição
+            startActivity(intent)
         }
 
         binding.btnSettings.setOnClickListener {
@@ -134,7 +141,7 @@ class HomeActivity : AppCompatActivity() {
                             binding.tvBannerTitle.text = tituloOriginal
                             binding.tvBannerOverview.text = overview
                             Glide.with(this@HomeActivity)
-                                .load("https://image.tmdb.org/t/p/original$backdropPath")
+                                .load("https://image.tmdb.org/p/original$backdropPath")
                                 .centerCrop()
                                 .into(binding.imgBanner)
                         }
@@ -166,7 +173,7 @@ class HomeActivity : AppCompatActivity() {
                     withContext(Dispatchers.Main) {
                         binding.tvBannerTitle.visibility = View.GONE
                         binding.imgBannerLogo.visibility = View.VISIBLE
-                        Glide.with(this@HomeActivity).load("https://image.tmdb.org/t/p/w500$logoPath").into(binding.imgBannerLogo)
+                        Glide.with(this@HomeActivity).load("https://image.tmdb.org/p/w500$logoPath").into(binding.imgBannerLogo)
                     }
                 } else {
                     withContext(Dispatchers.Main) {

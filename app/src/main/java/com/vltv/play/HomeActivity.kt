@@ -50,6 +50,16 @@ class HomeActivity : AppCompatActivity() {
         DownloadHelper.registerReceiver(this)
 
         setupClicks()
+
+        // ✅ LÓGICA KIDS: Verifica se o perfil selecionado foi o Kids
+        val isKidsMode = intent.getBooleanExtra("IS_KIDS_MODE", false)
+        if (isKidsMode) {
+            // Aguarda um pequeno instante para a Activity carregar e clica no cardKids automaticamente
+            binding.root.postDelayed({
+                binding.cardKids.performClick()
+                Toast.makeText(this, "Modo Kids Ativado", Toast.LENGTH_SHORT).show()
+            }, 500)
+        }
     }
 
     override fun onResume() {
@@ -81,9 +91,8 @@ class HomeActivity : AppCompatActivity() {
                    Configuration.UI_MODE_TYPE_TELEVISION
         }
 
-        // AJUSTE: Transformando o campo de busca em um botão que abre a SearchActivity diretamente
         binding.etSearch.isFocusable = true
-        binding.etSearch.isFocusableInTouchMode = false // Impede abrir o teclado na Home
+        binding.etSearch.isFocusableInTouchMode = false 
         
         binding.etSearch.setOnClickListener {
             val intent = Intent(this, SearchActivity::class.java)
@@ -139,6 +148,7 @@ class HomeActivity : AppCompatActivity() {
                         startActivity(intent)
                     }
                     R.id.cardKids -> {
+                        // ✅ ABRE A ATIVIDADE KIDS
                         val intent = Intent(this, KidsActivity::class.java)
                         intent.putExtra("SHOW_PREVIEW", false)
                         startActivity(intent)
@@ -195,7 +205,6 @@ class HomeActivity : AppCompatActivity() {
                 } else false
             }
             
-            // Suporte ao clique do controle remoto na busca
             binding.etSearch.setOnKeyListener { _, keyCode, event ->
                 if (keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_DPAD_CENTER) {
                     if (event.action == KeyEvent.ACTION_UP) {
@@ -249,7 +258,6 @@ class HomeActivity : AppCompatActivity() {
         val tipoAtual = if (ultimoTipo == "tv") "movie" else "tv"
         prefs.edit().putString("ultimo_tipo_banner", tipoAtual).apply()
 
-        // ✅ CORREÇÃO 1: Adicionado &region=BR na URL do Banner Destaque
         val urlString = "https://api.themoviedb.org/3/trending/$tipoAtual/day?api_key=$TMDB_API_KEY&language=pt-BR&region=BR"
 
         CoroutineScope(Dispatchers.IO).launch {
@@ -279,7 +287,6 @@ class HomeActivity : AppCompatActivity() {
                             Glide.with(this@HomeActivity)
                                 .load(imageUrl)
                                 .centerCrop()
-                                .placeholder(android.R.color.black)
                                 .into(binding.imgBanner)
                         }
                         buscarLogoOverlayHome(tmdbId, tipoAtual, tituloOriginal)
@@ -292,14 +299,6 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun buscarLogoOverlayHome(tmdbId: String, tipo: String, rawName: String) {
-        var cleanName = rawName
-        cleanName = cleanName.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
-        cleanName = cleanName.replace(Regex("\\b\\d{4}\\b"), "")
-        
-        val lixo = listOf("FHD", "HD", "SD", "4K", "8K", "H265", "H.265", "LEG", "DUBLADO", "DUB", "|", "-", "_", ".")
-        lixo.forEach { cleanName = cleanName.replace(it, "", ignoreCase = true) }
-        cleanName = cleanName.trim().replace(Regex("\\s+"), " ")
-
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val imagesUrl = "https://api.themoviedb.org/3/$tipo/$tmdbId/images?api_key=$TMDB_API_KEY&include_image_language=pt,en,null"
@@ -309,10 +308,7 @@ class HomeActivity : AppCompatActivity() {
                 if (imagesObj.has("logos")) {
                     val logos = imagesObj.getJSONArray("logos")
                     if (logos.length() > 0) {
-                        
                         var logoPath: String? = null
-                        
-                        // ✅ CORREÇÃO 2: Laço 'for' para priorizar a logo do Banner em Português (pt)
                         for (i in 0 until logos.length()) {
                             val logo = logos.getJSONObject(i)
                             if (logo.optString("iso_639_1") == "pt") {
@@ -320,8 +316,6 @@ class HomeActivity : AppCompatActivity() {
                                 break
                             }
                         }
-
-                        // Fallback caso não ache PT (usa a primeira disponível)
                         if (logoPath == null) logoPath = logos.getJSONObject(0).getString("file_path")
                         
                         val fullLogoUrl = "https://image.tmdb.org/t/p/w500$logoPath"

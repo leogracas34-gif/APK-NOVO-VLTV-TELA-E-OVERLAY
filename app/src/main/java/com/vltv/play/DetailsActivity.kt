@@ -54,6 +54,10 @@ class DetailsActivity : AppCompatActivity() {
     private var isSeries: Boolean = false 
     private var episodes: List<EpisodeData> = emptyList() 
     private var hasResumePosition: Boolean = false 
+    
+    // ✅ PERFIL ATUAL
+    private var currentProfile: String = "Padrao"
+
     private lateinit var imgPoster: ImageView 
     private lateinit var tvTitle: TextView 
     private lateinit var imgTitleLogo: ImageView 
@@ -76,7 +80,6 @@ class DetailsActivity : AppCompatActivity() {
     private enum class DownloadState { BAIXAR, BAIXANDO, BAIXADO } 
     private var downloadState: DownloadState = DownloadState.BAIXAR 
 
-    // ✅ PROTEÇÃO 1 e 2: TIMEOUTS E USER-AGENT
     private val client = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
@@ -92,11 +95,16 @@ class DetailsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState) 
         setContentView(R.layout.activity_details) 
         configurarTelaTV() 
+        
+        // ✅ PEGA O PERFIL VINDO DA HOME
+        currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
+
         streamId = intent.getIntExtra("stream_id", 0) 
         name = intent.getStringExtra("name") ?: "" 
         icon = intent.getStringExtra("icon") 
         rating = intent.getStringExtra("rating") ?: "0.0" 
         isSeries = intent.getBooleanExtra("is_series", false) 
+        
         inicializarViews() 
         carregarConteudo() 
         setupEventos() 
@@ -149,8 +157,11 @@ class DetailsActivity : AppCompatActivity() {
         tvCast.text = "Elenco:" 
         Glide.with(this).load(icon).diskCacheStrategy(DiskCacheStrategy.ALL).into(imgPoster) 
         Glide.with(this).load(icon).centerCrop().diskCacheStrategy(DiskCacheStrategy.ALL).into(imgBackground) 
+        
+        // ✅ FAVORITOS POR PERFIL
         val isFavInicial = getFavMovies(this).contains(streamId) 
         atualizarIconeFavorito(isFavInicial) 
+        
         if (isSeries) carregarEpisodios() else { 
             tvEpisodesTitle.visibility = View.GONE 
             recyclerEpisodes.visibility = View.GONE 
@@ -193,7 +204,6 @@ class DetailsActivity : AppCompatActivity() {
                 runOnUiThread { tvTitle.visibility = View.VISIBLE } 
             } 
             override fun onResponse(call: Call, response: Response) { 
-                // ✅ CORREÇÃO 1: body() para body
                 val body = response.body?.string() ?: return 
                 try { 
                     val results = JSONObject(body).optJSONArray("results") 
@@ -227,7 +237,6 @@ class DetailsActivity : AppCompatActivity() {
         val imagesUrl = "https://api.themoviedb.org/3/$type/$id/images?api_key=$key&include_image_language=pt,en,null" 
         client.newCall(Request.Builder().url(imagesUrl).build()).enqueue(object : Callback { 
             override fun onResponse(call: Call, response: Response) { 
-                // ✅ CORREÇÃO 2: body() para body
                 val body = response.body?.string() ?: return 
                 try { 
                     val logos = JSONObject(body).optJSONArray("logos") 
@@ -261,7 +270,6 @@ class DetailsActivity : AppCompatActivity() {
         val url = "https://api.themoviedb.org/3/$type/$id?api_key=$key&append_to_response=credits&language=pt-BR" 
         client.newCall(Request.Builder().url(url).build()).enqueue(object : Callback { 
             override fun onResponse(call: Call, response: Response) { 
-                // ✅ CORREÇÃO 3: body() para body
                 val body = response.body?.string() ?: return 
                 try { 
                     val d = JSONObject(body) 
@@ -293,6 +301,7 @@ class DetailsActivity : AppCompatActivity() {
             val intent = Intent(this, PlayerActivity::class.java) 
             intent.putExtra("stream_id", episode.streamId).putExtra("stream_type", "series") 
             intent.putExtra("channel_name", "${name} - S${episode.season}:E${episode.episode}") 
+            intent.putExtra("PROFILE_NAME", currentProfile) // ✅ PASSA O PERFIL PARA O PLAYER
             startActivity(intent) 
         } 
         recyclerEpisodes.apply { 
@@ -339,14 +348,17 @@ class DetailsActivity : AppCompatActivity() {
         btnSettings?.setOnClickListener { mostrarConfiguracoes() } 
     } 
 
+    // ✅ FAVORITOS ISOLADOS POR PERFIL
     private fun getFavMovies(context: Context): MutableList<Int> { 
         val prefs = context.getSharedPreferences("vltv_favoritos", Context.MODE_PRIVATE) 
-        return prefs.getStringSet("favoritos", emptySet())?.mapNotNull { it.toIntOrNull() }?.toMutableList() ?: mutableListOf() 
+        val key = "${currentProfile}_favoritos" // Ex: "Pai_favoritos"
+        return prefs.getStringSet(key, emptySet())?.mapNotNull { it.toIntOrNull() }?.toMutableList() ?: mutableListOf() 
     } 
 
     private fun saveFavMovies(context: Context, favs: List<Int>) { 
         val prefs = context.getSharedPreferences("vltv_favoritos", Context.MODE_PRIVATE) 
-        prefs.edit().putStringSet("favoritos", favs.map { it.toString() }.toSet()).apply() 
+        val key = "${currentProfile}_favoritos"
+        prefs.edit().putStringSet(key, favs.map { it.toString() }.toSet()).apply() 
     } 
 
     private fun atualizarIconeFavorito(isFavorite: Boolean) { 
@@ -367,16 +379,21 @@ class DetailsActivity : AppCompatActivity() {
         atualizarIconeFavorito(!isFav) 
     } 
 
+    // ✅ RESUME ISOLADO POR PERFIL
     private fun verificarResume() { 
-        val pos = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE).getLong("movie_resume_${streamId}_pos", 0L) 
+        val key = "${currentProfile}_movie_resume_${streamId}_pos"
+        val pos = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE).getLong(key, 0L) 
         btnResume.visibility = if (pos > 30000L) View.VISIBLE else View.GONE 
     } 
 
     private fun abrirPlayer(usarResume: Boolean) { 
         val intent = Intent(this, PlayerActivity::class.java) 
         intent.putExtra("stream_id", streamId).putExtra("stream_type", if (isSeries) "series" else "movie").putExtra("channel_name", name) 
+        intent.putExtra("PROFILE_NAME", currentProfile)
+        
         if (usarResume) { 
-            val pos = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE).getLong("movie_resume_${streamId}_pos", 0L) 
+            val key = "${currentProfile}_movie_resume_${streamId}_pos"
+            val pos = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE).getLong(key, 0L) 
             intent.putExtra("start_position_ms", pos) 
         } 
         startActivity(intent) 
@@ -425,7 +442,6 @@ class DetailsActivity : AppCompatActivity() {
 
     private fun isTelevisionDevice() = packageManager.hasSystemFeature("android.software.leanback") || packageManager.hasSystemFeature("android.hardware.type.television") 
 
-    // ✅ CORREÇÃO 4: dispatcher() para dispatcher
     override fun onDestroy() {
         client.dispatcher.cancelAll()
         super.onDestroy()

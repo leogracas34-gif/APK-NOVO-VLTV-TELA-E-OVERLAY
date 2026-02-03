@@ -412,7 +412,7 @@ class HomeActivity : AppCompatActivity() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val userEmail = prefs.getString("username", "") ?: ""
 
-        // 1. BUSCAR "CONTINUAR ASSISTINDO" DO FIREBASE POR PERFIL
+        // 1. BUSCAR "CONTINUAR ASSISTINDO" (VÍNCULADO À DETAILS ACTIVITY)
         db.collection("users")
             .document(userEmail)
             .collection("profiles")
@@ -429,12 +429,18 @@ class HomeActivity : AppCompatActivity() {
                 }
                 if (historyList.isNotEmpty()) {
                     binding.rvContinueWatching.adapter = HomeRowAdapter(historyList) { selectedItem ->
-                        // Ação ao clicar: abrir o player
+                        val intent = Intent(this, DetailsActivity::class.java)
+                        intent.putExtra("stream_id", selectedItem.id.toIntOrNull() ?: 0)
+                        intent.putExtra("name", selectedItem.name)
+                        intent.putExtra("icon", selectedItem.streamIcon)
+                        intent.putExtra("PROFILE_NAME", currentProfile)
+                        intent.putExtra("is_series", false) // Histórico de VOD costuma ser filme
+                        startActivity(intent)
                     }
                 }
             }
 
-        // 2. BUSCAR "ADICIONADOS RECENTEMENTE" DO SEU SERVIDOR XTREAM
+        // 2. BUSCAR "ADICIONADOS RECENTEMENTE" COM FILTRO E ORDEM CRONOLÓGICA
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val dns = prefs.getString("dns", "") ?: ""
@@ -445,14 +451,28 @@ class HomeActivity : AppCompatActivity() {
                 val response = URL(urlString).readText()
                 val jsonArray = org.json.JSONArray(response)
                 
-                val recentList = mutableListOf<VodItem>()
-                // Pega os últimos 15 adicionados (final do array)
-                val total = jsonArray.length()
-                val limit = if (total > 15) 15 else total
+                val rawList = mutableListOf<JSONObject>()
+                val palavrasProibidas = listOf("XXX", "PORN", "ADULTO", "SEXO", "EROTICO")
+
+                for (i in 0 until jsonArray.length()) {
+                    val obj = jsonArray.getJSONObject(i)
+                    val nome = obj.optString("name").uppercase()
+                    
+                    val eAdulto = palavrasProibidas.any { nome.contains(it) }
+                    if (!eAdulto) {
+                        rawList.add(obj)
+                    }
+                }
+
+                // Ordenação por ID decrescente (mais novo primeiro)
+                val sortedList = rawList.sortedByDescending { it.optInt("stream_id") }
+                
+                val finalRecentList = mutableListOf<VodItem>()
+                val limit = if (sortedList.size > 20) 20 else sortedList.size
                 
                 for (i in 0 until limit) {
-                    val obj = jsonArray.getJSONObject(total - 1 - i)
-                    recentList.add(VodItem(
+                    val obj = sortedList[i]
+                    finalRecentList.add(VodItem(
                         id = obj.optString("stream_id"),
                         name = obj.optString("name"),
                         streamIcon = obj.optString("stream_icon")
@@ -460,8 +480,14 @@ class HomeActivity : AppCompatActivity() {
                 }
 
                 withContext(Dispatchers.Main) {
-                    binding.rvRecentlyAdded.adapter = HomeRowAdapter(recentList) { selectedItem ->
-                        // Ação ao clicar: abrir detalhes do filme
+                    binding.rvRecentlyAdded.adapter = HomeRowAdapter(finalRecentList) { selectedItem ->
+                        val intent = Intent(this@HomeActivity, DetailsActivity::class.java)
+                        intent.putExtra("stream_id", selectedItem.id.toIntOrNull() ?: 0)
+                        intent.putExtra("name", selectedItem.name)
+                        intent.putExtra("icon", selectedItem.streamIcon)
+                        intent.putExtra("PROFILE_NAME", currentProfile)
+                        intent.putExtra("is_series", false)
+                        startActivity(intent)
                     }
                 }
             } catch (e: Exception) {
@@ -470,4 +496,3 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 }
-

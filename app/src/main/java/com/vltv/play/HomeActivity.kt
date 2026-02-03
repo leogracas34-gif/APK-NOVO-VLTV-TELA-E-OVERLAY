@@ -31,16 +31,17 @@ import java.net.URL
 import java.net.URLEncoder
 import kotlin.random.Random
 
-// ✅ PREPARAÇÃO FIREBASE (Descomente quando adicionar o google-services.json)
-// import com.google.firebase.remoteconfig.FirebaseRemoteConfig
-// import com.google.firebase.remoteconfig.ktx.remoteConfigSettings
+// ✅ FIREBASE ATIVADO
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.remoteconfig.ktx.remoteConfig
+import com.google.firebase.remoteconfig.ktx.remoteConfigSettings
 
 class HomeActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityHomeBinding
     private val TMDB_API_KEY = "9b73f5dd15b8165b1b57419be2f29128"
     
-    // ✅ VARIÁVEL DE PERFIL
+    // ✅ VARIÁVEL DE PERFIL INTEGRADA
     private var currentProfile: String = "Padrao"
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -63,7 +64,7 @@ class HomeActivity : AppCompatActivity() {
         DownloadHelper.registerReceiver(this)
 
         setupClicks()
-        setupFirebaseRemoteConfig() // ✅ Chamada preparada para o Firebase
+        setupFirebaseRemoteConfig() // ✅ Chamada ativada para o Firebase
 
         // ✅ LÓGICA KIDS: Verifica se o perfil selecionado foi o Kids
         val isKidsMode = intent.getBooleanExtra("IS_KIDS_MODE", false)
@@ -76,26 +77,43 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ ESTRUTURA PARA BANNER DINÂMICO (FIREBASE)
+    // ✅ ESTRUTURA PARA BANNER DINÂMICO (FIREBASE) TOTALMENTE ATIVA
     private fun setupFirebaseRemoteConfig() {
-        /* val remoteConfig = Firebase.remoteConfig
-        val configSettings = remoteConfigSettings { minimumFetchIntervalInSeconds = 3600 }
+        val remoteConfig = Firebase.remoteConfig
+        
+        // Define intervalo de busca curto para testes (60s) ou padrão (1h/3600s)
+        val configSettings = remoteConfigSettings { 
+            minimumFetchIntervalInSeconds = 60 
+        }
         remoteConfig.setConfigSettingsAsync(configSettings)
         
         remoteConfig.fetchAndActivate().addOnCompleteListener(this) { task ->
             if (task.isSuccessful) {
                 val bannerUrl = remoteConfig.getString("url_banner_promocional")
+                val bannerTitle = remoteConfig.getString("titulo_banner_promocional")
+                
                 if (bannerUrl.isNotEmpty()) {
-                    // Se houver uma URL no Firebase, ela substitui o banner do TMDB
-                    Glide.with(this).load(bannerUrl).into(binding.imgBanner)
+                    // ✅ Se houver uma URL no Firebase, ela substitui o banner dinâmico do TMDB
+                    runOnUiThread {
+                        binding.tvBannerTitle.visibility = View.VISIBLE
+                        binding.tvBannerTitle.text = bannerTitle.ifEmpty { "Destaque VLTV" }
+                        binding.tvBannerOverview.text = "" // Geralmente banners manuais não usam sinopse longa
+                        binding.imgBannerLogo.visibility = View.GONE
+                        
+                        Glide.with(this@HomeActivity)
+                            .load(bannerUrl)
+                            .centerCrop()
+                            .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
+                            .into(binding.imgBanner)
+                    }
                 }
             }
         }
-        */
     }
 
     override fun onResume() {
         super.onResume()
+        // O TMDB carrega primeiro, e o Firebase sobrescreve se houver algo configurado
         carregarBannerAlternado()
 
         try {
@@ -129,7 +147,7 @@ class HomeActivity : AppCompatActivity() {
         binding.etSearch.setOnClickListener {
             val intent = Intent(this, SearchActivity::class.java)
             intent.putExtra("initial_query", "")
-            intent.putExtra("PROFILE_NAME", currentProfile) // ✅ LEVA O PERFIL
+            intent.putExtra("PROFILE_NAME", currentProfile) // ✅ REPASSA O PERFIL
             startActivity(intent)
         }
 
@@ -168,19 +186,19 @@ class HomeActivity : AppCompatActivity() {
                     R.id.cardLiveTv -> {
                         val intent = Intent(this, LiveTvActivity::class.java)
                         intent.putExtra("SHOW_PREVIEW", true)
-                        intent.putExtra("PROFILE_NAME", currentProfile) // ✅ LEVA O PERFIL
+                        intent.putExtra("PROFILE_NAME", currentProfile) // ✅ REPASSA O PERFIL
                         startActivity(intent)
                     }
                     R.id.cardMovies -> {
                         val intent = Intent(this, VodActivity::class.java)
                         intent.putExtra("SHOW_PREVIEW", false)
-                        intent.putExtra("PROFILE_NAME", currentProfile) // ✅ LEVA O PERFIL
+                        intent.putExtra("PROFILE_NAME", currentProfile) // ✅ REPASSA O PERFIL
                         startActivity(intent)
                     }
                     R.id.cardSeries -> {
                         val intent = Intent(this, SeriesActivity::class.java)
                         intent.putExtra("SHOW_PREVIEW", false)
-                        intent.putExtra("PROFILE_NAME", currentProfile) // ✅ LEVA O PERFIL
+                        intent.putExtra("PROFILE_NAME", currentProfile) // ✅ REPASSA O PERFIL
                         startActivity(intent)
                     }
                     R.id.cardKids -> {

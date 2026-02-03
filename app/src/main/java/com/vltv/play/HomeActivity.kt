@@ -522,8 +522,9 @@ class HomeActivity : AppCompatActivity() {
 
                 withContext(Dispatchers.Main) {
                     binding.rvRecentSeries.adapter = HomeRowAdapter(finalSeriesList) { selectedItem ->
-                        val intent = Intent(this@HomeActivity, DetailsActivity::class.java)
-                        intent.putExtra("stream_id", selectedItem.id.toIntOrNull() ?: 0)
+                        val intent = Intent(this@HomeActivity, SeriesDetailsActivity::class.java)
+                        // ✅ AJUSTE DE ENCAIXE: seriesId exige INT e chave "series_id"
+                        intent.putExtra("series_id", selectedItem.id.toIntOrNull() ?: 0)
                         intent.putExtra("name", selectedItem.name)
                         intent.putExtra("icon", selectedItem.streamIcon)
                         intent.putExtra("PROFILE_NAME", currentProfile)
@@ -559,14 +560,22 @@ class HomeActivity : AppCompatActivity() {
             binding.rvContinueWatching.visibility = View.VISIBLE
             // Exibe em ordem inversa (mais recente primeiro)
             binding.rvContinueWatching.adapter = HomeRowAdapter(historyList.reversed()) { selectedItem ->
-                val intent = Intent(this, DetailsActivity::class.java)
-                intent.putExtra("stream_id", selectedItem.id.toIntOrNull() ?: 0)
+                // VERIFICA SE O ID SALVO PERTENCE A UMA SÉRIE
+                val isSeriesStored = prefs.getBoolean("${currentProfile}_history_is_series_${selectedItem.id}", false)
+                
+                val intent = if (isSeriesStored) {
+                    Intent(this, SeriesDetailsActivity::class.java).apply {
+                        putExtra("series_id", selectedItem.id.toIntOrNull() ?: 0)
+                    }
+                } else {
+                    Intent(this, DetailsActivity::class.java).apply {
+                        putExtra("stream_id", selectedItem.id.toIntOrNull() ?: 0)
+                    }
+                }
+                
                 intent.putExtra("name", selectedItem.name)
                 intent.putExtra("icon", selectedItem.streamIcon)
                 intent.putExtra("PROFILE_NAME", currentProfile)
-                
-                // ✅ CORREÇÃO: Usando selectedItem.id em vez de id
-                val isSeriesStored = prefs.getBoolean("${currentProfile}_history_is_series_${selectedItem.id}", false)
                 intent.putExtra("is_series", isSeriesStored)
                 
                 startActivity(intent)

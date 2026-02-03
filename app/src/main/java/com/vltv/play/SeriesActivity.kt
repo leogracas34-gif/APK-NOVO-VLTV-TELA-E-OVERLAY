@@ -59,6 +59,9 @@ class SeriesActivity : AppCompatActivity() {
     private var categoryAdapter: SeriesCategoryAdapter? = null
     private var seriesAdapter: SeriesAdapter? = null
 
+    // ✅ VARIÁVEL DE PERFIL INTEGRADA PARA SINCRONIZAR FAVORITOS
+    private var currentProfile: String = "Padrao"
+
     // ✅ FUNÇÃO PARA DETECTAR SE É TV BOX OU CELULAR
     private fun isTelevision(context: Context): Boolean {
         val uiMode = context.resources.configuration.uiMode
@@ -71,6 +74,9 @@ class SeriesActivity : AppCompatActivity() {
         // --- USANDO O LAYOUT LIMPO (SEM PLAYER) ---
         setContentView(R.layout.activity_vod)
         // ---------------------------
+
+        // ✅ RECUPERA O PERFIL VINDO DA HOME
+        currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
 
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -90,6 +96,7 @@ class SeriesActivity : AppCompatActivity() {
         searchInput?.setOnClickListener {
             val intent = Intent(this, SearchActivity::class.java)
             intent.putExtra("initial_query", "")
+            intent.putExtra("PROFILE_NAME", currentProfile) // REPASSA O PERFIL NA BUSCA
             startActivity(intent)
         }
 
@@ -381,12 +388,15 @@ class SeriesActivity : AppCompatActivity() {
         intent.putExtra("name", serie.name)
         intent.putExtra("icon", serie.icon)
         intent.putExtra("rating", serie.rating ?: "0.0")
+        intent.putExtra("PROFILE_NAME", currentProfile) // ✅ REPASSA O PERFIL PARA OS DETALHES
         startActivity(intent)
     }
 
+    // ✅ CORREÇÃO: Lê os favoritos de acordo com o perfil atual (Sincronizado com Detalhes)
     private fun getFavSeries(context: Context): MutableSet<Int> {
         val prefs = context.getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
-        val set = prefs.getStringSet("fav_series", emptySet()) ?: emptySet()
+        val key = "${currentProfile}_fav_series" // Chave mestre do perfil
+        val set = prefs.getStringSet(key, emptySet()) ?: emptySet()
         return set.mapNotNull { it.toIntOrNull() }.toMutableSet()
     }
 

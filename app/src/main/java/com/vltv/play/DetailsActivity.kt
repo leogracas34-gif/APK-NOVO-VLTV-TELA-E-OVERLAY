@@ -76,7 +76,7 @@ class DetailsActivity : AppCompatActivity() {
     private enum class DownloadState { BAIXAR, BAIXANDO, BAIXADO } 
     private var downloadState: DownloadState = DownloadState.BAIXAR 
 
-    // ✅ PROTEÇÃO 1 e 2: TIMEOUTS E USER-AGENT (EVITA RECONECTANDO)
+    // ✅ PROTEÇÃO 1 e 2: TIMEOUTS E USER-AGENT
     private val client = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
@@ -193,7 +193,8 @@ class DetailsActivity : AppCompatActivity() {
                 runOnUiThread { tvTitle.visibility = View.VISIBLE } 
             } 
             override fun onResponse(call: Call, response: Response) { 
-                val body = response.body()?.string() ?: return 
+                // ✅ CORREÇÃO 1: body() para body
+                val body = response.body?.string() ?: return 
                 try { 
                     val results = JSONObject(body).optJSONArray("results") 
                     if (results != null && results.length() > 0) { 
@@ -226,7 +227,8 @@ class DetailsActivity : AppCompatActivity() {
         val imagesUrl = "https://api.themoviedb.org/3/$type/$id/images?api_key=$key&include_image_language=pt,en,null" 
         client.newCall(Request.Builder().url(imagesUrl).build()).enqueue(object : Callback { 
             override fun onResponse(call: Call, response: Response) { 
-                val body = response.body()?.string() ?: return 
+                // ✅ CORREÇÃO 2: body() para body
+                val body = response.body?.string() ?: return 
                 try { 
                     val logos = JSONObject(body).optJSONArray("logos") 
                     if (logos != null && logos.length() > 0) { 
@@ -259,7 +261,8 @@ class DetailsActivity : AppCompatActivity() {
         val url = "https://api.themoviedb.org/3/$type/$id?api_key=$key&append_to_response=credits&language=pt-BR" 
         client.newCall(Request.Builder().url(url).build()).enqueue(object : Callback { 
             override fun onResponse(call: Call, response: Response) { 
-                val body = response.body()?.string() ?: return 
+                // ✅ CORREÇÃO 3: body() para body
+                val body = response.body?.string() ?: return 
                 try { 
                     val d = JSONObject(body) 
                     val gs = d.optJSONArray("genres") 
@@ -296,7 +299,7 @@ class DetailsActivity : AppCompatActivity() {
             layoutManager = if (isTelevisionDevice()) GridLayoutManager(this@DetailsActivity, 6) else LinearLayoutManager(this@DetailsActivity, LinearLayoutManager.HORIZONTAL, false) 
             adapter = episodesAdapter 
             setHasFixedSize(true)
-            setItemViewCacheSize(20) // ✅ CACHE ADICIONADO PARA FLUIDEZ
+            setItemViewCacheSize(20) 
         } 
     } 
 
@@ -308,17 +311,16 @@ class DetailsActivity : AppCompatActivity() {
     } 
 
     private fun setupEventos() { 
-        // ✅ FOCO NEON + AMARELO + ZOOM 1.15f INTEGRADO AOS BOTÕES
         val focusListener = View.OnFocusChangeListener { v, hasFocus -> 
             if (hasFocus) { 
                 v.setBackgroundResource(R.drawable.bg_focus_neon) 
-                if (v is Button) v.setTextColor(android.graphics.Color.YELLOW) // ✅ AMARELO NO TEXTO DO BOTÃO
+                if (v is Button) v.setTextColor(android.graphics.Color.YELLOW) 
                 v.animate().scaleX(1.15f).scaleY(1.15f).setDuration(150).start() 
                 v.elevation = 25f
             } else { 
                 if (v is Button) {
                     v.setBackgroundResource(R.drawable.bg_button_default) 
-                    v.setTextColor(android.graphics.Color.WHITE) // ✅ VOLTA PARA BRANCO
+                    v.setTextColor(android.graphics.Color.WHITE) 
                 } else {
                     v.setBackgroundResource(0) 
                 }
@@ -423,9 +425,9 @@ class DetailsActivity : AppCompatActivity() {
 
     private fun isTelevisionDevice() = packageManager.hasSystemFeature("android.software.leanback") || packageManager.hasSystemFeature("android.hardware.type.television") 
 
-    // ✅ PROTEÇÃO 3: LIMPEZA DE REDE AO SAIR (EVITA TRAVAMENTO GLOBAL)
+    // ✅ CORREÇÃO 4: dispatcher() para dispatcher
     override fun onDestroy() {
-        client.dispatcher().cancelAll()
+        client.dispatcher.cancelAll()
         super.onDestroy()
     }
 
@@ -441,7 +443,6 @@ class DetailsActivity : AppCompatActivity() {
                 Glide.with(v.context).load(e.thumb).centerCrop().into(v.findViewById(R.id.imgEpisodeThumb)) 
                 v.setOnClickListener { onEpisodeClick(e) } 
 
-                // ✅ FOCO NEON NOS EPISÓDIOS COM ZOOM E AMARELO
                 v.setOnFocusChangeListener { view, hasFocus ->
                     if (hasFocus) {
                         tvTitleEp.setTextColor(android.graphics.Color.YELLOW)

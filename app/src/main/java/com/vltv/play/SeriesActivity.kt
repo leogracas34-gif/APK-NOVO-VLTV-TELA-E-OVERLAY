@@ -323,31 +323,26 @@ class SeriesActivity : AppCompatActivity() {
             })
     }
 
+    // ✅ CORREÇÃO DEFINITIVA: Busca séries favoritas sem depender de navegação prévia
     private fun carregarSeriesFavoritas() {
         tvCategoryTitle.text = "FAVORITOS"
         val favIds = getFavSeries(this)
 
         if (favIds.isEmpty()) {
             rvSeries.adapter = SeriesAdapter(emptyList()) {}
-            Toast.makeText(this, "Nenhuma série favorita.", Toast.LENGTH_SHORT).show()
             return
         }
 
-        // ✅ ACELERAÇÃO: Tenta encontrar as séries já carregadas na memória (todas as abas)
-        val listaFavoritosInstantanea = mutableListOf<SeriesStream>()
-        seriesCache.values.flatten().distinctBy { it.id }.forEach { serie ->
-            if (favIds.contains(serie.id)) {
-                listaFavoritosInstantanea.add(serie)
-            }
-        }
+        // 1. Tenta encontrar no Cache primeiro (Aceleração)
+        val listaNoCache = seriesCache.values.flatten().distinctBy { it.id }.filter { favIds.contains(it.id) }
 
-        // Se encontrou as séries no cache, exibe instantaneamente sem chamar a API
-        if (listaFavoritosInstantanea.size >= favIds.size) {
-            aplicarSeries(listaFavoritosInstantanea)
+        // 2. Se já achou tudo que precisava na memória, exibe logo
+        if (listaNoCache.size >= favIds.size) {
+            aplicarSeries(listaNoCache)
             return
         }
 
-        // Caso não estejam no cache, faz a busca padrão (Categoria 0)
+        // 3. Se faltar dados, busca a lista completa do servidor para filtrar
         progressBar.visibility = View.VISIBLE
         XtreamApi.service.getSeries(username, password, categoryId = "0")
             .enqueue(object : Callback<List<SeriesStream>> {
@@ -358,19 +353,25 @@ class SeriesActivity : AppCompatActivity() {
                     progressBar.visibility = View.GONE
                     if (response.isSuccessful && response.body() != null) {
                         var todas = response.body()!!
-                        todas = todas.filter { favIds.contains(it.id) }
+                        
+                        // Atualiza cache de apoio
+                        seriesCache["ALL_FOR_FAV"] = todas
+                        
+                        val favoritasFiltradas = todas.filter { favIds.contains(it.id) }
 
                         if (ParentalControlManager.isEnabled(this@SeriesActivity)) {
-                            todas = todas.filterNot { s -> isAdultName(s.name) }
+                            aplicarSeries(favoritasFiltradas.filterNot { isAdultName(it.name) })
+                        } else {
+                            aplicarSeries(favoritasFiltradas)
                         }
-
-                        favSeriesCache = todas
-                        aplicarSeries(todas)
+                        preLoadImages(favoritasFiltradas)
                     }
                 }
 
                 override fun onFailure(call: Call<List<SeriesStream>>, t: Throwable) {
                     progressBar.visibility = View.GONE
+                    // Em caso de falha, mostra o que tinha no cache
+                    aplicarSeries(listaNoCache)
                 }
             })
     }

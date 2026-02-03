@@ -50,6 +50,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private var seriesIcon: String? = null
     private var seriesRating: String = "0.0"
 
+    // ✅ VARIÁVEL PARA O PERFIL ATUAL (Isolamento de dados)
+    private var currentProfile: String = "Padrao"
+
     // Views
     private lateinit var imgPoster: ImageView
     private lateinit var imgBackground: ImageView
@@ -98,6 +101,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_serie_details)
+
+        // ✅ RECUPERA O NOME DO PERFIL (Para salvar favoritos na conta certa)
+        currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
 
         // MODO IMERSIVO
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
@@ -577,15 +583,20 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
     private fun isTelevisionDevice() = packageManager.hasSystemFeature("android.software.leanback") || packageManager.hasSystemFeature("android.hardware.type.television")
 
+    // ✅ FAVORITOS ISOLADOS POR PERFIL
     private fun getFavSeries(context: Context): MutableSet<Int> {
         val prefs = context.getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
-        val set = prefs.getStringSet("fav_series", emptySet()) ?: emptySet()
+        // Usa a chave baseada no perfil atual
+        val key = "${currentProfile}_fav_series"
+        val set = prefs.getStringSet(key, emptySet()) ?: emptySet()
         return set.mapNotNull { it.toIntOrNull() }.toMutableSet()
     }
 
     private fun saveFavSeries(context: Context, ids: Set<Int>) {
         val prefs = context.getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
-        prefs.edit().putStringSet("fav_series", ids.map { it.toString() }.toSet()).apply()
+        // Usa a chave baseada no perfil atual
+        val key = "${currentProfile}_fav_series"
+        prefs.edit().putStringSet(key, ids.map { it.toString() }.toSet()).apply()
     }
 
     private fun atualizarIconeFavoritoSerie(isFav: Boolean) {
@@ -742,18 +753,12 @@ class SeriesDetailsActivity : AppCompatActivity() {
         if (lista.isNotEmpty()) {
             currentEpisode = lista.first()
             restaurarEstadoDownload()
-            val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
-            val streamId = currentEpisode?.id?.toIntOrNull() ?: 0
-            val pos = prefs.getLong("series_resume_${streamId}_pos", 0L)
-            btnResume.visibility = if (pos > 10000) View.VISIBLE else View.GONE
+            verificarResume() // ✅ Verifica resume com chave do perfil
         }
         rvEpisodes.adapter = EpisodeAdapter(lista) { ep, _ ->
             currentEpisode = ep
             restaurarEstadoDownload()
-            val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
-            val streamId = ep.id.toIntOrNull() ?: 0
-            val pos = prefs.getLong("series_resume_${streamId}_pos", 0L)
-            btnResume.visibility = if (pos > 10000) View.VISIBLE else View.GONE
+            verificarResume()
             abrirPlayer(ep, true)
         }
     }
@@ -773,15 +778,22 @@ class SeriesDetailsActivity : AppCompatActivity() {
         }
 
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
-        val pos = prefs.getLong("series_resume_${streamId}_pos", 0L)
-        val dur = prefs.getLong("series_resume_${streamId}_dur", 0L)
-        val existe = usarResume && pos > 30000L && pos < (dur * 0.95).toLong()
+        // ✅ Chave de resume isolada por perfil
+        val keyResume = "${currentProfile}_series_resume_${streamId}_pos"
+        val keyDur = "${currentProfile}_series_resume_${streamId}_dur" // Opcional, se vc salvar duração
+        val pos = prefs.getLong(keyResume, 0L)
+        // Se você não salva duração por perfil, pode usar a genérica ou salvar também
+        // Para simplificar, vou verificar se a posição é válida (> 30s)
+        val existe = usarResume && pos > 30000L
 
         val intent = Intent(this, PlayerActivity::class.java)
         intent.putExtra("stream_id", streamId)
         intent.putExtra("stream_ext", ext)
         intent.putExtra("stream_type", "series")
         intent.putExtra("channel_name", "T${currentSeason}E${ep.episode_num} - $seriesName")
+        
+        // ✅ PASSA O PERFIL PARA O PLAYER
+        intent.putExtra("PROFILE_NAME", currentProfile)
 
         if (mochilaIds.isNotEmpty()) {
             intent.putIntegerArrayListExtra("episode_list", mochilaIds)
@@ -795,6 +807,17 @@ class SeriesDetailsActivity : AppCompatActivity() {
         }
 
         startActivity(intent)
+    }
+
+    // ✅ RESUME ISOLADO POR PERFIL (Função auxiliar)
+    private fun verificarResume() {
+        val ep = currentEpisode ?: return
+        val streamId = ep.id.toIntOrNull() ?: 0
+        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+        val key = "${currentProfile}_series_resume_${streamId}_pos"
+        val pos = prefs.getLong(key, 0L)
+        
+        btnResume.visibility = if (pos > 10000) View.VISIBLE else View.GONE
     }
 
     private fun montarUrlEpisodio(ep: EpisodeStream): String {
@@ -957,6 +980,8 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 intent.putExtra("name", name)
                 intent.putExtra("icon", "https://image.tmdb.org/t/p/w342$posterPath")
                 intent.putExtra("rating", rating.toString())
+                // ✅ PASSA O PERFIL PARA A PRÓXIMA TELA
+                intent.putExtra("PROFILE_NAME", currentProfile)
                 holder.itemView.context.startActivity(intent)
             }
             

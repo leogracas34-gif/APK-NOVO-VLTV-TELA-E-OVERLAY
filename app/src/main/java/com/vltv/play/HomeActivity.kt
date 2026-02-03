@@ -413,8 +413,15 @@ class HomeActivity : AppCompatActivity() {
     private fun carregarListasDaHome() {
         // ✅ CHAMADA PARA O HISTÓRICO LOCAL
         carregarContinuarAssistindoLocal()
+        
+        // ✅ CHAMADA PARA FILMES RECENTES
+        carregarFilmesRecentes()
 
-        // 2. BUSCAR "ADICIONADOS RECENTEMENTE" COM FILTRO E ORDEM CRONOLÓGICA REAL
+        // ✅ CHAMADA PARA SÉRIES RECENTES
+        carregarSeriesRecentes()
+    }
+
+    private fun carregarFilmesRecentes() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -474,6 +481,62 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
+    // ✅ NOVA FUNÇÃO PARA CARREGAR SÉRIES RECENTES
+    private fun carregarSeriesRecentes() {
+        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val dns = prefs.getString("dns", "") ?: ""
+                val user = prefs.getString("username", "") ?: ""
+                val pass = prefs.getString("password", "") ?: ""
+                
+                // URL DA API DE SÉRIES
+                val urlString = "$dns/player_api.php?username=$user&password=$pass&action=get_series"
+                val response = URL(urlString).readText()
+                val jsonArray = org.json.JSONArray(response)
+                
+                val rawList = mutableListOf<JSONObject>()
+                val palavrasProibidas = listOf("XXX", "PORN", "ADULTO", "SEXO", "EROTICO", "🔞", "PORNÔ")
+
+                for (i in 0 until jsonArray.length()) {
+                    val obj = jsonArray.getJSONObject(i)
+                    val nome = obj.optString("name").uppercase()
+                    
+                    val eAdulto = palavrasProibidas.any { nome.contains(it) }
+                    if (!eAdulto) {
+                        rawList.add(obj)
+                    }
+                }
+
+                // ORDENA PELO MODIFICADO POR ÚLTIMO OU ID
+                val sortedList = rawList.sortedByDescending { it.optLong("last_modified") }.take(20)
+                
+                val finalSeriesList = mutableListOf<VodItem>()
+                for (obj in sortedList) {
+                    finalSeriesList.add(VodItem(
+                        id = obj.optString("series_id"),
+                        name = obj.optString("name"),
+                        streamIcon = obj.optString("cover") // Séries usam 'cover'
+                    ))
+                }
+
+                withContext(Dispatchers.Main) {
+                    binding.rvRecentSeries.adapter = HomeRowAdapter(finalSeriesList) { selectedItem ->
+                        val intent = Intent(this@HomeActivity, DetailsActivity::class.java)
+                        intent.putExtra("stream_id", selectedItem.id.toIntOrNull() ?: 0)
+                        intent.putExtra("name", selectedItem.name)
+                        intent.putExtra("icon", selectedItem.streamIcon)
+                        intent.putExtra("PROFILE_NAME", currentProfile)
+                        intent.putExtra("is_series", true) // ✅ SEMPRE TRUE PARA SÉRIES
+                        startActivity(intent)
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     // ✅ NOVA FUNÇÃO: CARREGA O HISTÓRICO DO CELULAR (LOCAL) EM VEZ DO FIREBASE
     private fun carregarContinuarAssistindoLocal() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
@@ -501,6 +564,11 @@ class HomeActivity : AppCompatActivity() {
                 intent.putExtra("name", selectedItem.name)
                 intent.putExtra("icon", selectedItem.streamIcon)
                 intent.putExtra("PROFILE_NAME", currentProfile)
+                
+                // VERIFICA SE O ID SALVO PERTENCE A UMA SÉRIE
+                val isSeriesStored = prefs.getBoolean("${currentProfile}_history_is_series_$id", false)
+                intent.putExtra("is_series", isSeriesStored)
+                
                 startActivity(intent)
             }
         } else {

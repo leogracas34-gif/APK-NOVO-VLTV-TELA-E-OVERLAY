@@ -508,6 +508,9 @@ class PlayerActivity : AppCompatActivity() {
             
         // ✅ SALVA TAMBÉM NO FIREBASE PARA A HOME ATUALIZAR
         salvarNoFirebase(id, positionMs, durationMs)
+
+        // ✅ SALVA TAMBÉM LOCALMENTE PARA A HOME LER SEM FIREBASE
+        salvarNoHistoricoLocal(id.toString())
     }
 
     private fun clearMovieResume(id: Int) {
@@ -536,6 +539,9 @@ class PlayerActivity : AppCompatActivity() {
 
         // ✅ SALVA TAMBÉM NO FIREBASE PARA A HOME ATUALIZAR
         salvarNoFirebase(id, positionMs, durationMs)
+
+        // ✅ SALVA TAMBÉM LOCALMENTE PARA A HOME LER SEM FIREBASE
+        salvarNoHistoricoLocal(id.toString())
     }
 
     private fun clearSeriesResume(id: Int) {
@@ -544,6 +550,26 @@ class PlayerActivity : AppCompatActivity() {
             .remove("${getSeriesKey(id)}_pos")
             .remove("${getSeriesKey(id)}_dur")
             .apply()
+    }
+
+    // ✅ NOVA FUNÇÃO: SALVA O HISTÓRICO NO CELULAR (PARA A HOME LOCAL)
+    private fun salvarNoHistoricoLocal(id: String) {
+        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+        val keyIds = "${currentProfile}_local_history_ids"
+        
+        // Pega a lista atual de IDs salvos
+        val ids = prefs.getStringSet(keyIds, mutableSetOf())?.toMutableSet() ?: mutableSetOf()
+        
+        // Adiciona o novo ID à lista
+        ids.add(id)
+        
+        prefs.edit().apply {
+            putStringSet(keyIds, ids)
+            // Salva o Nome e o Ícone para a Home desenhar o card
+            putString("${currentProfile}_history_name_$id", tvChannelName.text.toString())
+            putString("${currentProfile}_history_icon_$id", intent.getStringExtra("icon") ?: "")
+            apply()
+        }
     }
 
     // ✅ NOVA FUNÇÃO: SALVA O PROGRESSO NO FIREBASE (CONTINUAR ASSISTINDO)

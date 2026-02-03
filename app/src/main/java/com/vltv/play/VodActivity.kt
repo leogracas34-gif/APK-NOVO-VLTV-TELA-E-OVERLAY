@@ -194,16 +194,48 @@ class VodActivity : AppCompatActivity() {
             })
     }
 
+    // ✅ CORREÇÃO DEFINITIVA: Busca os favoritos no Cache E no Servidor se necessário
     private fun carregarFilmesFavoritos() {
         tvCategoryTitle.text = "FAVORITOS"
         val favIds = getFavMovies(this)
-        // ✅ Busca em todos os filmes já carregados no cache de categorias
-        val listaFavoritosInstantanea = moviesCache.values.flatten().distinctBy { it.id }.filter { favIds.contains(it.id) }
-        aplicarFilmes(listaFavoritosInstantanea)
-        
-        if (listaFavoritosInstantanea.isEmpty() && favIds.isNotEmpty()) {
-            Toast.makeText(this, "Navegue pelas categorias para carregar os favoritos", Toast.LENGTH_SHORT).show()
+
+        if (favIds.isEmpty()) {
+            aplicarFilmes(emptyList())
+            return
         }
+
+        // 1. Tenta buscar o que já está na memória (Cache)
+        val listaNoCache = moviesCache.values.flatten().distinctBy { it.id }.filter { favIds.contains(it.id) }
+
+        // 2. Se a quantidade no cache for igual aos favoritos salvos, exibe logo
+        if (listaNoCache.size >= favIds.size) {
+            aplicarFilmes(listaNoCache)
+            return
+        }
+
+        // 3. Se faltar filmes (ou cache vazio), busca a lista completa do servidor para filtrar
+        progressBar.visibility = View.VISIBLE
+        XtreamApi.service.getVodStreams(username, password, categoryId = "0")
+            .enqueue(object : retrofit2.Callback<List<VodStream>> {
+                override fun onResponse(call: retrofit2.Call<List<VodStream>>, response: retrofit2.Response<List<VodStream>>) {
+                    progressBar.visibility = View.GONE
+                    if (response.isSuccessful && response.body() != null) {
+                        val todosOsFilmes = response.body()!!
+                        val favoritosFiltrados = todosOsFilmes.filter { favIds.contains(it.id) }
+                        
+                        // Atualiza o cache para a próxima vez
+                        moviesCache["ALL_FOR_FAV"] = todosOsFilmes 
+                        
+                        aplicarFilmes(favoritosFiltrados)
+                        preLoadImages(favoritosFiltrados)
+                    }
+                }
+                override fun onFailure(call: retrofit2.Call<List<VodStream>>, t: Throwable) {
+                    progressBar.visibility = View.GONE
+                    // Se falhar a rede, mostra o que tinha no cache mesmo
+                    aplicarFilmes(listaNoCache)
+                }
+            })
     }
 
     private fun aplicarFilmes(filmes: List<VodStream>) {

@@ -411,7 +411,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 runOnUiThread { tvTitle.visibility = View.VISIBLE; tvTitle.text = cleanName }
             }
             override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
-                val body = response.body()?.string()
+                val body = response.body?.string()
                 if (body != null) {
                     try {
                         val jsonObject = JSONObject(body)
@@ -453,7 +453,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         val imagesUrl = "https://api.themoviedb.org/3/tv/$id/images?api_key=$key&include_image_language=pt,en,null"
         client.newCall(Request.Builder().url(imagesUrl).build()).enqueue(object : okhttp3.Callback {
             override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
-                val body = response.body()?.string()
+                val body = response.body?.string()
                 if (body != null) {
                     try {
                         val obj = JSONObject(body)
@@ -496,7 +496,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         client.newCall(Request.Builder().url(url).build()).enqueue(object : okhttp3.Callback {
             override fun onFailure(call: okhttp3.Call, e: IOException) {}
             override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
-                val body = response.body()?.string() ?: return
+                val body = response.body?.string() ?: return
                 try {
                     val d = JSONObject(body)
                     val gs = d.optJSONArray("genres")

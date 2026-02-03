@@ -47,6 +47,9 @@ class VodActivity : AppCompatActivity() {
     private var favMoviesCache: List<VodStream>? = null
     private var categoryAdapter: VodCategoryAdapter? = null
     private var moviesAdapter: VodAdapter? = null
+    
+    // ✅ VARIÁVEL DE PERFIL PARA SINCRONIZAR FAVORITOS
+    private var currentProfile: String = "Padrao"
 
     private fun isTelevision(context: Context): Boolean {
         val uiMode = context.resources.configuration.uiMode
@@ -56,6 +59,9 @@ class VodActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_vod)
+
+        // ✅ RECUPERA O PERFIL PARA BATER COM A DETAILS ACTIVITY
+        currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
 
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -72,6 +78,7 @@ class VodActivity : AppCompatActivity() {
         searchInput?.setOnClickListener {
             val intent = Intent(this, SearchActivity::class.java)
             intent.putExtra("initial_query", "")
+            intent.putExtra("PROFILE_NAME", currentProfile)
             startActivity(intent)
         }
 
@@ -190,8 +197,13 @@ class VodActivity : AppCompatActivity() {
     private fun carregarFilmesFavoritos() {
         tvCategoryTitle.text = "FAVORITOS"
         val favIds = getFavMovies(this)
+        // ✅ Busca em todos os filmes já carregados no cache de categorias
         val listaFavoritosInstantanea = moviesCache.values.flatten().distinctBy { it.id }.filter { favIds.contains(it.id) }
         aplicarFilmes(listaFavoritosInstantanea)
+        
+        if (listaFavoritosInstantanea.isEmpty() && favIds.isNotEmpty()) {
+            Toast.makeText(this, "Navegue pelas categorias para carregar os favoritos", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun aplicarFilmes(filmes: List<VodStream>) {
@@ -205,12 +217,15 @@ class VodActivity : AppCompatActivity() {
         intent.putExtra("name", filme.name)
         intent.putExtra("icon", filme.icon)
         intent.putExtra("rating", filme.rating ?: "0.0")
+        intent.putExtra("PROFILE_NAME", currentProfile) // ✅ REPASSA O PERFIL
         startActivity(intent)
     }
 
+    // ✅ CORREÇÃO: Lê a chave correta baseada no perfil
     private fun getFavMovies(context: Context): MutableSet<Int> {
         val prefsFav = context.getSharedPreferences("vltv_favoritos", Context.MODE_PRIVATE)
-        return prefsFav.getStringSet("favoritos", emptySet())?.mapNotNull { it.toIntOrNull() }?.toMutableSet() ?: mutableSetOf()
+        val key = "${currentProfile}_favoritos" // Sincronizado com DetailsActivity
+        return prefsFav.getStringSet(key, emptySet())?.mapNotNull { it.toIntOrNull() }?.toMutableSet() ?: mutableSetOf()
     }
 
     private fun mostrarMenuDownload(filme: VodStream) {

@@ -38,6 +38,10 @@ import retrofit2.Callback
 import retrofit2.Response
 import java.util.ArrayList
 
+// ✅ FIREBASE PARA HISTÓRICO
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
+
 class PlayerActivity : AppCompatActivity() {
 
     private lateinit var playerView: PlayerView
@@ -501,6 +505,9 @@ class PlayerActivity : AppCompatActivity() {
             .putLong("${getMovieKey(id)}_pos", positionMs)
             .putLong("${getMovieKey(id)}_dur", durationMs)
             .apply()
+            
+        // ✅ SALVA TAMBÉM NO FIREBASE PARA A HOME ATUALIZAR
+        salvarNoFirebase(id, positionMs, durationMs)
     }
 
     private fun clearMovieResume(id: Int) {
@@ -526,6 +533,9 @@ class PlayerActivity : AppCompatActivity() {
             .putLong("${getSeriesKey(id)}_pos", positionMs)
             .putLong("${getSeriesKey(id)}_dur", durationMs)
             .apply()
+
+        // ✅ SALVA TAMBÉM NO FIREBASE PARA A HOME ATUALIZAR
+        salvarNoFirebase(id, positionMs, durationMs)
     }
 
     private fun clearSeriesResume(id: Int) {
@@ -534,6 +544,32 @@ class PlayerActivity : AppCompatActivity() {
             .remove("${getSeriesKey(id)}_pos")
             .remove("${getSeriesKey(id)}_dur")
             .apply()
+    }
+
+    // ✅ NOVA FUNÇÃO: SALVA O PROGRESSO NO FIREBASE (CONTINUAR ASSISTINDO)
+    private fun salvarNoFirebase(id: Int, positionMs: Long, durationMs: Long) {
+        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+        val userEmail = prefs.getString("username", "") ?: ""
+        if (userEmail.isBlank()) return
+
+        val db = FirebaseFirestore.getInstance()
+        val data = hashMapOf(
+            "id" to id.toString(),
+            "name" to tvChannelName.text.toString(),
+            "streamIcon" to (intent.getStringExtra("icon") ?: ""),
+            "positionMs" to positionMs,
+            "durationMs" to durationMs,
+            "timestamp" to com.google.firebase.Timestamp.now()
+        )
+
+        db.collection("users")
+            .document(userEmail)
+            .collection("profiles")
+            .document(currentProfile)
+            .collection("history")
+            .document(id.toString())
+            .set(data, SetOptions.merge())
+            .addOnFailureListener { e -> Log.e("FIREBASE_PLAYER", "Erro: ${e.message}") }
     }
 
     private fun decodeBase64(text: String?): String {

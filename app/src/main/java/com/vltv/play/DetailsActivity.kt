@@ -198,8 +198,8 @@ class DetailsActivity : AppCompatActivity() {
         val lixo = listOf("FHD", "HD", "4K", "H265", "LEG", "DUBLADO") 
         lixo.forEach { clean = clean.replace(it, "", ignoreCase = true) } 
         val encoded = URLEncoder.encode(clean.replace(Regex("\\s+"), " "), "UTF-8") 
-        val url = "https://api.themoviedb.org/3/search/$type?api_key=$apiKey&query=$encoded&language=pt-BR&region=BR" 
-        client.newCall(Request.Builder().url(url).build()).enqueue(object : Callback { 
+        val urlSearch = "https://api.themoviedb.org/3/search/$type?api_key=$apiKey&query=$encoded&language=pt-BR&region=BR" 
+        client.newCall(Request.Builder().url(urlSearch).build()).enqueue(object : Callback { 
             override fun onFailure(call: Call, e: IOException) { 
                 runOnUiThread { tvTitle.visibility = View.VISIBLE } 
             } 
@@ -235,7 +235,8 @@ class DetailsActivity : AppCompatActivity() {
 
     private fun buscarLogoTMDB(id: Int, type: String, key: String) { 
         val imagesUrl = "https://api.themoviedb.org/3/$type/$id/images?api_key=$key&include_image_language=pt,en,null" 
-        client.newCall(Request.Builder().url(url).build()).enqueue(object : Callback { 
+        // ✅ CORREÇÃO APLICADA: URL corrigida para imagesUrl
+        client.newCall(Request.Builder().url(imagesUrl).build()).enqueue(object : Callback { 
             override fun onResponse(call: Call, response: Response) { 
                 val body = response.body?.string() ?: return 
                 try { 
@@ -267,8 +268,8 @@ class DetailsActivity : AppCompatActivity() {
     } 
 
     private fun buscarDetalhesCompletos(id: Int, type: String, key: String) { 
-        val url = "https://api.themoviedb.org/3/$type/$id?api_key=$key&append_to_response=credits&language=pt-BR" 
-        client.newCall(Request.Builder().url(url).build()).enqueue(object : Callback { 
+        val detailsUrl = "https://api.themoviedb.org/3/$type/$id?api_key=$key&append_to_response=credits&language=pt-BR" 
+        client.newCall(Request.Builder().url(detailsUrl).build()).enqueue(object : Callback { 
             override fun onResponse(call: Call, response: Response) { 
                 val body = response.body?.string() ?: return 
                 try { 
@@ -301,8 +302,8 @@ class DetailsActivity : AppCompatActivity() {
             val intent = Intent(this, PlayerActivity::class.java) 
             intent.putExtra("stream_id", episode.streamId).putExtra("stream_type", "series") 
             intent.putExtra("channel_name", "${name} - S${episode.season}:E${episode.episode}") 
-            intent.putExtra("icon", episode.thumb) // ✅ ADICIONADO PARA HISTÓRICO DE SÉRIES
-            intent.putExtra("PROFILE_NAME", currentProfile) // ✅ PASSA O PERFIL PARA O PLAYER
+            intent.putExtra("icon", episode.thumb) // ✅ HISTÓRICO DE SÉRIES
+            intent.putExtra("PROFILE_NAME", currentProfile) 
             startActivity(intent) 
         } 
         recyclerEpisodes.apply { 
@@ -349,10 +350,9 @@ class DetailsActivity : AppCompatActivity() {
         btnSettings?.setOnClickListener { mostrarConfiguracoes() } 
     } 
 
-    // ✅ FAVORITOS ISOLADOS POR PERFIL
     private fun getFavMovies(context: Context): MutableList<Int> { 
         val prefs = context.getSharedPreferences("vltv_favoritos", Context.MODE_PRIVATE) 
-        val key = "${currentProfile}_favoritos" // Ex: "Pai_favoritos"
+        val key = "${currentProfile}_favoritos" 
         return prefs.getStringSet(key, emptySet())?.mapNotNull { it.toIntOrNull() }?.toMutableList() ?: mutableListOf() 
     } 
 
@@ -380,7 +380,6 @@ class DetailsActivity : AppCompatActivity() {
         atualizarIconeFavorito(!isFav) 
     } 
 
-    // ✅ RESUME ISOLADO POR PERFIL
     private fun verificarResume() { 
         val key = "${currentProfile}_movie_resume_${streamId}_pos"
         val pos = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE).getLong(key, 0L) 
@@ -390,7 +389,7 @@ class DetailsActivity : AppCompatActivity() {
     private fun abrirPlayer(usarResume: Boolean) { 
         val intent = Intent(this, PlayerActivity::class.java) 
         intent.putExtra("stream_id", streamId).putExtra("stream_type", if (isSeries) "series" else "movie").putExtra("channel_name", name) 
-        intent.putExtra("icon", icon) // ✅ LINHA ADICIONADA: Passa o ícone para o histórico
+        intent.putExtra("icon", icon) // ✅ ENVIA O ÍCONE PARA O FIREBASE
         intent.putExtra("PROFILE_NAME", currentProfile)
         
         if (usarResume) { 

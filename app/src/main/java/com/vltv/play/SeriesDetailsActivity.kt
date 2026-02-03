@@ -845,7 +845,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        client.dispatcher().cancelAll()
+        client.dispatcher.cancelAll()
         super.onDestroy()
     }
 

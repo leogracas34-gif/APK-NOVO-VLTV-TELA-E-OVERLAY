@@ -235,7 +235,7 @@ class DetailsActivity : AppCompatActivity() {
 
     private fun buscarLogoTMDB(id: Int, type: String, key: String) { 
         val imagesUrl = "https://api.themoviedb.org/3/$type/$id/images?api_key=$key&include_image_language=pt,en,null" 
-        client.newCall(Request.Builder().url(imagesUrl).build()).enqueue(object : Callback { 
+        client.newCall(Request.Builder().url(url).build()).enqueue(object : Callback { 
             override fun onResponse(call: Call, response: Response) { 
                 val body = response.body?.string() ?: return 
                 try { 
@@ -301,6 +301,7 @@ class DetailsActivity : AppCompatActivity() {
             val intent = Intent(this, PlayerActivity::class.java) 
             intent.putExtra("stream_id", episode.streamId).putExtra("stream_type", "series") 
             intent.putExtra("channel_name", "${name} - S${episode.season}:E${episode.episode}") 
+            intent.putExtra("icon", episode.thumb) // ✅ ADICIONADO PARA HISTÓRICO DE SÉRIES
             intent.putExtra("PROFILE_NAME", currentProfile) // ✅ PASSA O PERFIL PARA O PLAYER
             startActivity(intent) 
         } 
@@ -389,6 +390,7 @@ class DetailsActivity : AppCompatActivity() {
     private fun abrirPlayer(usarResume: Boolean) { 
         val intent = Intent(this, PlayerActivity::class.java) 
         intent.putExtra("stream_id", streamId).putExtra("stream_type", if (isSeries) "series" else "movie").putExtra("channel_name", name) 
+        intent.putExtra("icon", icon) // ✅ LINHA ADICIONADA: Passa o ícone para o histórico
         intent.putExtra("PROFILE_NAME", currentProfile)
         
         if (usarResume) { 

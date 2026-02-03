@@ -565,8 +565,8 @@ class HomeActivity : AppCompatActivity() {
                 intent.putExtra("icon", selectedItem.streamIcon)
                 intent.putExtra("PROFILE_NAME", currentProfile)
                 
-                // VERIFICA SE O ID SALVO PERTENCE A UMA SÉRIE
-                val isSeriesStored = prefs.getBoolean("${currentProfile}_history_is_series_$id", false)
+                // ✅ CORREÇÃO: Usando selectedItem.id em vez de id
+                val isSeriesStored = prefs.getBoolean("${currentProfile}_history_is_series_${selectedItem.id}", false)
                 intent.putExtra("is_series", isSeriesStored)
                 
                 startActivity(intent)

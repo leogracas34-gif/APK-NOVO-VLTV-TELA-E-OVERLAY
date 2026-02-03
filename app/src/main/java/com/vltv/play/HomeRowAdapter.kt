@@ -9,8 +9,8 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 
 class HomeRowAdapter(
-    private val list: List<Any>, // Lista de Filmes ou Séries
-    private val onItemClick: (Any) -> Unit
+    private val list: List<VodItem>,
+    private val onItemClick: (VodItem) -> Unit
 ) : RecyclerView.Adapter<HomeRowAdapter.ViewHolder>() {
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -26,16 +26,19 @@ class HomeRowAdapter(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = list[position]
-        // Aqui você usará a lógica do seu objeto de Filme/Série
-        // holder.tvTitle.text = item.name
-        // Glide.with(holder.itemView).load(item.url).into(holder.ivPoster)
+        holder.tvTitle.text = item.name
         
+        Glide.with(holder.itemView.context)
+            .load(item.streamIcon)
+            .placeholder(R.drawable.ic_launcher)
+            .into(holder.ivPoster)
+
         holder.itemView.setOnClickListener { onItemClick(item) }
-        
-        // FOCO TV
+
         holder.itemView.setOnFocusChangeListener { v, hasFocus ->
             v.scaleX = if (hasFocus) 1.1f else 1.0f
             v.scaleY = if (hasFocus) 1.1f else 1.0f
+            v.elevation = if (hasFocus) 10f else 0f
         }
     }
 

@@ -61,12 +61,8 @@ class HomeActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         carregarBannerAlternado()
-        
         etSearch.setText("")
         etSearch.clearFocus()
-        
-        // ✅ FOCO REMOVIDO DA INICIALIZAÇÃO
-        // cardBanner.requestFocus() <- Removi esta linha para o foco não aparecer sozinho
     }
 
     private fun setupClicks() {
@@ -130,7 +126,6 @@ class HomeActivity : AppCompatActivity() {
         val tipoAtual = if (ultimoTipo == "tv") "movie" else "tv"
         prefs.edit().putString("ultimo_tipo_banner", tipoAtual).apply()
 
-        // ✅ URL OTIMIZADA PARA VELOCIDADE
         val urlString = "https://api.themoviedb.org/3/trending/$tipoAtual/day?api_key=$TMDB_API_KEY&language=pt-BR"
 
         CoroutineScope(Dispatchers.IO).launch {
@@ -146,18 +141,18 @@ class HomeActivity : AppCompatActivity() {
                     val tmdbId = item.getString("id")
 
                     withContext(Dispatchers.Main) {
+                        // ✅ Limpeza e reset de estado antes de carregar o novo item
                         tvBannerTitle.text = titulo
                         tvBannerOverview.text = overview
-                        
-                        // ✅ GLIDE OTIMIZADO (w780 em vez de original para ser instantâneo)
+                        imgBannerLogo.setImageDrawable(null) // Limpa logo anterior
+                        imgBannerLogo.visibility = View.GONE
+                        tvBannerTitle.visibility = View.VISIBLE
+
                         Glide.with(this@HomeActivity)
-                            .load("https://image.tmdb.org/t/p/w780$backdrop")
+                            .load("https://image.tmdb.org/p/w780$backdrop")
                             .diskCacheStrategy(DiskCacheStrategy.ALL)
                             .centerCrop()
                             .into(imgBanner)
-                        
-                        tvBannerTitle.visibility = View.VISIBLE
-                        imgBannerLogo.visibility = View.GONE
                     }
                     buscarLogoOverlayHome(tmdbId, tipoAtual)
                 }
@@ -168,21 +163,37 @@ class HomeActivity : AppCompatActivity() {
     private fun buscarLogoOverlayHome(tmdbId: String, tipo: String) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
+                // ✅ Adicionado parâmetros para buscar logos específicas
                 val url = "https://api.themoviedb.org/3/$tipo/$tmdbId/images?api_key=$TMDB_API_KEY&include_image_language=pt,en,null"
                 val logos = JSONObject(URL(url).readText()).optJSONArray("logos")
 
                 if (logos != null && logos.length() > 0) {
-                    val path = logos.getJSONObject(0).getString("file_path")
+                    // Tenta achar a logo em PT, senão pega a primeira disponível
+                    var logoPath = ""
+                    for (i in 0 until logos.length()) {
+                        val logo = logos.getJSONObject(i)
+                        if (logo.optString("iso_639_1") == "pt") {
+                            logoPath = logo.getString("file_path")
+                            break
+                        }
+                    }
+                    if (logoPath.isEmpty()) logoPath = logos.getJSONObject(0).getString("file_path")
+
                     withContext(Dispatchers.Main) {
                         tvBannerTitle.visibility = View.GONE
                         imgBannerLogo.visibility = View.VISIBLE
                         Glide.with(this@HomeActivity)
-                            .load("https://image.tmdb.org/p/w500$path")
+                            .load("https://image.tmdb.org/p/w500$logoPath")
                             .diskCacheStrategy(DiskCacheStrategy.ALL)
                             .into(imgBannerLogo)
                     }
                 }
-            } catch (e: Exception) {}
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    tvBannerTitle.visibility = View.VISIBLE
+                    imgBannerLogo.visibility = View.GONE
+                }
+            }
         }
     }
 

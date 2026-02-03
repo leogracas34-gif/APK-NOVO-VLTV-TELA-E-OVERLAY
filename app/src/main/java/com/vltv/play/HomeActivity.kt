@@ -452,7 +452,7 @@ class HomeActivity : AppCompatActivity() {
                 val jsonArray = org.json.JSONArray(response)
                 
                 val rawList = mutableListOf<JSONObject>()
-                val palavrasProibidas = listOf("XXX", "PORN", "ADULTO", "SEXO", "EROTICO")
+                val palavrasProibidas = listOf("XXX", "PORN", "ADULTO", "SEXO", "EROTICO", "🔞", "PORNÔ")
 
                 for (i in 0 until jsonArray.length()) {
                     val obj = jsonArray.getJSONObject(i)

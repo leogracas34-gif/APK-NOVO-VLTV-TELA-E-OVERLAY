@@ -59,6 +59,9 @@ class PlayerActivity : AppCompatActivity() {
     private var nextStreamId: Int = 0
     private var nextChannelName: String? = null
     private var startPositionMs: Long = 0L
+    
+    // ✅ VARIÁVEL PARA O PERFIL ATUAL
+    private var currentProfile: String = "Padrao"
 
     private var offlineUri: String? = null
 
@@ -160,6 +163,9 @@ class PlayerActivity : AppCompatActivity() {
         startPositionMs = intent.getLongExtra("start_position_ms", 0L)
         nextStreamId = intent.getIntExtra("next_stream_id", 0)
         nextChannelName = intent.getStringExtra("next_channel_name")
+
+        // ✅ RECUPERA O PERFIL
+        currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
 
         val listaExtra = intent.getIntegerArrayListExtra("episode_list")
         if (listaExtra != null) {
@@ -469,7 +475,10 @@ class PlayerActivity : AppCompatActivity() {
         intent.putExtra("stream_id", nextStreamId)
         intent.putExtra("stream_ext", "mp4")
         intent.putExtra("stream_type", "series")
-        intent.putExtra("channel_name", novoTitulo) 
+        intent.putExtra("channel_name", novoTitulo)
+        // ✅ REPASSA O PERFIL PARA O PRÓXIMO EPISÓDIO
+        intent.putExtra("PROFILE_NAME", currentProfile)
+        
         if (episodeList.isNotEmpty()) {
             intent.putIntegerArrayListExtra("episode_list", episodeList)
         }
@@ -477,7 +486,8 @@ class PlayerActivity : AppCompatActivity() {
         finish()
     }
 
-    private fun getMovieKey(id: Int) = "movie_resume_$id"
+    // ✅ CHAVE POR PERFIL
+    private fun getMovieKey(id: Int) = "${currentProfile}_movie_resume_$id"
 
     private fun saveMovieResume(id: Int, positionMs: Long, durationMs: Long) {
         if (durationMs <= 0L) return
@@ -501,7 +511,8 @@ class PlayerActivity : AppCompatActivity() {
             .apply()
     }
 
-    private fun getSeriesKey(episodeStreamId: Int) = "series_resume_$episodeStreamId"
+    // ✅ CHAVE POR PERFIL
+    private fun getSeriesKey(episodeStreamId: Int) = "${currentProfile}_series_resume_$episodeStreamId"
 
     private fun saveSeriesResume(id: Int, positionMs: Long, durationMs: Long) {
         if (durationMs <= 0L) return

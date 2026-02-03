@@ -15,6 +15,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.engine.DiskCacheStrategy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -27,7 +28,6 @@ class HomeActivity : AppCompatActivity() {
 
     private val TMDB_API_KEY = "9b73f5dd15b8165b1b57419be2f29128"
     
-    // Views declaradas para uso com findViewById
     private lateinit var etSearch: EditText
     private lateinit var imgBanner: ImageView
     private lateinit var imgBannerLogo: ImageView
@@ -39,7 +39,6 @@ class HomeActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_home)
 
-        // Modo Full Screen Imersivo
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
@@ -63,14 +62,14 @@ class HomeActivity : AppCompatActivity() {
         super.onResume()
         carregarBannerAlternado()
         
-        // Reset da busca ao voltar
         etSearch.setText("")
         etSearch.clearFocus()
-        cardBanner.requestFocus()
+        
+        // ✅ FOCO REMOVIDO DA INICIALIZAÇÃO
+        // cardBanner.requestFocus() <- Removi esta linha para o foco não aparecer sozinho
     }
 
     private fun setupClicks() {
-        // Efeito visual de foco
         fun aplicarEfeitoPremium(view: View, scale: Float = 1.15f) {
             view.setOnFocusChangeListener { v, hasFocus ->
                 if (hasFocus) {
@@ -100,16 +99,14 @@ class HomeActivity : AppCompatActivity() {
         cardSeries.setOnClickListener { startActivity(Intent(this, SeriesActivity::class.java).putExtra("SHOW_PREVIEW", false)) }
         cardKids.setOnClickListener { startActivity(Intent(this, KidsActivity::class.java).putExtra("SHOW_PREVIEW", false)) }
         
-        // ✅ MATANDO A TELA FANTASMA
         etSearch.setOnClickListener {
-            // Esconde o teclado da Home antes de abrir a busca
             val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
             imm.hideSoftInputFromWindow(etSearch.windowToken, 0)
             etSearch.clearFocus()
 
             val intent = Intent(this, SearchActivity::class.java)
             intent.putExtra("initial_query", "")
-            intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION) // Transição sem vulto
+            intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION) 
             startActivity(intent)
         }
 
@@ -133,7 +130,8 @@ class HomeActivity : AppCompatActivity() {
         val tipoAtual = if (ultimoTipo == "tv") "movie" else "tv"
         prefs.edit().putString("ultimo_tipo_banner", tipoAtual).apply()
 
-        val urlString = "https://api.themoviedb.org/3/trending/$tipoAtual/day?api_key=$TMDB_API_KEY&language=pt-BR&region=BR"
+        // ✅ URL OTIMIZADA PARA VELOCIDADE
+        val urlString = "https://api.themoviedb.org/3/trending/$tipoAtual/day?api_key=$TMDB_API_KEY&language=pt-BR"
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -150,12 +148,14 @@ class HomeActivity : AppCompatActivity() {
                     withContext(Dispatchers.Main) {
                         tvBannerTitle.text = titulo
                         tvBannerOverview.text = overview
+                        
+                        // ✅ GLIDE OTIMIZADO (w780 em vez de original para ser instantâneo)
                         Glide.with(this@HomeActivity)
-                            .load("https://image.tmdb.org/p/original$backdrop")
+                            .load("https://image.tmdb.org/t/p/w780$backdrop")
+                            .diskCacheStrategy(DiskCacheStrategy.ALL)
                             .centerCrop()
                             .into(imgBanner)
                         
-                        // Reseta visibilidade antes de buscar a logo
                         tvBannerTitle.visibility = View.VISIBLE
                         imgBannerLogo.visibility = View.GONE
                     }
@@ -176,7 +176,10 @@ class HomeActivity : AppCompatActivity() {
                     withContext(Dispatchers.Main) {
                         tvBannerTitle.visibility = View.GONE
                         imgBannerLogo.visibility = View.VISIBLE
-                        Glide.with(this@HomeActivity).load("https://image.tmdb.org/p/w500$path").into(imgBannerLogo)
+                        Glide.with(this@HomeActivity)
+                            .load("https://image.tmdb.org/p/w500$path")
+                            .diskCacheStrategy(DiskCacheStrategy.ALL)
+                            .into(imgBannerLogo)
                     }
                 }
             } catch (e: Exception) {}

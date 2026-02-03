@@ -31,15 +31,28 @@ import java.net.URL
 import java.net.URLEncoder
 import kotlin.random.Random
 
+// ✅ PREPARAÇÃO FIREBASE (Descomente quando adicionar o google-services.json)
+// import com.google.firebase.remoteconfig.FirebaseRemoteConfig
+// import com.google.firebase.remoteconfig.ktx.remoteConfigSettings
+
 class HomeActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityHomeBinding
     private val TMDB_API_KEY = "9b73f5dd15b8165b1b57419be2f29128"
+    
+    // ✅ VARIÁVEL DE PERFIL
+    private var currentProfile: String = "Padrao"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityHomeBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // ✅ RECUPERA O PERFIL SELECIONADO
+        currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
+        
+        // Exibe o nome do perfil (se você tiver um TextView para isso no layout, ex: tvProfileName)
+        // binding.tvProfileName.text = "Perfil: $currentProfile"
 
         val windowInsetsController =
             WindowCompat.getInsetsController(window, window.decorView)
@@ -50,16 +63,35 @@ class HomeActivity : AppCompatActivity() {
         DownloadHelper.registerReceiver(this)
 
         setupClicks()
+        setupFirebaseRemoteConfig() // ✅ Chamada preparada para o Firebase
 
         // ✅ LÓGICA KIDS: Verifica se o perfil selecionado foi o Kids
         val isKidsMode = intent.getBooleanExtra("IS_KIDS_MODE", false)
         if (isKidsMode) {
-            // Aguarda um pequeno instante para a Activity carregar e clica no cardKids automaticamente
+            currentProfile = "Kids" // Garante o nome do perfil Kids
             binding.root.postDelayed({
                 binding.cardKids.performClick()
                 Toast.makeText(this, "Modo Kids Ativado", Toast.LENGTH_SHORT).show()
             }, 500)
         }
+    }
+
+    // ✅ ESTRUTURA PARA BANNER DINÂMICO (FIREBASE)
+    private fun setupFirebaseRemoteConfig() {
+        /* val remoteConfig = Firebase.remoteConfig
+        val configSettings = remoteConfigSettings { minimumFetchIntervalInSeconds = 3600 }
+        remoteConfig.setConfigSettingsAsync(configSettings)
+        
+        remoteConfig.fetchAndActivate().addOnCompleteListener(this) { task ->
+            if (task.isSuccessful) {
+                val bannerUrl = remoteConfig.getString("url_banner_promocional")
+                if (bannerUrl.isNotEmpty()) {
+                    // Se houver uma URL no Firebase, ela substitui o banner do TMDB
+                    Glide.with(this).load(bannerUrl).into(binding.imgBanner)
+                }
+            }
+        }
+        */
     }
 
     override fun onResume() {
@@ -97,6 +129,7 @@ class HomeActivity : AppCompatActivity() {
         binding.etSearch.setOnClickListener {
             val intent = Intent(this, SearchActivity::class.java)
             intent.putExtra("initial_query", "")
+            intent.putExtra("PROFILE_NAME", currentProfile) // ✅ LEVA O PERFIL
             startActivity(intent)
         }
 
@@ -135,22 +168,25 @@ class HomeActivity : AppCompatActivity() {
                     R.id.cardLiveTv -> {
                         val intent = Intent(this, LiveTvActivity::class.java)
                         intent.putExtra("SHOW_PREVIEW", true)
+                        intent.putExtra("PROFILE_NAME", currentProfile) // ✅ LEVA O PERFIL
                         startActivity(intent)
                     }
                     R.id.cardMovies -> {
                         val intent = Intent(this, VodActivity::class.java)
                         intent.putExtra("SHOW_PREVIEW", false)
+                        intent.putExtra("PROFILE_NAME", currentProfile) // ✅ LEVA O PERFIL
                         startActivity(intent)
                     }
                     R.id.cardSeries -> {
                         val intent = Intent(this, SeriesActivity::class.java)
                         intent.putExtra("SHOW_PREVIEW", false)
+                        intent.putExtra("PROFILE_NAME", currentProfile) // ✅ LEVA O PERFIL
                         startActivity(intent)
                     }
                     R.id.cardKids -> {
-                        // ✅ ABRE A ATIVIDADE KIDS
                         val intent = Intent(this, KidsActivity::class.java)
                         intent.putExtra("SHOW_PREVIEW", false)
+                        intent.putExtra("PROFILE_NAME", "Kids") // ✅ FORÇA PERFIL KIDS
                         startActivity(intent)
                     }
                     R.id.cardBanner -> { /* ação banner */ }
@@ -210,6 +246,7 @@ class HomeActivity : AppCompatActivity() {
                     if (event.action == KeyEvent.ACTION_UP) {
                         val intent = Intent(this, SearchActivity::class.java)
                         intent.putExtra("initial_query", "")
+                        intent.putExtra("PROFILE_NAME", currentProfile)
                         startActivity(intent)
                     }
                     true
@@ -218,14 +255,15 @@ class HomeActivity : AppCompatActivity() {
         }
 
         binding.btnSettings.setOnClickListener {
-            val itens = arrayOf("Meus downloads", "Configurações", "Sair")
+            val itens = arrayOf("Trocar Perfil", "Meus downloads", "Configurações", "Sair")
             AlertDialog.Builder(this)
-                .setTitle("Opções")
+                .setTitle("Opções - $currentProfile")
                 .setItems(itens) { _, which ->
                     when (which) {
-                        0 -> startActivity(Intent(this, DownloadsActivity::class.java))
-                        1 -> startActivity(Intent(this, SettingsActivity::class.java))
-                        2 -> mostrarDialogoSair()
+                        0 -> finish() // ✅ Volta para a tela de Seleção de Perfil
+                        1 -> startActivity(Intent(this, DownloadsActivity::class.java))
+                        2 -> startActivity(Intent(this, SettingsActivity::class.java))
+                        3 -> mostrarDialogoSair()
                     }
                 }
                 .show()

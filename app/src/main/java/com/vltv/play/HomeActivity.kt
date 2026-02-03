@@ -65,6 +65,7 @@ class HomeActivity : AppCompatActivity() {
 
         setupClicks()
         setupFirebaseRemoteConfig() // ✅ Chamada ativada para o Firebase
+        carregarListasDaHome() // ✅ CHAMADA ADICIONADA PARA CARREGAR OS RECENTES
 
         // ✅ LÓGICA KIDS: Verifica se o perfil selecionado foi o Kids
         val isKidsMode = intent.getBooleanExtra("IS_KIDS_MODE", false)
@@ -404,5 +405,25 @@ class HomeActivity : AppCompatActivity() {
             return true
         }
         return super.onKeyDown(keyCode, event)
+    }
+
+    // ✅ FUNÇÃO AGORA NO LUGAR CERTO (DENTRO DA CLASSE)
+    private fun carregarListasDaHome() {
+        val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+        val userEmail = prefs.getString("username", "") ?: ""
+
+        // 1. BUSCAR "CONTINUAR ASSISTINDO" DO FIREBASE POR PERFIL
+        db.collection("users")
+            .document(userEmail)
+            .collection("profiles")
+            .document(currentProfile)
+            .collection("history")
+            .limit(15)
+            .get()
+            .addOnSuccessListener { result ->
+                // Aqui você converte o resultado e seta no rvContinueWatching
+                // No futuro, binding.rvContinueWatching.adapter = HomeRowAdapter(...)
+            }
     }
 }

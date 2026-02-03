@@ -128,6 +128,9 @@ class HomeActivity : AppCompatActivity() {
 
             binding.cardBanner.requestFocus()
             
+            // ✅ RECARREGA O CONTINUAR ASSISTINDO LOCAL SEMPRE QUE VOLTAR PARA A HOME
+            carregarContinuarAssistindoLocal()
+            
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -408,39 +411,11 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun carregarListasDaHome() {
-        val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
-        val userEmail = prefs.getString("username", "") ?: ""
-
-        // 1. BUSCAR "CONTINUAR ASSISTINDO" (VÍNCULADO À DETAILS ACTIVITY)
-        db.collection("users")
-            .document(userEmail)
-            .collection("profiles")
-            .document(currentProfile)
-            .collection("history")
-            .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
-            .limit(15)
-            .get()
-            .addOnSuccessListener { result ->
-                val historyList = mutableListOf<VodItem>()
-                for (doc in result) {
-                    val item = doc.toObject(VodItem::class.java)
-                    if (item != null) historyList.add(item)
-                }
-                if (historyList.isNotEmpty()) {
-                    binding.rvContinueWatching.adapter = HomeRowAdapter(historyList) { selectedItem ->
-                        val intent = Intent(this, DetailsActivity::class.java)
-                        intent.putExtra("stream_id", selectedItem.id.toIntOrNull() ?: 0)
-                        intent.putExtra("name", selectedItem.name)
-                        intent.putExtra("icon", selectedItem.streamIcon)
-                        intent.putExtra("PROFILE_NAME", currentProfile)
-                        intent.putExtra("is_series", false) // Histórico de VOD costuma ser filme
-                        startActivity(intent)
-                    }
-                }
-            }
+        // ✅ CHAMADA PARA O HISTÓRICO LOCAL
+        carregarContinuarAssistindoLocal()
 
         // 2. BUSCAR "ADICIONADOS RECENTEMENTE" COM FILTRO E ORDEM CRONOLÓGICA REAL
+        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val dns = prefs.getString("dns", "") ?: ""
@@ -464,8 +439,6 @@ class HomeActivity : AppCompatActivity() {
                     }
                 }
 
-                // ✅ ORDENAÇÃO CRONOLÓGICA REAL:
-                // Tentamos ordenar pelo campo "added" (data). Se não existir, usamos o "stream_id" decrescente.
                 val sortedList = rawList.sortedWith(compareByDescending<JSONObject> { 
                     it.optLong("added") 
                 }.thenByDescending { 
@@ -498,6 +471,40 @@ class HomeActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+        }
+    }
+
+    // ✅ NOVA FUNÇÃO: CARREGA O HISTÓRICO DO CELULAR (LOCAL) EM VEZ DO FIREBASE
+    private fun carregarContinuarAssistindoLocal() {
+        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+        val historyList = mutableListOf<VodItem>()
+        
+        // Busca a lista de IDs salvos localmente para o perfil atual
+        val keyHistory = "${currentProfile}_local_history_ids"
+        val savedIdsSet = prefs.getStringSet(keyHistory, emptySet()) ?: emptySet()
+        
+        for (id in savedIdsSet) {
+            val name = prefs.getString("${currentProfile}_history_name_$id", "") ?: ""
+            val icon = prefs.getString("${currentProfile}_history_icon_$id", "") ?: ""
+            
+            if (name.isNotEmpty()) {
+                historyList.add(VodItem(id = id, name = name, streamIcon = icon))
+            }
+        }
+
+        if (historyList.isNotEmpty()) {
+            binding.rvContinueWatching.visibility = View.VISIBLE
+            // Exibe em ordem inversa (mais recente primeiro)
+            binding.rvContinueWatching.adapter = HomeRowAdapter(historyList.reversed()) { selectedItem ->
+                val intent = Intent(this, DetailsActivity::class.java)
+                intent.putExtra("stream_id", selectedItem.id.toIntOrNull() ?: 0)
+                intent.putExtra("name", selectedItem.name)
+                intent.putExtra("icon", selectedItem.streamIcon)
+                intent.putExtra("PROFILE_NAME", currentProfile)
+                startActivity(intent)
+            }
+        } else {
+            binding.rvContinueWatching.visibility = View.GONE
         }
     }
 }

@@ -440,7 +440,7 @@ class HomeActivity : AppCompatActivity() {
                 }
             }
 
-        // 2. BUSCAR "ADICIONADOS RECENTEMENTE" COM FILTRO E ORDEM CRONOLÓGICA
+        // 2. BUSCAR "ADICIONADOS RECENTEMENTE" COM FILTRO E ORDEM CRONOLÓGICA REAL
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val dns = prefs.getString("dns", "") ?: ""
@@ -464,8 +464,13 @@ class HomeActivity : AppCompatActivity() {
                     }
                 }
 
-                // Ordenação por ID decrescente (mais novo primeiro)
-                val sortedList = rawList.sortedByDescending { it.optInt("stream_id") }
+                // ✅ ORDENAÇÃO CRONOLÓGICA REAL:
+                // Tentamos ordenar pelo campo "added" (data). Se não existir, usamos o "stream_id" decrescente.
+                val sortedList = rawList.sortedWith(compareByDescending<JSONObject> { 
+                    it.optLong("added") 
+                }.thenByDescending { 
+                    it.optInt("stream_id") 
+                })
                 
                 val finalRecentList = mutableListOf<VodItem>()
                 val limit = if (sortedList.size > 20) 20 else sortedList.size

@@ -407,7 +407,6 @@ class HomeActivity : AppCompatActivity() {
         return super.onKeyDown(keyCode, event)
     }
 
-    // ✅ FUNÇÃO AGORA NO LUGAR CERTO (DENTRO DA CLASSE)
     private fun carregarListasDaHome() {
         val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
@@ -419,11 +418,55 @@ class HomeActivity : AppCompatActivity() {
             .collection("profiles")
             .document(currentProfile)
             .collection("history")
+            .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
             .limit(15)
             .get()
             .addOnSuccessListener { result ->
-                // Aqui você converte o resultado e seta no rvContinueWatching
-                // No futuro, binding.rvContinueWatching.adapter = HomeRowAdapter(...)
+                val historyList = mutableListOf<VodItem>()
+                for (doc in result) {
+                    val item = doc.toObject(VodItem::class.java)
+                    if (item != null) historyList.add(item)
+                }
+                if (historyList.isNotEmpty()) {
+                    binding.rvContinueWatching.adapter = HomeRowAdapter(historyList) { selectedItem ->
+                        // Ação ao clicar: abrir o player
+                    }
+                }
             }
+
+        // 2. BUSCAR "ADICIONADOS RECENTEMENTE" DO SEU SERVIDOR XTREAM
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val dns = prefs.getString("dns", "") ?: ""
+                val user = prefs.getString("username", "") ?: ""
+                val pass = prefs.getString("password", "") ?: ""
+                
+                val urlString = "$dns/player_api.php?username=$user&password=$pass&action=get_vod_streams"
+                val response = URL(urlString).readText()
+                val jsonArray = org.json.JSONArray(response)
+                
+                val recentList = mutableListOf<VodItem>()
+                // Pega os últimos 15 adicionados (final do array)
+                val total = jsonArray.length()
+                val limit = if (total > 15) 15 else total
+                
+                for (i in 0 until limit) {
+                    val obj = jsonArray.getJSONObject(total - 1 - i)
+                    recentList.add(VodItem(
+                        id = obj.optString("stream_id"),
+                        name = obj.optString("name"),
+                        streamIcon = obj.optString("stream_icon")
+                    ))
+                }
+
+                withContext(Dispatchers.Main) {
+                    binding.rvRecentlyAdded.adapter = HomeRowAdapter(recentList) { selectedItem ->
+                        // Ação ao clicar: abrir detalhes do filme
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 }

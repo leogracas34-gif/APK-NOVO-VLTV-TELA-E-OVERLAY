@@ -51,25 +51,27 @@ class ProfilesActivity : AppCompatActivity() {
             val b = holder.itemBinding
 
             b.tvProfileName.text = perfil.name
-            
-            // Aplica a cor no avatar (se não tiver imagem, preenche com a cor)
             b.imgAvatar.setBackgroundColor(perfil.color)
-            b.imgAvatar.setImageResource(android.R.color.transparent) 
 
-            // Efeito de Foco Premium com Borda Neon
+            // Efeito de Foco usando o SEU bg_button_neon
             b.root.setOnFocusChangeListener { view, hasFocus ->
                 if (hasFocus) {
                     view.animate().scaleX(1.15f).scaleY(1.15f).setDuration(200).start()
                     b.tvProfileName.setTextColor(Color.WHITE)
-                    // Mostra a borda neon (View que criaremos no XML)
+                    
+                    // Vinculando o seu arquivo de neon
                     b.borderFocus.visibility = View.VISIBLE
-                    b.borderFocus.background?.setTint(perfil.color)
+                    b.borderFocus.setBackgroundResource(R.drawable.bg_button_neon)
+                    b.borderFocus.background?.setTint(perfil.color) // Mantém o neon na cor do perfil
                 } else {
                     view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start()
                     b.tvProfileName.setTextColor(Color.parseColor("#888888"))
                     b.borderFocus.visibility = View.INVISIBLE
                 }
             }
+            
+            // ... resto do clique do botão
+       }
 
             b.root.setOnClickListener {
                 val intent = Intent(this@ProfilesActivity, HomeActivity::class.java)

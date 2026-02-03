@@ -24,6 +24,7 @@ class ProfilesActivity : AppCompatActivity() {
         binding = ActivityProfilesBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // Configuração do RecyclerView Horizontal para Perfis
         binding.rvProfiles.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
 
         // Lista de perfis com cores Premium
@@ -53,30 +54,32 @@ class ProfilesActivity : AppCompatActivity() {
             b.tvProfileName.text = perfil.name
             b.imgAvatar.setBackgroundColor(perfil.color)
 
-            // Efeito de Foco usando o SEU bg_button_neon
+            // ✅ Efeito de Foco usando o SEU bg_button_neon.xml
             b.root.setOnFocusChangeListener { view, hasFocus ->
                 if (hasFocus) {
                     view.animate().scaleX(1.15f).scaleY(1.15f).setDuration(200).start()
                     b.tvProfileName.setTextColor(Color.WHITE)
                     
-                    // Vinculando o seu arquivo de neon
                     b.borderFocus.visibility = View.VISIBLE
                     b.borderFocus.setBackgroundResource(R.drawable.bg_button_neon)
-                    b.borderFocus.background?.setTint(perfil.color) // Mantém o neon na cor do perfil
+                    b.borderFocus.background?.setTint(perfil.color) // Aplica a cor neon do perfil
                 } else {
                     view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start()
                     b.tvProfileName.setTextColor(Color.parseColor("#888888"))
                     b.borderFocus.visibility = View.INVISIBLE
                 }
             }
-            
-            // ... resto do clique do botão
-       }
 
+            // ✅ Lógica de Clique com Vínculo ao Botão Kids
             b.root.setOnClickListener {
                 val intent = Intent(this@ProfilesActivity, HomeActivity::class.java)
                 intent.putExtra("PROFILE_NAME", perfil.name)
                 intent.putExtra("PROFILE_COLOR", perfil.color)
+                
+                // Se o nome for "Kids", ativa o modo automático na Home
+                val isKidsMode = perfil.name.equals("Kids", ignoreCase = true)
+                intent.putExtra("IS_KIDS_MODE", isKidsMode)
+                
                 startActivity(intent)
                 finish()
             }

@@ -1,16 +1,15 @@
 package com.vltv.play
 
-import okhttp3.OkHttpClient
 import retrofit2.Call
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
 import retrofit2.http.Query
-import java.util.concurrent.TimeUnit
 
 // ---------------------
 // Modelos de Dados (TODOS MANTIDOS)
 // ---------------------
+
 data class XtreamLoginResponse(val user_info: UserInfo?, val server_info: ServerInfo?)
 data class UserInfo(val username: String?, val status: String?, val exp_date: String?)
 data class ServerInfo(val url: String?, val port: String?, val server_protocol: String?)
@@ -59,8 +58,9 @@ data class EpgWrapper(val epg_listings: List<EpgResponseItem>?)
 data class EpgResponseItem(val id: String?, val epg_id: String?, val title: String?, val lang: String?, val start: String?, val end: String?, val description: String?, val channel_id: String?, val start_timestamp: String?, val stop_timestamp: String?, val stop: String?)
 
 // ---------------------
-// Interface Retrofit (TODAS AS FUNÇÕES ORIGINAIS MANTIDAS)
+// Interface Retrofit (TODAS AS FUNÃ‡Ã•ES ORIGINAIS + AJUSTES)
 // ---------------------
+
 interface XtreamService {
     @GET("player_api.php")
     fun login(@Query("username") user: String, @Query("password") pass: String): Call<XtreamLoginResponse>
@@ -79,7 +79,7 @@ interface XtreamService {
         @Query("username") user: String, 
         @Query("password") pass: String, 
         @Query("action") action: String = "get_vod_streams", 
-        @Query("category_id") categoryId: String = "0"
+        @Query("category_id") categoryId: String = "0" // Valor padrÃ£o para nÃ£o quebrar a Home
     ): Call<List<VodStream>>
 
     @GET("player_api.php")
@@ -96,7 +96,7 @@ interface XtreamService {
         @Query("username") user: String, 
         @Query("password") pass: String, 
         @Query("action") action: String = "get_series", 
-        @Query("category_id") categoryId: String = "0"
+        @Query("category_id") categoryId: String = "0" // Valor padrÃ£o para nÃ£o quebrar a Home
     ): Call<List<SeriesStream>>
 
     @GET("player_api.php")
@@ -113,20 +113,6 @@ object XtreamApi {
     private var retrofit: Retrofit? = null
     private var baseUrl: String = "http://tvblack.shop/"
 
-    // ✅ SUPER TURBO: OkHttpClient configurado apenas com GZIP e Timeouts
-    private val client: OkHttpClient by lazy {
-        OkHttpClient.Builder()
-            .addInterceptor { chain ->
-                val request = chain.request().newBuilder()
-                    .addHeader("Accept-Encoding", "gzip")
-                    .build()
-                chain.proceed(request)
-            }
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .build()
-    }
-
     fun setBaseUrl(newUrl: String) {
         baseUrl = if (newUrl.endsWith("/")) newUrl else "$newUrl/"
         retrofit = null
@@ -136,7 +122,6 @@ object XtreamApi {
         if (retrofit == null) {
             retrofit = Retrofit.Builder()
                 .baseUrl(baseUrl)
-                .client(client) // ✅ Vincula o cliente turbo ao retrofit
                 .addConverterFactory(GsonConverterFactory.create())
                 .build()
         }

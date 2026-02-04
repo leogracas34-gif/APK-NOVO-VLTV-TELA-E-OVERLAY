@@ -19,9 +19,14 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
 import com.vltv.play.databinding.ActivityHomeBinding
 import com.vltv.play.DownloadHelper
+import com.vltv.play.data.AppDatabase
+import com.vltv.play.data.LiveStreamEntity
+import com.vltv.play.data.VodEntity
+import com.vltv.play.data.SeriesEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -44,6 +49,9 @@ class HomeActivity : AppCompatActivity() {
     // ✅ VARIÁVEL DE PERFIL INTEGRADA
     private var currentProfile: String = "Padrao"
 
+    // ✅ INSTÂNCIA DO BANCO DE DADOS ROOM (ADICIONADO)
+    private val database by lazy { AppDatabase.getDatabase(this) }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityHomeBinding.inflate(layoutInflater)
@@ -65,6 +73,13 @@ class HomeActivity : AppCompatActivity() {
 
         setupClicks()
         setupFirebaseRemoteConfig() // ✅ Chamada ativada para o Firebase
+        
+        // ✅ CARREGAMENTO INICIAL DO BANCO DE DADOS (ADICIONADO)
+        carregarDadosLocaisImediato()
+        
+        // ✅ INICIA DOWNLOAD SILENCIOSO EM BACKGROUND (ADICIONADO)
+        sincronizarConteudoSilenciosamente()
+
         carregarListasDaHome() // ✅ CHAMADA ADICIONADA PARA CARREGAR OS RECENTES
 
         // ✅ LÓGICA KIDS: Verifica se o perfil selecionado foi o Kids
@@ -75,6 +90,133 @@ class HomeActivity : AppCompatActivity() {
                 binding.cardKids.performClick()
                 Toast.makeText(this, "Modo Kids Ativado", Toast.LENGTH_SHORT).show()
             }, 500)
+        }
+    }
+
+    // ✅ NOVA FUNÇÃO: BUSCA NO BANCO DE DADOS LOCAL IMEDIATAMENTE (ADICIONADO)
+    private fun carregarDadosLocaisImediato() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                // Busca os itens salvos no banco Room
+                val localMovies = database.streamDao().getRecentVods(20)
+                val movieItems = localMovies.map { VodItem(it.stream_id.toString(), it.name, it.stream_icon) }
+
+                val localSeries = database.streamDao().getRecentSeries(20)
+                val seriesItems = localSeries.map { VodItem(it.series_id.toString(), it.name, it.cover) }
+
+                withContext(Dispatchers.Main) {
+                    if (movieItems.isNotEmpty()) {
+                        binding.rvRecentlyAdded.adapter = HomeRowAdapter(movieItems) { selectedItem ->
+                            val intent = Intent(this@HomeActivity, DetailsActivity::class.java)
+                            intent.putExtra("stream_id", selectedItem.id.toIntOrNull() ?: 0)
+                            intent.putExtra("name", selectedItem.name)
+                            intent.putExtra("icon", selectedItem.streamIcon)
+                            intent.putExtra("PROFILE_NAME", currentProfile)
+                            intent.putExtra("is_series", false)
+                            startActivity(intent)
+                        }
+                    }
+                    if (seriesItems.isNotEmpty()) {
+                        binding.rvRecentSeries.adapter = HomeRowAdapter(seriesItems) { selectedItem ->
+                            val intent = Intent(this@HomeActivity, SeriesDetailsActivity::class.java)
+                            intent.putExtra("series_id", selectedItem.id.toIntOrNull() ?: 0)
+                            intent.putExtra("name", selectedItem.name)
+                            intent.putExtra("icon", selectedItem.streamIcon)
+                            intent.putExtra("PROFILE_NAME", currentProfile)
+                            intent.putExtra("is_series", true)
+                            startActivity(intent)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    // ✅ NOVA FUNÇÃO: SINCRONIZAÇÃO EM SEGUNDO PLANO (ADICIONADO)
+    private fun sincronizarConteudoSilenciosamente() {
+        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+        val dns = prefs.getString("dns", "") ?: ""
+        val user = prefs.getString("username", "") ?: ""
+        val pass = prefs.getString("password", "") ?: ""
+
+        if (dns.isEmpty() || user.isEmpty()) return
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                // Sincroniza Filmes (VOD)
+                val vodUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_vod_streams"
+                val vodResponse = URL(vodUrl).readText()
+                val vodArray = org.json.JSONArray(vodResponse)
+                val vodEntities = mutableListOf<VodEntity>()
+                val palavrasProibidas = listOf("XXX", "PORN", "ADULTO", "SEXO", "EROTICO", "🔞", "PORNÔ")
+
+                for (i in 0 until vodArray.length()) {
+                    val obj = vodArray.getJSONObject(i)
+                    val nome = obj.optString("name")
+                    if (!palavrasProibidas.any { nome.uppercase().contains(it) }) {
+                        vodEntities.add(VodEntity(
+                            stream_id = obj.optInt("stream_id"),
+                            name = nome,
+                            title = obj.optString("name"),
+                            stream_icon = obj.optString("stream_icon"),
+                            container_extension = obj.optString("container_extension"),
+                            rating = obj.optString("rating"),
+                            category_id = obj.optString("category_id"),
+                            added = obj.optLong("added")
+                        ))
+                    }
+                }
+                database.streamDao().insertVodStreams(vodEntities)
+
+                // Sincroniza Séries
+                val seriesUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_series"
+                val seriesResponse = URL(seriesUrl).readText()
+                val seriesArray = org.json.JSONArray(seriesResponse)
+                val seriesEntities = mutableListOf<SeriesEntity>()
+
+                for (i in 0 until seriesArray.length()) {
+                    val obj = seriesArray.getJSONObject(i)
+                    val nome = obj.optString("name")
+                    if (!palavrasProibidas.any { nome.uppercase().contains(it) }) {
+                        seriesEntities.add(SeriesEntity(
+                            series_id = obj.optInt("series_id"),
+                            name = nome,
+                            cover = obj.optString("cover"),
+                            rating = obj.optString("rating"),
+                            category_id = obj.optString("category_id"),
+                            last_modified = obj.optLong("last_modified")
+                        ))
+                    }
+                }
+                database.streamDao().insertSeriesStreams(seriesEntities)
+
+                // Sincroniza Canais (LIVE)
+                val liveUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_live_streams"
+                val liveResponse = URL(liveUrl).readText()
+                val liveArray = org.json.JSONArray(liveResponse)
+                val liveEntities = mutableListOf<LiveStreamEntity>()
+
+                for (i in 0 until liveArray.length()) {
+                    val obj = liveArray.getJSONObject(i)
+                    liveEntities.add(LiveStreamEntity(
+                        stream_id = obj.optInt("stream_id"),
+                        name = obj.optString("name"),
+                        stream_icon = obj.optString("stream_icon"),
+                        epg_channel_id = obj.optString("epg_channel_id"),
+                        category_id = obj.optString("category_id")
+                    ))
+                }
+                database.streamDao().insertLiveStreams(liveEntities)
+
+                // Atualiza a tela sem travar
+                withContext(Dispatchers.Main) {
+                    carregarDadosLocaisImediato()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
@@ -481,7 +623,6 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ NOVA FUNÇÃO PARA CARREGAR SÉRIES RECENTES
     private fun carregarSeriesRecentes() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         CoroutineScope(Dispatchers.IO).launch {
@@ -490,7 +631,6 @@ class HomeActivity : AppCompatActivity() {
                 val user = prefs.getString("username", "") ?: ""
                 val pass = prefs.getString("password", "") ?: ""
                 
-                // URL DA API DE SÉRIES
                 val urlString = "$dns/player_api.php?username=$user&password=$pass&action=get_series"
                 val response = URL(urlString).readText()
                 val jsonArray = org.json.JSONArray(response)
@@ -508,7 +648,6 @@ class HomeActivity : AppCompatActivity() {
                     }
                 }
 
-                // ORDENA PELO MODIFICADO POR ÚLTIMO OU ID
                 val sortedList = rawList.sortedByDescending { it.optLong("last_modified") }.take(20)
                 
                 val finalSeriesList = mutableListOf<VodItem>()
@@ -523,7 +662,6 @@ class HomeActivity : AppCompatActivity() {
                 withContext(Dispatchers.Main) {
                     binding.rvRecentSeries.adapter = HomeRowAdapter(finalSeriesList) { selectedItem ->
                         val intent = Intent(this@HomeActivity, SeriesDetailsActivity::class.java)
-                        // ✅ AJUSTE DE ENCAIXE: seriesId exige INT e chave "series_id"
                         intent.putExtra("series_id", selectedItem.id.toIntOrNull() ?: 0)
                         intent.putExtra("name", selectedItem.name)
                         intent.putExtra("icon", selectedItem.streamIcon)
@@ -538,12 +676,9 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ NOVA FUNÇÃO: CARREGA O HISTÓRICO DO CELULAR (LOCAL) EM VEZ DO FIREBASE
     private fun carregarContinuarAssistindoLocal() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val historyList = mutableListOf<VodItem>()
-        
-        // Busca a lista de IDs salvos localmente para o perfil atual
         val keyHistory = "${currentProfile}_local_history_ids"
         val savedIdsSet = prefs.getStringSet(keyHistory, emptySet()) ?: emptySet()
         
@@ -558,9 +693,7 @@ class HomeActivity : AppCompatActivity() {
 
         if (historyList.isNotEmpty()) {
             binding.rvContinueWatching.visibility = View.VISIBLE
-            // Exibe em ordem inversa (mais recente primeiro)
             binding.rvContinueWatching.adapter = HomeRowAdapter(historyList.reversed()) { selectedItem ->
-                // VERIFICA SE O ID SALVO PERTENCE A UMA SÉRIE
                 val isSeriesStored = prefs.getBoolean("${currentProfile}_history_is_series_${selectedItem.id}", false)
                 
                 val intent = if (isSeriesStored) {

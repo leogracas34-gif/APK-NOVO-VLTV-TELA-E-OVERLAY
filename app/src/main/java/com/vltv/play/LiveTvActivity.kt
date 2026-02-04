@@ -3,12 +3,14 @@ package com.vltv.play
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.net.Uri
 import android.os.Bundle
 import android.util.Base64
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -34,12 +36,30 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+// ✅ IMPORTAÇÕES PARA O MINI PLAYER E EPG
+import com.google.android.exoplayer2.ExoPlayer
+import com.google.android.exoplayer2.MediaItem
+import com.google.android.exoplayer2.Player
+import com.google.android.exoplayer2.ui.StyledPlayerView
+import androidx.lifecycle.lifecycleScope
+
 class LiveTvActivity : AppCompatActivity() {
 
     private lateinit var rvCategories: RecyclerView
     private lateinit var rvChannels: RecyclerView
     private lateinit var progressBar: ProgressBar
     private lateinit var tvCategoryTitle: TextView
+
+    // ✅ NOVOS ELEMENTOS DO PAINEL DIREITO
+    private lateinit var miniPlayerView: StyledPlayerView
+    private lateinit var containerMiniPlayer: FrameLayout
+    private lateinit var tvEpgAtualPainel: TextView
+    private lateinit var tvEpgProximo1: TextView
+    private lateinit var tvEpgProximo2: TextView
+    private lateinit var tvEpgProximo3: TextView
+    private var player: ExoPlayer? = null
+    private var isFullScreen = false
+    private var serverUrl = ""
 
     private var username = ""
     private var password = ""
@@ -58,20 +78,32 @@ class LiveTvActivity : AppCompatActivity() {
         setContentView(R.layout.activity_live_tv)
 
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
-        windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
+        windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
 
         rvCategories = findViewById(R.id.rvCategories)
         rvChannels = findViewById(R.id.rvChannels)
         progressBar = findViewById(R.id.progressBar)
         tvCategoryTitle = findViewById(R.id.tvCategoryTitle)
 
+        // ✅ INICIALIZAÇÃO DOS ELEMENTOS DO PAINEL LATERAL
+        miniPlayerView = findViewById(R.id.miniPlayerView)
+        containerMiniPlayer = findViewById(R.id.containerMiniPlayer)
+        tvEpgAtualPainel = findViewById(R.id.tvEpgAtualPainel)
+        tvEpgProximo1 = findViewById(R.id.tvEpgProximo1)
+        tvEpgProximo2 = findViewById(R.id.tvEpgProximo2)
+        tvEpgProximo3 = findViewById(R.id.tvEpgProximo3)
+
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         username = prefs.getString("username", "") ?: ""
         password = prefs.getString("password", "") ?: ""
+        serverUrl = prefs.getString("dns", "") ?: ""
 
         // Configuração de Foco
         setupRecyclerFocus()
+        
+        // ✅ INICIALIZAÇÃO DO PLAYER
+        initExoPlayer()
 
         rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
         rvCategories.setHasFixedSize(true)
@@ -81,8 +113,8 @@ class LiveTvActivity : AppCompatActivity() {
         rvCategories.isFocusable = true
         rvCategories.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
 
-        // Mantendo o GridLayoutManager (4 colunas)
-        rvChannels.layoutManager = GridLayoutManager(this, 4)
+        // ✅ ALTERADO PARA 2 COLUNAS PARA DAR ESPAÇO AO PAINEL DIREITO
+        rvChannels.layoutManager = GridLayoutManager(this, 2)
         rvChannels.isFocusable = true
         rvChannels.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
         rvChannels.setHasFixedSize(true)
@@ -91,6 +123,84 @@ class LiveTvActivity : AppCompatActivity() {
         rvCategories.requestFocus()
 
         carregarCategorias()
+    }
+
+    // ✅ INICIALIZAÇÃO DO EXOPLAYER (ADICIONADO)
+    private fun initExoPlayer() {
+        player = ExoPlayer.Builder(this).build()
+        miniPlayerView.player = player
+        miniPlayerView.useController = false
+        player?.addListener(object : Player.Listener {
+            override fun onPlaybackStateChanged(state: Int) {
+                if (state == Player.STATE_BUFFERING) progressBar.visibility = View.VISIBLE
+                else progressBar.visibility = View.GONE
+            }
+        })
+    }
+
+    // ✅ LÓGICA DE CARREGAMENTO DO MINI PLAYER (ADICIONADO)
+    private fun playInMiniPlayer(canal: LiveStream) {
+        val streamUrl = "$serverUrl/live/$username/$password/${canal.id}.ts"
+        val mediaItem = MediaItem.fromUri(Uri.parse(streamUrl))
+        player?.setMediaItem(mediaItem)
+        player?.prepare()
+        player?.playWhenReady = true
+        
+        // Carrega EPG do painel lateral (Atual + 3 próximos)
+        carregarEpgPainel(canal.id.toString())
+    }
+
+    // ✅ LÓGICA DO EPG NO PAINEL LATERAL (ADICIONADO)
+    private fun carregarEpgPainel(streamId: String) {
+        XtreamApi.service.getShortEpg(username, password, streamId, 4).enqueue(object : Callback<EpgWrapper> {
+            override fun onResponse(call: Call<EpgWrapper>, response: Response<EpgWrapper>) {
+                if (response.isSuccessful && response.body()?.epg_listings != null) {
+                    val listings = response.body()!!.epg_listings!!
+                    if (listings.isNotEmpty()) {
+                        tvEpgAtualPainel.text = "AGORA: ${decodeBase64(listings[0].title)}"
+                        if (listings.size > 1) tvEpgProximo1.text = "1. ${decodeBase64(listings[1].title)}" else tvEpgProximo1.text = ""
+                        if (listings.size > 2) tvEpgProximo2.text = "2. ${decodeBase64(listings[2].title)}" else tvEpgProximo2.text = ""
+                        if (listings.size > 3) tvEpgProximo3.text = "3. ${decodeBase64(listings[3].title)}" else tvEpgProximo3.text = ""
+                    }
+                }
+            }
+            override fun onFailure(call: Call<EpgWrapper>, t: Throwable) {
+                tvEpgAtualPainel.text = "EPG Indisponível"
+            }
+        })
+    }
+
+    // ✅ LÓGICA DE TELA CHEIA INSTANTÂNEA (ADICIONADO)
+    private fun toggleFullScreen() {
+        if (!isFullScreen) {
+            isFullScreen = true
+            miniPlayerView.useController = true
+            containerMiniPlayer.layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+            rvCategories.visibility = View.GONE
+            rvChannels.visibility = View.GONE
+            findViewById<View>(R.id.layoutInfoEpgLateral)?.visibility = View.GONE
+        } else {
+            isFullScreen = false
+            miniPlayerView.useController = false
+            // Reinicia a Activity para restaurar o layout original de 3 colunas
+            val intent = Intent(this, LiveTvActivity::class.java)
+            finish()
+            startActivity(intent)
+        }
+    }
+
+    private fun decodeBase64(text: String?): String {
+        return try {
+            if (text.isNullOrEmpty()) "" else String(
+                Base64.decode(text, Base64.DEFAULT),
+                Charset.forName("UTF-8") 
+            )
+        } catch (e: Exception) {
+            text ?: ""
+        }
     }
 
     // ✅ FUNÇÃO DE VELOCIDADE ADICIONADA
@@ -262,12 +372,9 @@ class LiveTvActivity : AppCompatActivity() {
         tvCategoryTitle.text = categoria.name
 
         channelAdapter = ChannelAdapter(canais, username, password) { canal ->
-            val intent = Intent(this@LiveTvActivity, PlayerActivity::class.java)
-            intent.putExtra("stream_id", canal.id)
-            intent.putExtra("stream_ext", "ts")
-            intent.putExtra("stream_type", "live")
-            intent.putExtra("channel_name", canal.name)
-            startActivity(intent)
+            // ✅ AO CLICAR NO CANAL, ABRE TELA CHEIA
+            playInMiniPlayer(canal)
+            toggleFullScreen()
         }
         rvChannels.adapter = channelAdapter
     }
@@ -304,6 +411,10 @@ class LiveTvActivity : AppCompatActivity() {
 
             holder.itemView.setOnFocusChangeListener { _, hasFocus ->
                 atualizarEstiloCategoria(holder, selectedPos == position, hasFocus)
+                // ✅ AO PASSAR O FOCO, CARREGA OS CANAIS DA CATEGORIA
+                if (hasFocus) {
+                    onClick(item)
+                }
             }
 
             holder.itemView.setOnClickListener {
@@ -379,17 +490,19 @@ class LiveTvActivity : AppCompatActivity() {
             holder.itemView.isFocusable = true
             holder.itemView.isClickable = true
 
-            // ✅ APLICAÇÃO DO FOCO NEON + ZOOM 1.15f + TEXTO MAIOR
+            // ✅ APLICAÇÃO DO FOCO NEON + ZOOM 1.15f + MINI PLAYER
             holder.itemView.setOnFocusChangeListener { view, hasFocus ->
                 if (hasFocus) {
                     holder.tvName.setTextColor(Color.YELLOW)
-                    holder.tvName.textSize = 20f // ✅ AUMENTO DO NOME DO CANAL NA TV
+                    holder.tvName.textSize = 20f 
                     view.setBackgroundResource(R.drawable.bg_focus_neon)
                     view.animate().scaleX(1.15f).scaleY(1.15f).setDuration(200).start()
                     view.elevation = 20f
+                    // ✅ AO PASSAR O FOCO, JÁ CARREGA NO MINI PLAYER
+                    playInMiniPlayer(item)
                 } else {
                     holder.tvName.setTextColor(Color.WHITE)
-                    holder.tvName.textSize = 16f // ✅ VOLTA AO TAMANHO PADRÃO
+                    holder.tvName.textSize = 16f
                     view.setBackgroundResource(0)
                     view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start()
                     view.elevation = 4f
@@ -397,17 +510,6 @@ class LiveTvActivity : AppCompatActivity() {
             }
 
             holder.itemView.setOnClickListener { onClick(item) }
-        }
-
-        private fun decodeBase64(text: String?): String {
-            return try {
-                if (text.isNullOrEmpty()) "" else String(
-                    Base64.decode(text, Base64.DEFAULT),
-                    Charset.forName("UTF-8") 
-                )
-            } catch (e: Exception) {
-                text ?: ""
-            }
         }
 
         private fun carregarEpg(holder: VH, canal: LiveStream) {
@@ -467,9 +569,18 @@ class LiveTvActivity : AppCompatActivity() {
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
+            if (isFullScreen) {
+                toggleFullScreen()
+                return true
+            }
             finish()
             return true
         }
         return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        player?.release()
     }
 }

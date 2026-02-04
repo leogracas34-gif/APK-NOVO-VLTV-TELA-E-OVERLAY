@@ -85,6 +85,16 @@ interface StreamDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCategories(categories: List<CategoryEntity>)
 
+    // ✅ NOVOS COMANDOS PARA O EPG INTELIGENTE (ADICIONADOS)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertEpg(epgList: List<EpgEntity>)
+
+    @Query("SELECT * FROM epg_cache WHERE stream_id = :epgId LIMIT 1")
+    suspend fun getEpgByChannel(epgId: String): EpgEntity?
+
+    @Query("DELETE FROM epg_cache")
+    suspend fun clearEpg()
+
     @Query("DELETE FROM live_streams")
     suspend fun clearLive()
 }

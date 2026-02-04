@@ -9,9 +9,8 @@ import retrofit2.http.Query
 import java.util.concurrent.TimeUnit
 
 // ---------------------
-// Modelos de Dados (TODOS MANTIDOS INTEGRALMENTE)
+// Modelos de Dados (TODOS MANTIDOS)
 // ---------------------
-
 data class XtreamLoginResponse(val user_info: UserInfo?, val server_info: ServerInfo?)
 data class UserInfo(val username: String?, val status: String?, val exp_date: String?)
 data class ServerInfo(val url: String?, val port: String?, val server_protocol: String?)
@@ -60,9 +59,8 @@ data class EpgWrapper(val epg_listings: List<EpgResponseItem>?)
 data class EpgResponseItem(val id: String?, val epg_id: String?, val title: String?, val lang: String?, val start: String?, val end: String?, val description: String?, val channel_id: String?, val start_timestamp: String?, val stop_timestamp: String?, val stop: String?)
 
 // ---------------------
-// Interface Retrofit (CORRIGIDA)
+// Interface Retrofit (TODAS AS FUNÇÕES ORIGINAIS MANTIDAS)
 // ---------------------
-
 interface XtreamService {
     @GET("player_api.php")
     fun login(@Query("username") user: String, @Query("password") pass: String): Call<XtreamLoginResponse>
@@ -93,7 +91,6 @@ interface XtreamService {
     @GET("player_api.php")
     fun getSeriesCategories(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_series_categories"): Call<List<LiveCategory>>
 
-    // ✅ CORREÇÃO: Adicionado @GET que faltava aqui
     @GET("player_api.php")
     fun getSeries(
         @Query("username") user: String, 
@@ -116,19 +113,17 @@ object XtreamApi {
     private var retrofit: Retrofit? = null
     private var baseUrl: String = "http://tvblack.shop/"
 
-    // ✅ CLIENTE OKHTTP TURBO COM SUPORTE A GZIP E TIMEOUTS MAIORES
-    private val okHttpClient: OkHttpClient by lazy {
+    // ✅ SUPER TURBO: OkHttpClient configurado apenas com GZIP e Timeouts
+    private val client: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .addInterceptor { chain ->
                 val request = chain.request().newBuilder()
-                    .addHeader("Accept-Encoding", "gzip") 
-                    .addHeader("Connection", "keep-alive")
+                    .addHeader("Accept-Encoding", "gzip")
                     .build()
                 chain.proceed(request)
             }
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
             .build()
     }
 
@@ -141,7 +136,7 @@ object XtreamApi {
         if (retrofit == null) {
             retrofit = Retrofit.Builder()
                 .baseUrl(baseUrl)
-                .client(okHttpClient)
+                .client(client) // ✅ Vincula o cliente turbo ao retrofit
                 .addConverterFactory(GsonConverterFactory.create())
                 .build()
         }

@@ -36,11 +36,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-// ✅ IMPORTAÇÕES PARA O MINI PLAYER E EPG
-import com.google.android.exoplayer2.ExoPlayer
-import com.google.android.exoplayer2.MediaItem
-import com.google.android.exoplayer2.Player
-import com.google.android.exoplayer2.ui.StyledPlayerView
+// ✅ IMPORTAÇÕES PARA O MINI PLAYER E EPG (ATUALIZADAS PARA MEDIA3)
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView 
 import androidx.lifecycle.lifecycleScope
 
 class LiveTvActivity : AppCompatActivity() {
@@ -51,7 +51,7 @@ class LiveTvActivity : AppCompatActivity() {
     private lateinit var tvCategoryTitle: TextView
 
     // ✅ NOVOS ELEMENTOS DO PAINEL DIREITO
-    private lateinit var miniPlayerView: StyledPlayerView
+    private lateinit var miniPlayerView: PlayerView
     private lateinit var containerMiniPlayer: FrameLayout
     private lateinit var tvEpgAtualPainel: TextView
     private lateinit var tvEpgProximo1: TextView

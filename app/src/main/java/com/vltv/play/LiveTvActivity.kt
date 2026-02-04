@@ -36,7 +36,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-// ✅ IMPORTAÇÕES PARA MEDIA3, DATABASE E PLAYER EXTERNO
+// ✅ IMPORTAÇÕES PARA O MINI PLAYER, DATABASE E MEDIA3
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -60,15 +60,14 @@ class LiveTvActivity : AppCompatActivity() {
     private lateinit var tvEpgProximo1: TextView
     private lateinit var tvEpgProximo2: TextView
     private lateinit var tvEpgProximo3: TextView
-    
     private var player: ExoPlayer? = null
     private var isFullScreen = false
     private var serverUrl = ""
 
     private var username = ""
     private var password = ""
-    
-    // ✅ DATABASE
+
+    // ✅ DATABASE INSTANCE
     private val database by lazy { AppDatabase.getDatabase(this) }
 
     // Mantendo a estrutura original do seu cache
@@ -82,7 +81,7 @@ class LiveTvActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // ✅ APONTA PARA O NOVO XML DE 3 COLUNAS
+        // ✅ APONTA PARA O LAYOUT DE 3 COLUNAS
         setContentView(R.layout.activity_live_tv_painel)
 
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
@@ -121,7 +120,7 @@ class LiveTvActivity : AppCompatActivity() {
         rvCategories.isFocusable = true
         rvCategories.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
 
-        // ✅ AJUSTADO PARA 2 COLUNAS PARA CABER O PAINEL DIREITO
+        // ✅ 2 COLUNAS PARA DAR ESPAÇO AO MINI PLAYER
         rvChannels.layoutManager = GridLayoutManager(this, 2)
         rvChannels.isFocusable = true
         rvChannels.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
@@ -152,19 +151,22 @@ class LiveTvActivity : AppCompatActivity() {
         player?.prepare()
         player?.playWhenReady = true
         
-        carregarEpgNoPainel(canal.id.toString())
+        // ✅ CONVERSÃO DE INT PARA STRING PARA O BANCO E API
+        val idString = canal.id.toString()
+        carregarEpgNoPainel(idString)
     }
 
     private fun carregarEpgNoPainel(streamId: String) {
+        // Primeiro tenta buscar do Database (Instantâneo)
         lifecycleScope.launch(Dispatchers.IO) {
-            val epgLocal = database.streamDao().getEpgByChannel(streamId)
+            val localEpg = database.streamDao().getEpgByChannel(streamId)
             withContext(Dispatchers.Main) {
-                if (epgLocal != null) {
-                    tvEpgAtualPainel.text = "AGORA: ${epgLocal.title}"
-                    tvEpgProximo1.text = "DESCRIÇÃO: ${epgLocal.description ?: "Sem detalhes."}"
-                } else {
-                    buscarEpgApiESalvar(streamId)
+                if (localEpg != null) {
+                    tvEpgAtualPainel.text = "AGORA: ${localEpg.title}"
+                    tvEpgProximo1.text = "DESCRIÇÃO: ${localEpg.description ?: "Carregando detalhes..."}"
                 }
+                // Busca da API para atualizar/preencher
+                buscarEpgApiESalvar(streamId)
             }
         }
     }
@@ -175,17 +177,17 @@ class LiveTvActivity : AppCompatActivity() {
                 if (response.isSuccessful && response.body()?.epg_listings != null) {
                     val listings = response.body()!!.epg_listings!!
                     if (listings.isNotEmpty()) {
-                        val tituloDecodificado = decodeBase64(listings[0].title)
-                        tvEpgAtualPainel.text = "AGORA: $tituloDecodificado"
+                        val title = decodeBase64(listings[0].title)
+                        tvEpgAtualPainel.text = "AGORA: $title"
                         
+                        // ✅ SALVA NO BANCO PASSANDO OS CAMPOS OBRIGATÓRIOS (START/STOP)
                         lifecycleScope.launch(Dispatchers.IO) {
-                            // ✅ CORREÇÃO: Passando 'start' e 'stop' para evitar erro de parâmetros
                             val entity = EpgEntity(
-                                stream_id = streamId, 
-                                title = tituloDecodificado, 
-                                start = listings[0].start, 
-                                stop = listings[0].stop, 
-                                description = "Programação atualizada"
+                                stream_id = streamId,
+                                title = title,
+                                start = listings[0].start ?: "",
+                                stop = listings[0].stop ?: "",
+                                description = decodeBase64(listings[0].description)
                             )
                             database.streamDao().insertEpg(listOf(entity))
                         }
@@ -194,18 +196,6 @@ class LiveTvActivity : AppCompatActivity() {
             }
             override fun onFailure(call: Call<EpgWrapper>, t: Throwable) {}
         })
-    }
-
-    private fun abrirPlayerExterno(url: String, playerName: String) {
-        val intent = Intent(Intent.ACTION_VIEW)
-        intent.setDataAndType(Uri.parse(url), "video/*")
-        if (playerName == "VLC") intent.setPackage("org.videolan.vlc")
-        if (playerName == "MX") intent.setPackage("com.mxtech.videoplayer.ad")
-        try {
-            startActivity(intent)
-        } catch (e: Exception) {
-            Toast.makeText(this, "$playerName não instalado", Toast.LENGTH_SHORT).show()
-        }
     }
 
     private fun toggleFullScreen() {
@@ -230,8 +220,13 @@ class LiveTvActivity : AppCompatActivity() {
 
     private fun decodeBase64(text: String?): String {
         return try {
-            if (text.isNullOrEmpty()) "" else String(Base64.decode(text, Base64.DEFAULT), Charset.forName("UTF-8"))
-        } catch (e: Exception) { text ?: "" }
+            if (text.isNullOrEmpty()) "" else String(
+                Base64.decode(text, Base64.DEFAULT),
+                Charset.forName("UTF-8") 
+            )
+        } catch (e: Exception) {
+            text ?: ""
+        }
     }
 
     private fun preLoadChannelLogos(canais: List<LiveStream>) {
@@ -241,7 +236,11 @@ class LiveTvActivity : AppCompatActivity() {
                 val url = canais[i].icon
                 if (!url.isNullOrEmpty()) {
                     withContext(Dispatchers.Main) {
-                        Glide.with(this@LiveTvActivity).load(url).diskCacheStrategy(DiskCacheStrategy.ALL).priority(Priority.LOW).preload()
+                        Glide.with(this@LiveTvActivity)
+                            .load(url)
+                            .diskCacheStrategy(DiskCacheStrategy.ALL)
+                            .priority(Priority.LOW)
+                            .preload()
                     }
                 }
             }
@@ -249,8 +248,17 @@ class LiveTvActivity : AppCompatActivity() {
     }
 
     private fun setupRecyclerFocus() {
-        rvCategories.setOnFocusChangeListener { _, hasFocus -> if (hasFocus) rvCategories.smoothScrollToPosition(0) }
-        rvChannels.setOnFocusChangeListener { _, hasFocus -> if (hasFocus) rvChannels.smoothScrollToPosition(0) }
+        rvCategories.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) {
+                rvCategories.smoothScrollToPosition(0)
+            }
+        }
+        
+        rvChannels.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) {
+                rvChannels.smoothScrollToPosition(0)
+            }
+        }
     }
 
     private fun isAdultName(name: String?): Boolean {
@@ -274,7 +282,9 @@ class LiveTvActivity : AppCompatActivity() {
                     aplicarCategorias(categorias)
                 }
             }
-            override fun onFailure(call: Call<List<LiveCategory>>, t: Throwable) { progressBar.visibility = View.GONE }
+            override fun onFailure(call: Call<List<LiveCategory>>, t: Throwable) {
+                progressBar.visibility = View.GONE
+            }
         })
     }
 
@@ -288,7 +298,11 @@ class LiveTvActivity : AppCompatActivity() {
     private fun carregarCanais(categoria: LiveCategory) {
         tvCategoryTitle.text = categoria.name
         val catIdStr = categoria.id.toString()
-        channelsCache[catIdStr]?.let { aplicarCanais(categoria, it); preLoadChannelLogos(it); return }
+        channelsCache[catIdStr]?.let { 
+            aplicarCanais(categoria, it)
+            preLoadChannelLogos(it)
+            return 
+        }
         progressBar.visibility = View.VISIBLE
         XtreamApi.service.getLiveStreams(username, password, categoryId = catIdStr).enqueue(object : Callback<List<LiveStream>> {
             override fun onResponse(call: Call<List<LiveStream>>, response: Response<List<LiveStream>>) {
@@ -297,30 +311,46 @@ class LiveTvActivity : AppCompatActivity() {
                     var canais = response.body()!!
                     channelsCache[catIdStr] = canais
                     if (ParentalControlManager.isEnabled(this@LiveTvActivity)) {
-                        canais = canais.filterNot { isAdultName(canal.name) }
+                        canais = canais.filterNot { isAdultName(it.name) }
                     }
                     aplicarCanais(categoria, canais)
                     preLoadChannelLogos(canais)
                 }
             }
-            override fun onFailure(call: Call<List<LiveStream>>, t: Throwable) { progressBar.visibility = View.GONE }
+            override fun onFailure(call: Call<List<LiveStream>>, t: Throwable) {
+                progressBar.visibility = View.GONE
+            }
         })
     }
 
     private fun aplicarCanais(categoria: LiveCategory, canais: List<LiveStream>) {
         tvCategoryTitle.text = categoria.name
         channelAdapter = ChannelAdapter(canais, username, password) { canal ->
+            // ✅ VERIFICAÇÃO DE PLAYER EXTERNO
             val streamUrl = "$serverUrl/live/$username/$password/${canal.id}.ts"
             val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
             val playerPref = prefs.getString("player_type", "Interno")
+            
             if (playerPref == "Interno") {
                 playInMiniPlayer(canal)
                 toggleFullScreen()
             } else {
-                abrirPlayerExterno(streamUrl, playerPref!!)
+                abrirPlayerExterno(streamUrl, playerPref ?: "VLC")
             }
         }
         rvChannels.adapter = channelAdapter
+    }
+
+    private fun abrirPlayerExterno(url: String, playerName: String) {
+        val intent = Intent(Intent.ACTION_VIEW)
+        intent.setDataAndType(Uri.parse(url), "video/*")
+        if (playerName == "VLC") intent.setPackage("org.videolan.vlc")
+        if (playerName == "MX") intent.setPackage("com.mxtech.videoplayer.ad")
+        try {
+            startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(this, "$playerName não instalado", Toast.LENGTH_SHORT).show()
+        }
     }
 
     inner class CategoryAdapter(private val list: List<LiveCategory>, private val onClick: (LiveCategory) -> Unit) : RecyclerView.Adapter<CategoryAdapter.VH>() {
@@ -336,7 +366,7 @@ class LiveTvActivity : AppCompatActivity() {
             holder.itemView.isFocusable = true
             holder.itemView.setOnFocusChangeListener { _, hasFocus ->
                 atualizarEstiloCategoria(holder, selectedPos == position, hasFocus)
-                if (hasFocus) onClick(item)
+                if (hasFocus) { onClick(item) }
             }
             holder.itemView.setOnClickListener {
                 notifyItemChanged(selectedPos); selectedPos = holder.adapterPosition
@@ -345,10 +375,12 @@ class LiveTvActivity : AppCompatActivity() {
         }
         private fun atualizarEstiloCategoria(holder: VH, isSelected: Boolean, hasFocus: Boolean) {
             if (hasFocus) {
-                holder.tvName.setTextColor(Color.YELLOW); holder.itemView.setBackgroundResource(R.drawable.bg_focus_neon)
+                holder.tvName.setTextColor(Color.YELLOW)
+                holder.itemView.setBackgroundResource(R.drawable.bg_focus_neon)
                 holder.itemView.animate().scaleX(1.1f).scaleY(1.1f).setDuration(150).start()
             } else {
-                holder.itemView.setBackgroundResource(0); holder.itemView.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
+                holder.itemView.setBackgroundResource(0)
+                holder.itemView.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
                 if (isSelected) {
                     holder.tvName.setTextColor(holder.itemView.context.getColor(R.color.red_primary))
                     holder.tvName.setBackgroundColor(0xFF252525.toInt())
@@ -391,13 +423,13 @@ class LiveTvActivity : AppCompatActivity() {
         }
         private fun carregarEpg(holder: VH, canal: LiveStream) {
             epgCacheMap[canal.id]?.let { mostrarEpg(holder, it); return }
-            // ✅ CORREÇÃO: canal.id convertido para String
+            // ✅ CONVERSÃO PARA STRING PARA EVITAR ERRO DE TIPAGEM NA API
             XtreamApi.service.getShortEpg(user, pass, canal.id.toString(), 2).enqueue(object : Callback<EpgWrapper> {
                 override fun onResponse(call: Call<EpgWrapper>, response: Response<EpgWrapper>) {
                     if (response.isSuccessful && response.body()?.epg_listings != null) {
                         val epg = response.body()!!.epg_listings!!
                         epgCacheMap[canal.id] = epg
-                        if (epg.isNotEmpty()) { mostrarEpg(holder, epg) }
+                        mostrarEpg(holder, epg)
                     }
                 }
                 override fun onFailure(call: Call<EpgWrapper>, t: Throwable) {}
@@ -413,9 +445,15 @@ class LiveTvActivity : AppCompatActivity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_BACK) { if (isFullScreen) { toggleFullScreen(); return true }; finish(); return true }
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            if (isFullScreen) { toggleFullScreen(); return true }
+            finish(); return true
+        }
         return super.onKeyDown(keyCode, event)
     }
 
-    override fun onDestroy() { super.onDestroy(); player?.release() }
+    override fun onDestroy() {
+        super.onDestroy()
+        player?.release()
+    }
 }

@@ -52,7 +52,7 @@ class LoginActivity : AppCompatActivity() {
             return
         }
 
-        // ✅ Config D-Pad TV com Animação Premium
+        // âœ… Config D-Pad TV com AnimaÃ§Ã£o Premium
         setupTouchAndDpad()
 
         binding.btnLogin.setOnClickListener {
@@ -98,13 +98,10 @@ class LoginActivity : AppCompatActivity() {
 
                         XtreamApi.setBaseUrl("$base/")
 
-                        // ✅ INICIA SINCRONISMO ANTES DE IR PARA A HOME
-                        sincronizarTudo(base, user, pass)
-
                         success = true
                         break
                     } else {
-                        lastError = "Servidor $base retornou código $responseCode"
+                        lastError = "Servidor $base retornou cÃ³digo $responseCode"
                     }
                 } catch (e: Exception) {
                     lastError = "Servidor $server: ${e.message}"
@@ -127,33 +124,6 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ NOVO: FUNÇÃO DE SINCRONISMO INICIAL (MÁXIMA VELOCIDADE)
-    private suspend fun sincronizarTudo(dns: String, user: String, pass: String) {
-        withContext(Dispatchers.IO) {
-            val prefs = getSharedPreferences("vltv_cache_data", Context.MODE_PRIVATE)
-            val editor = prefs.edit()
-
-            val acoes = listOf(
-                "get_vod_categories" to "cache_vod_categories",
-                "get_series_categories" to "cache_series_categories",
-                "get_vod_streams" to "cache_vod_all",
-                "get_series" to "cache_series_all"
-            )
-
-            for (acao in acoes) {
-                try {
-                    val url = "$dns/player_api.php?username=$user&password=$pass&action=${acao.first}"
-                    val response = URL(url).readText()
-                    // Salva o JSON bruto para leitura instantânea posterior
-                    editor.putString(acao.second, response)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-            editor.apply()
-        }
-    }
-
     private fun startHomeActivity() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val savedDns = prefs.getString("dns", null)
@@ -166,9 +136,9 @@ class LoginActivity : AppCompatActivity() {
         finish()
     }
 
-    // ✅ D-Pad TV PREMIUM (COM ZOOM SUAVE) ✅
+    // âœ… D-Pad TV PREMIUM (COM ZOOM SUAVE) âœ…
     private fun setupTouchAndDpad() {
-        // Listener de animação para os campos e botão
+        // Listener de animaÃ§Ã£o para os campos e botÃ£o
         val premiumFocusListener = View.OnFocusChangeListener { v, hasFocus ->
             if (hasFocus) {
                 // Aumenta levemente e suavemente quando focado
@@ -181,7 +151,7 @@ class LoginActivity : AppCompatActivity() {
             }
         }
 
-        // Aplica o efeito nos campos e no botão
+        // Aplica o efeito nos campos e no botÃ£o
         binding.etUsername.onFocusChangeListener = premiumFocusListener
         binding.etPassword.onFocusChangeListener = premiumFocusListener
         binding.btnLogin.onFocusChangeListener = premiumFocusListener
@@ -189,7 +159,7 @@ class LoginActivity : AppCompatActivity() {
         binding.btnLogin.isFocusable = true
         binding.btnLogin.isFocusableInTouchMode = true
         
-        // Campos Enter = próximo campo (TV + teclado celular)
+        // Campos Enter = prÃ³ximo campo (TV + teclado celular)
         binding.etUsername.setOnKeyListener { _, keyCode, event ->
             if (keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN) {
                 binding.etPassword.requestFocus()
@@ -203,7 +173,7 @@ class LoginActivity : AppCompatActivity() {
             } else false
         }
         
-        // Foco inicial no campo de usuário
+        // Foco inicial no campo de usuÃ¡rio
         binding.etUsername.requestFocus()
     }
 

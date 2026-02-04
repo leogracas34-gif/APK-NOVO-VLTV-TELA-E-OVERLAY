@@ -133,7 +133,6 @@ class LiveTvActivity : AppCompatActivity() {
         carregarCategorias()
     }
 
-    // ✅ INICIALIZAÇÃO DO EXOPLAYER (MEDIA3)
     private fun initExoPlayer() {
         player = ExoPlayer.Builder(this).build()
         miniPlayerView.player = player
@@ -146,7 +145,6 @@ class LiveTvActivity : AppCompatActivity() {
         })
     }
 
-    // ✅ LÓGICA DE CARREGAMENTO DO MINI PLAYER (CHAMA O EPG DO DATABASE)
     private fun playInMiniPlayer(canal: LiveStream) {
         val streamUrl = "$serverUrl/live/$username/$password/${canal.id}.ts"
         val mediaItem = MediaItem.fromUri(Uri.parse(streamUrl))
@@ -154,11 +152,9 @@ class LiveTvActivity : AppCompatActivity() {
         player?.prepare()
         player?.playWhenReady = true
         
-        // Busca EPG no Database para ser instantâneo
         carregarEpgNoPainel(canal.id.toString())
     }
 
-    // ✅ LÓGICA DE EPG VIA DATABASE (CARREGAMENTO RÁPIDO)
     private fun carregarEpgNoPainel(streamId: String) {
         lifecycleScope.launch(Dispatchers.IO) {
             val epgLocal = database.streamDao().getEpgByChannel(streamId)
@@ -167,7 +163,6 @@ class LiveTvActivity : AppCompatActivity() {
                     tvEpgAtualPainel.text = "AGORA: ${epgLocal.title}"
                     tvEpgProximo1.text = "DESCRIÇÃO: ${epgLocal.description ?: "Sem detalhes."}"
                 } else {
-                    // Se não tem no banco, busca na API e salva
                     buscarEpgApiESalvar(streamId)
                 }
             }
@@ -180,10 +175,18 @@ class LiveTvActivity : AppCompatActivity() {
                 if (response.isSuccessful && response.body()?.epg_listings != null) {
                     val listings = response.body()!!.epg_listings!!
                     if (listings.isNotEmpty()) {
-                        tvEpgAtualPainel.text = "AGORA: ${decodeBase64(listings[0].title)}"
-                        // Salva no Database para a próxima vez
+                        val tituloDecodificado = decodeBase64(listings[0].title)
+                        tvEpgAtualPainel.text = "AGORA: $tituloDecodificado"
+                        
                         lifecycleScope.launch(Dispatchers.IO) {
-                            val entity = EpgEntity(stream_id = streamId, title = decodeBase64(listings[0].title), description = "Programação atualizada")
+                            // ✅ CORREÇÃO: Passando 'start' e 'stop' para evitar erro de parâmetros
+                            val entity = EpgEntity(
+                                stream_id = streamId, 
+                                title = tituloDecodificado, 
+                                start = listings[0].start, 
+                                stop = listings[0].stop, 
+                                description = "Programação atualizada"
+                            )
                             database.streamDao().insertEpg(listOf(entity))
                         }
                     }
@@ -193,7 +196,6 @@ class LiveTvActivity : AppCompatActivity() {
         })
     }
 
-    // ✅ LÓGICA DE PLAYER EXTERNO (VLC / MX PLAYER)
     private fun abrirPlayerExterno(url: String, playerName: String) {
         val intent = Intent(Intent.ACTION_VIEW)
         intent.setDataAndType(Uri.parse(url), "video/*")
@@ -295,7 +297,7 @@ class LiveTvActivity : AppCompatActivity() {
                     var canais = response.body()!!
                     channelsCache[catIdStr] = canais
                     if (ParentalControlManager.isEnabled(this@LiveTvActivity)) {
-                        canais = canais.filterNot { isAdultName(it.name) }
+                        canais = canais.filterNot { isAdultName(canal.name) }
                     }
                     aplicarCanais(categoria, canais)
                     preLoadChannelLogos(canais)
@@ -309,11 +311,8 @@ class LiveTvActivity : AppCompatActivity() {
         tvCategoryTitle.text = categoria.name
         channelAdapter = ChannelAdapter(canais, username, password) { canal ->
             val streamUrl = "$serverUrl/live/$username/$password/${canal.id}.ts"
-            
-            // VERIFICA SE USA PLAYER EXTERNO NAS CONFIGS
             val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
             val playerPref = prefs.getString("player_type", "Interno")
-            
             if (playerPref == "Interno") {
                 playInMiniPlayer(canal)
                 toggleFullScreen()
@@ -392,12 +391,13 @@ class LiveTvActivity : AppCompatActivity() {
         }
         private fun carregarEpg(holder: VH, canal: LiveStream) {
             epgCacheMap[canal.id]?.let { mostrarEpg(holder, it); return }
+            // ✅ CORREÇÃO: canal.id convertido para String
             XtreamApi.service.getShortEpg(user, pass, canal.id.toString(), 2).enqueue(object : Callback<EpgWrapper> {
                 override fun onResponse(call: Call<EpgWrapper>, response: Response<EpgWrapper>) {
                     if (response.isSuccessful && response.body()?.epg_listings != null) {
                         val epg = response.body()!!.epg_listings!!
                         epgCacheMap[canal.id] = epg
-                        mostrarEpg(holder, epg)
+                        if (epg.isNotEmpty()) { mostrarEpg(holder, epg) }
                     }
                 }
                 override fun onFailure(call: Call<EpgWrapper>, t: Throwable) {}

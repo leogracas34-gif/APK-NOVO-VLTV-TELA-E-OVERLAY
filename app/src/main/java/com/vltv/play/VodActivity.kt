@@ -372,39 +372,38 @@ class VodActivity : AppCompatActivity() {
         private suspend fun searchTmdbLogoSilently(rawName: String): String? {
             val apiKey = "9b73f5dd15b8165b1b57419be2f29128"
             
-            // ✅ EXTRAÇÃO DE ANO: Identifica anos como (2024), [2024] ou apenas 2024 no nome
+            // ✅ EXTRAÇÃO DE ANO
             val yearRegex = Regex("\\b(19|20)\\d{2}\\b")
             val yearMatch = yearRegex.find(rawName)
             val year = yearMatch?.value
             
-            // ✅ LIMPEZA INTELIGENTE: Remove o ano do nome para a busca não falhar
-            var cleanName = rawName.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
+            // ✅ LIMPEZA DE RUÍDOS (TITANIC, RESURRECTION, FAN EDIT, ETC)
+            var cleanName = rawName.replace(Regex("(?i)(The Digital Resurrection|Fan Edit|Resurrection|Remastered|Special Edition)"), "")
+                .replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
                 .replace(yearRegex, "")
                 .trim()
             
             try {
-                // ✅ BUSCA COM PRIORIDADE PT-BR + FILTRO DE ANO (EVITA REMAKES ERRADOS)
+                // 1. BUSCA INICIAL POR TITULO TRADUZIDO
                 var searchUrl = "https://api.themoviedb.org/3/search/movie?api_key=$apiKey" +
                                 "&query=${URLEncoder.encode(cleanName, "UTF-8")}" +
-                                "&language=pt-BR&region=BR&include_adult=false"
+                                "&language=pt-BR&region=BR"
                 
-                if (year != null) {
-                    searchUrl += "&year=$year"
-                }
+                if (year != null) searchUrl += "&year=$year"
 
                 val searchJson = URL(searchUrl).readText()
                 val results = JSONObject(searchJson).getJSONArray("results")
                 
                 if (results.length() > 0) {
-                    val id = results.getJSONObject(0).getString("id")
+                    val movieObj = results.getJSONObject(0)
+                    val id = movieObj.getString("id")
                     
-                    // ✅ BUSCA LOGO COM PRIORIDADE TOTAL PARA PT
+                    // 2. BUSCA AGRESSIVA POR LOGO PT
                     val imgJson = URL("https://api.themoviedb.org/3/movie/$id/images?api_key=$apiKey&include_image_language=pt,en,null").readText()
                     val logos = JSONObject(imgJson).getJSONArray("logos")
                     
+                    var logoPath: String? = null
                     if (logos.length() > 0) {
-                        var logoPath: String? = null
-                        // Tenta encontrar em português primeiro
                         for (i in 0 until logos.length()) {
                             val logoObj = logos.getJSONObject(i)
                             if (logoObj.optString("iso_639_1") == "pt") {
@@ -412,9 +411,26 @@ class VodActivity : AppCompatActivity() {
                                 break
                             }
                         }
-                        // Fallback para inglês se não houver em PT
-                        if (logoPath == null) logoPath = logos.getJSONObject(0).getString("file_path")
-                        
+                    }
+
+                    // 3. FALLBACK: SE NÃO TIVER LOGO PT, TENTA PEGAR O POSTER PT COMO LOGO
+                    if (logoPath == null) {
+                        val posters = JSONObject(imgJson).getJSONArray("posters")
+                        for (i in 0 until posters.length()) {
+                            val posterObj = posters.getJSONObject(i)
+                            if (posterObj.optString("iso_639_1") == "pt") {
+                                logoPath = posterObj.getString("file_path")
+                                break
+                            }
+                        }
+                    }
+
+                    // SE AINDA ASSIM NÃO TIVER, PEGA A PRIMEIRA LOGO DISPONÍVEL
+                    if (logoPath == null && logos.length() > 0) {
+                        logoPath = logos.getJSONObject(0).getString("file_path")
+                    }
+                    
+                    if (logoPath != null) {
                         val finalUrl = "https://image.tmdb.org/t/p/w500$logoPath"
                         gridCachePrefs.edit().putString("logo_$rawName", finalUrl).apply()
                         return finalUrl

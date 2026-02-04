@@ -22,7 +22,8 @@ data class VodEntity(
     val stream_icon: String?,
     val container_extension: String?,
     val rating: String?,
-    val category_id: String
+    val category_id: String,
+    val added: Long // ✅ CAMPO ADICIONADO PARA CORRIGIR O ERRO
 )
 
 @Entity(tableName = "series_streams")
@@ -31,7 +32,8 @@ data class SeriesEntity(
     val name: String,
     val cover: String?,
     val rating: String?,
-    val category_id: String
+    val category_id: String,
+    val last_modified: Long // ✅ CAMPO ADICIONADO PARA CORRIGIR O ERRO
 )
 
 @Entity(tableName = "categories")
@@ -55,26 +57,33 @@ data class EpgEntity(
 
 @Dao
 interface StreamDao {
-    // Busca Instantânea
+    
+    // Busca VODs recentes (Corrige erro Unresolved reference: getRecentVods)
+    @Query("SELECT * FROM vod_streams ORDER BY added DESC LIMIT :limit")
+    suspend fun getRecentVods(limit: Int): List<VodEntity>
+
+    // Busca Séries recentes (Corrige erro Unresolved reference: getRecentSeries)
+    @Query("SELECT * FROM series_streams ORDER BY last_modified DESC LIMIT :limit")
+    suspend fun getRecentSeries(limit: Int): List<SeriesEntity>
+
     @Query("SELECT * FROM live_streams WHERE name LIKE '%' || :query || '%'")
     suspend fun searchLive(query: String): List<LiveStreamEntity>
 
     @Query("SELECT * FROM vod_streams WHERE name LIKE '%' || :query || '%'")
     suspend fun searchVod(query: String): List<VodEntity>
 
-    // Inserção em massa (O que evita as travas)
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertLiveStreams(streams: List<LiveStreamEntity>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertVodStreams(streams: List<VodEntity>)
 
+    // Insere Séries (Corrige erro Unresolved reference: insertSeriesStreams)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSeriesStreams(series: List<SeriesEntity>)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCategories(categories: List<CategoryEntity>)
-
-    // Carregamento para a Home
-    @Query("SELECT * FROM live_streams WHERE category_id = :catId")
-    suspend fun getLiveByLimit(catId: String): List<LiveStreamEntity>
 
     @Query("DELETE FROM live_streams")
     suspend fun clearLive()
@@ -96,7 +105,9 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "vltv_play_db"
-                ).build()
+                )
+                .fallbackToDestructiveMigration() // ✅ Evita erro se mudar a versão do banco
+                .build()
                 INSTANCE = instance
                 instance
             }

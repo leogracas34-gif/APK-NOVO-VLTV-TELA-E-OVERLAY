@@ -14,7 +14,6 @@ import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -99,11 +98,11 @@ class HomeActivity : AppCompatActivity() {
             try {
                 // Busca os itens salvos no banco Room
                 val localMovies = database.streamDao().getRecentVods(20)
-                // ✅ CORREÇÃO AQUI: Adicionado ?: "" para evitar o erro de Type mismatch
+                // ✅ CORREÇÃO DE TIPO: Usando ?: "" para evitar erro de String nula
                 val movieItems = localMovies.map { VodItem(it.stream_id.toString(), it.name, it.stream_icon ?: "") }
 
                 val localSeries = database.streamDao().getRecentSeries(20)
-                // ✅ CORREÇÃO AQUI: Adicionado ?: "" para evitar o erro de Type mismatch
+                // ✅ CORREÇÃO DE TIPO: Usando ?: "" para evitar erro de String nula
                 val seriesItems = localSeries.map { VodItem(it.series_id.toString(), it.name, it.cover ?: "") }
 
                 withContext(Dispatchers.Main) {
@@ -211,6 +210,28 @@ class HomeActivity : AppCompatActivity() {
                     ))
                 }
                 database.streamDao().insertLiveStreams(liveEntities)
+
+                // Sincroniza EPG (PROGRAMAÇÃO)
+                val epgUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_all_epg"
+                try {
+                    val epgResponse = URL(epgUrl).readText()
+                    val epgObj = JSONObject(epgResponse)
+                    if (epgObj.has("epg_listings")) {
+                        val listings = epgObj.getJSONArray("epg_listings")
+                        val epgEntities = mutableListOf<EpgEntity>()
+                        for (i in 0 until listings.length()) {
+                            val item = listings.getJSONObject(i)
+                            epgEntities.add(EpgEntity(
+                                stream_id = item.optString("channel_id"),
+                                title = item.optString("title"),
+                                start = item.optString("start"),
+                                stop = item.optString("stop"),
+                                description = item.optString("description")
+                            ))
+                        }
+                        database.streamDao().insertEpg(epgEntities)
+                    }
+                } catch (e: Exception) { e.printStackTrace() }
 
                 // Atualiza a tela sem travar
                 withContext(Dispatchers.Main) {

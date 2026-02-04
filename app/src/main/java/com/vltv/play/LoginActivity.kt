@@ -98,6 +98,9 @@ class LoginActivity : AppCompatActivity() {
 
                         XtreamApi.setBaseUrl("$base/")
 
+                        // ✅ INICIA SINCRONISMO ANTES DE IR PARA A HOME
+                        sincronizarTudo(base, user, pass)
+
                         success = true
                         break
                     } else {
@@ -121,6 +124,33 @@ class LoginActivity : AppCompatActivity() {
                     binding.btnLogin.isEnabled = true
                 }
             }
+        }
+    }
+
+    // ✅ NOVO: FUNÇÃO DE SINCRONISMO INICIAL (MÁXIMA VELOCIDADE)
+    private suspend fun sincronizarTudo(dns: String, user: String, pass: String) {
+        withContext(Dispatchers.IO) {
+            val prefs = getSharedPreferences("vltv_cache_data", Context.MODE_PRIVATE)
+            val editor = prefs.edit()
+
+            val acoes = listOf(
+                "get_vod_categories" to "cache_vod_categories",
+                "get_series_categories" to "cache_series_categories",
+                "get_vod_streams" to "cache_vod_all",
+                "get_series" to "cache_series_all"
+            )
+
+            for (acao in acoes) {
+                try {
+                    val url = "$dns/player_api.php?username=$user&password=$pass&action=${acao.first}"
+                    val response = URL(url).readText()
+                    // Salva o JSON bruto para leitura instantânea posterior
+                    editor.putString(acao.second, response)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+            editor.apply()
         }
     }
 

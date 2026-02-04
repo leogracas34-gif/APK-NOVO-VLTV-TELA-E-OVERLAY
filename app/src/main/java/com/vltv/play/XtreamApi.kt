@@ -1,7 +1,6 @@
 package com.vltv.play
 
 import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Call
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -61,7 +60,7 @@ data class EpgWrapper(val epg_listings: List<EpgResponseItem>?)
 data class EpgResponseItem(val id: String?, val epg_id: String?, val title: String?, val lang: String?, val start: String?, val end: String?, val description: String?, val channel_id: String?, val start_timestamp: String?, val stop_timestamp: String?, val stop: String?)
 
 // ---------------------
-// Interface Retrofit (TODAS AS FUNÇÕES MANTIDAS)
+// Interface Retrofit (CORRIGIDA)
 // ---------------------
 
 interface XtreamService {
@@ -94,7 +93,12 @@ interface XtreamService {
     @GET("player_api.php")
     fun getSeriesCategories(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_series_categories"): Call<List<LiveCategory>>
 
-    @Query("action") action: String = "get_series", 
+    // ✅ CORREÇÃO: Adicionado @GET que faltava aqui
+    @GET("player_api.php")
+    fun getSeries(
+        @Query("username") user: String, 
+        @Query("password") pass: String, 
+        @Query("action") action: String = "get_series", 
         @Query("category_id") categoryId: String = "0"
     ): Call<List<SeriesStream>>
 
@@ -117,12 +121,12 @@ object XtreamApi {
         OkHttpClient.Builder()
             .addInterceptor { chain ->
                 val request = chain.request().newBuilder()
-                    .addHeader("Accept-Encoding", "gzip") // ✅ FORÇA GZIP
+                    .addHeader("Accept-Encoding", "gzip") 
                     .addHeader("Connection", "keep-alive")
                     .build()
                 chain.proceed(request)
             }
-            .connectTimeout(30, TimeUnit.SECONDS) // ✅ MAIS TEMPO PARA LISTAS GIGANTES
+            .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
             .build()
@@ -137,7 +141,7 @@ object XtreamApi {
         if (retrofit == null) {
             retrofit = Retrofit.Builder()
                 .baseUrl(baseUrl)
-                .client(okHttpClient) // ✅ APLICA O CLIENTE TURBO
+                .client(okHttpClient)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build()
         }

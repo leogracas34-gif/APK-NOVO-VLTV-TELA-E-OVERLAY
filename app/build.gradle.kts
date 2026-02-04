@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.gms.google-services")
+    id("kotlin-kapt") // 🔥 Necessário para o Room funcionar
 }
 
 android {
@@ -16,10 +17,8 @@ android {
         versionName = "1.0"
         
         multiDexEnabled = true
-        // Removemos o ndk para o build não travar
     }
 
-    // Mantemos isso para ignorar o erro de layout
     lint {
         checkReleaseBuilds = false
         abortOnError = false
@@ -44,6 +43,7 @@ android {
 }
 
 dependencies {
+    // Essenciais
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")
@@ -52,24 +52,33 @@ dependencies {
     implementation("androidx.recyclerview:recyclerview:1.3.2")
     implementation("androidx.cardview:cardview:1.0.0")
 
-    // 🔥 FIREBASE (Adicionado para o Layout Premium)
+    // 🔥 ROOM DATABASE (Adicionado para Banco de Dados Local Ultra Rápido)
+    val room_version = "2.6.1"
+    implementation("androidx.room:room-runtime:$room_version")
+    implementation("androidx.room:room-ktx:$room_version")
+    kapt("androidx.room:room-compiler:$room_version")
+
+    // 🔥 FIREBASE
     implementation(platform("com.google.firebase:firebase-bom:32.7.2"))
     implementation("com.google.firebase:firebase-analytics-ktx")
-    implementation("com.google.firebase:firebase-firestore-ktx") // Para "Continuar Assistindo"
-    implementation("com.google.firebase:firebase-config-ktx")    // Para Layout Dinâmico
-    implementation("com.google.firebase:firebase-auth-ktx")      // Para Perfis de Usuário
+    implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("com.google.firebase:firebase-config-ktx")
+    implementation("com.google.firebase:firebase-auth-ktx")
 
     // Rede e Imagens
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation("com.github.bumptech.glide:glide:4.16.0")
-    implementation("com.squareup.okhttp3:okhttp:4.12.0") // Adicionado OkHttp para chamadas diretas
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0") // Para debug de rede
 
-    // Player de Vídeo
+    // Player de Vídeo (Media3/ExoPlayer)
     implementation("androidx.media3:media3-exoplayer:1.2.0")
     implementation("androidx.media3:media3-ui:1.2.0")
     implementation("androidx.media3:media3-exoplayer-hls:1.2.0") 
     implementation("androidx.media3:media3-common:1.2.0")
 
+    // Coroutines (Performance em segundo plano)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0") // Para escopo de coroutine na UI
 }

@@ -14,6 +14,7 @@ import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -26,6 +27,7 @@ import com.vltv.play.data.AppDatabase
 import com.vltv.play.data.LiveStreamEntity
 import com.vltv.play.data.VodEntity
 import com.vltv.play.data.SeriesEntity
+import com.vltv.play.data.EpgEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -445,7 +447,7 @@ class HomeActivity : AppCompatActivity() {
             val itens = arrayOf("Trocar Perfil", "Meus downloads", "Configurações", "Sair")
             AlertDialog.Builder(this)
                 .setTitle("Opções - $currentProfile")
-                .setItems(itens) { _, which ->
+                .setItems(itens) { dialog, which ->
                     when (which) {
                         0 -> finish() // ✅ Volta para a tela de Seleção de Perfil
                         1 -> startActivity(Intent(this, DownloadsActivity::class.java))
@@ -463,7 +465,7 @@ class HomeActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle("Sair")
             .setMessage("Deseja realmente sair e desconectar?")
-            .setPositiveButton("Sim") { _, _ ->
+            .setPositiveButton("Sim") { dialog, which ->
                 val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
                 prefs.edit().clear().apply()
 

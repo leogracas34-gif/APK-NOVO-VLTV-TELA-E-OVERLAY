@@ -99,10 +99,12 @@ class HomeActivity : AppCompatActivity() {
             try {
                 // Busca os itens salvos no banco Room
                 val localMovies = database.streamDao().getRecentVods(20)
-                val movieItems = localMovies.map { VodItem(it.stream_id.toString(), it.name, it.stream_icon) }
+                // ✅ CORREÇÃO AQUI: Adicionado ?: "" para evitar o erro de Type mismatch
+                val movieItems = localMovies.map { VodItem(it.stream_id.toString(), it.name, it.stream_icon ?: "") }
 
                 val localSeries = database.streamDao().getRecentSeries(20)
-                val seriesItems = localSeries.map { VodItem(it.series_id.toString(), it.name, it.cover) }
+                // ✅ CORREÇÃO AQUI: Adicionado ?: "" para evitar o erro de Type mismatch
+                val seriesItems = localSeries.map { VodItem(it.series_id.toString(), it.name, it.cover ?: "") }
 
                 withContext(Dispatchers.Main) {
                     if (movieItems.isNotEmpty()) {

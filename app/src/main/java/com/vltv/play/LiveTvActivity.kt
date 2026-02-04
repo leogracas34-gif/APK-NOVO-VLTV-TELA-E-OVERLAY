@@ -151,7 +151,7 @@ class LiveTvActivity : AppCompatActivity() {
         player?.prepare()
         player?.playWhenReady = true
         
-        // Corrigido para garantir que o ID seja String
+        // Garante conversão para String antes de chamar a função
         val idString = canal.id.toString()
         carregarEpgNoPainel(idString)
     }
@@ -170,7 +170,8 @@ class LiveTvActivity : AppCompatActivity() {
     }
 
     private fun buscarEpgApiESalvar(streamId: String) {
-        // ✅ LINHA 175: Passando explicitamente como String (garantido pelo parâmetro da função)
+        // ✅ CORREÇÃO LINHA 174: O parâmetro streamId já é String (vindo da função acima), 
+        // então passamos ele diretamente sem conversão extra para evitar confusão do compilador.
         XtreamApi.service.getShortEpg(username, password, streamId, 4).enqueue(object : Callback<EpgWrapper> {
             override fun onResponse(call: Call<EpgWrapper>, response: Response<EpgWrapper>) {
                 if (response.isSuccessful && response.body()?.epg_listings != null) {
@@ -179,6 +180,7 @@ class LiveTvActivity : AppCompatActivity() {
                         val title = decodeBase64(listings[0].title)
                         tvEpgAtualPainel.text = "AGORA: $title"
                         
+                        // ✅ Salva no Banco com todos os campos obrigatórios preenchidos
                         lifecycleScope.launch(Dispatchers.IO) {
                             val entity = EpgEntity(
                                 stream_id = streamId,
@@ -324,6 +326,7 @@ class LiveTvActivity : AppCompatActivity() {
     private fun aplicarCanais(categoria: LiveCategory, canais: List<LiveStream>) {
         tvCategoryTitle.text = categoria.name
         channelAdapter = ChannelAdapter(canais, username, password) { canal ->
+            // ✅ VERIFICAÇÃO DE PLAYER EXTERNO
             val streamUrl = "$serverUrl/live/$username/$password/${canal.id}.ts"
             val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
             val playerPref = prefs.getString("player_type", "Interno")
@@ -421,7 +424,7 @@ class LiveTvActivity : AppCompatActivity() {
         private fun carregarEpg(holder: VH, canal: LiveStream) {
             epgCacheMap[canal.id]?.let { mostrarEpg(holder, it); return }
             
-            // ✅ LINHA 427 CORRIGIDA: Forçando .toString() antes de enviar para a API
+            // ✅ CORREÇÃO LINHA 427: Criação explícita de variável String antes de chamar a API
             val idParaApi = canal.id.toString()
             
             XtreamApi.service.getShortEpg(user, pass, idParaApi, 2).enqueue(object : Callback<EpgWrapper> {

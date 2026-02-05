@@ -170,9 +170,13 @@ class LiveTvActivity : AppCompatActivity() {
     }
 
     private fun buscarEpgApiESalvar(streamId: String) {
-        // ✅ CORREÇÃO LINHA 174: O parâmetro streamId já é String (vindo da função acima), 
-        // então passamos ele diretamente sem conversão extra para evitar confusão do compilador.
-        XtreamApi.service.getShortEpg(username, password, streamId, 4).enqueue(object : Callback<EpgWrapper> {
+        // ✅ USO DE ARGUMENTOS NOMEADOS PARA EVITAR ERRO DE ORDEM/TIPO
+        XtreamApi.service.getShortEpg(
+            user = username, 
+            pass = password, 
+            streamId = streamId, 
+            limit = 4
+        ).enqueue(object : Callback<EpgWrapper> {
             override fun onResponse(call: Call<EpgWrapper>, response: Response<EpgWrapper>) {
                 if (response.isSuccessful && response.body()?.epg_listings != null) {
                     val listings = response.body()!!.epg_listings!!
@@ -180,7 +184,6 @@ class LiveTvActivity : AppCompatActivity() {
                         val title = decodeBase64(listings[0].title)
                         tvEpgAtualPainel.text = "AGORA: $title"
                         
-                        // ✅ Salva no Banco com todos os campos obrigatórios preenchidos
                         lifecycleScope.launch(Dispatchers.IO) {
                             val entity = EpgEntity(
                                 stream_id = streamId,
@@ -304,7 +307,12 @@ class LiveTvActivity : AppCompatActivity() {
             return 
         }
         progressBar.visibility = View.VISIBLE
-        XtreamApi.service.getLiveStreams(username, password, categoryId = catIdStr).enqueue(object : Callback<List<LiveStream>> {
+        // ✅ ARGUMENTOS NOMEADOS PARA EVITAR ERROS
+        XtreamApi.service.getLiveStreams(
+            user = username, 
+            pass = password, 
+            categoryId = catIdStr
+        ).enqueue(object : Callback<List<LiveStream>> {
             override fun onResponse(call: Call<List<LiveStream>>, response: Response<List<LiveStream>>) {
                 progressBar.visibility = View.GONE
                 if (response.isSuccessful && response.body() != null) {
@@ -424,10 +432,14 @@ class LiveTvActivity : AppCompatActivity() {
         private fun carregarEpg(holder: VH, canal: LiveStream) {
             epgCacheMap[canal.id]?.let { mostrarEpg(holder, it); return }
             
-            // ✅ CORREÇÃO LINHA 427: Criação explícita de variável String antes de chamar a API
+            // ✅ CORREÇÃO: Argumentos Nomeados
             val idParaApi = canal.id.toString()
-            
-            XtreamApi.service.getShortEpg(user, pass, idParaApi, 2).enqueue(object : Callback<EpgWrapper> {
+            XtreamApi.service.getShortEpg(
+                user = user, 
+                pass = pass, 
+                streamId = idParaApi, 
+                limit = 2
+            ).enqueue(object : Callback<EpgWrapper> {
                 override fun onResponse(call: Call<EpgWrapper>, response: Response<EpgWrapper>) {
                     if (response.isSuccessful && response.body()?.epg_listings != null) {
                         val epg = response.body()!!.epg_listings!!

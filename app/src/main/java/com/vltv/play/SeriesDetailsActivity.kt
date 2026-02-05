@@ -194,18 +194,21 @@ class SeriesDetailsActivity : AppCompatActivity() {
         // CHAMA A FUNÇÃO TRAZIDA DO ARQUIVO ANTIGO
         btnSeasonSelector.setOnClickListener { mostrarSeletorDeTemporada() }
 
+        // ✅ CORREÇÃO: Lógica de Play Inteligente (Sempre começa do 1 se não tiver histórico)
         btnPlaySeries.setOnClickListener {
-            val ep = currentEpisode
-            if (ep == null) {
-                Toast.makeText(this, "Selecione um episódio.", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
+            val epEncontrado = encontrarEpisodioParaAssistir()
+            if (epEncontrado != null) {
+                abrirPlayer(epEncontrado, false)
+            } else {
+                Toast.makeText(this, "Nenhum episódio encontrado.", Toast.LENGTH_SHORT).show()
             }
-            abrirPlayer(ep, false)
         }
 
         btnResume.setOnClickListener {
-            val ep = currentEpisode ?: return@setOnClickListener
-            abrirPlayer(ep, true)
+            val epParaContinuar = encontrarEpisodioParaContinuar()
+            if (epParaContinuar != null) {
+                abrirPlayer(epParaContinuar, true)
+            }
         }
 
         restaurarEstadoDownload()
@@ -579,6 +582,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
         windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
         restaurarEstadoDownload()
+        
+        // ✅ CORREÇÃO: Garante que o botão continuar apareça imediatamente ao voltar
+        verificarResume()
     }
 
     private fun isTelevisionDevice() = packageManager.hasSystemFeature("android.software.leanback") || packageManager.hasSystemFeature("android.hardware.type.television")
@@ -621,7 +627,11 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         val body = response.body()!!
                         episodesBySeason = body.episodes ?: emptyMap()
                         sortedSeasons = episodesBySeason.keys.sortedBy { it.toIntOrNull() ?: 0 }
-                        if (sortedSeasons.isNotEmpty()) mudarTemporada(sortedSeasons.first())
+                        if (sortedSeasons.isNotEmpty()) {
+                            mudarTemporada(sortedSeasons.first())
+                            // ✅ CORREÇÃO: Verifica se há algo para continuar assim que carrega
+                            verificarResume()
+                        }
                         else {
                             btnSeasonSelector.text = "Indisponível"
                             btnSeasonSelector.setTextColor(Color.WHITE)
@@ -780,10 +790,8 @@ class SeriesDetailsActivity : AppCompatActivity() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         // ✅ Chave de resume isolada por perfil
         val keyResume = "${currentProfile}_series_resume_${streamId}_pos"
-        val keyDur = "${currentProfile}_series_resume_${streamId}_dur" // Opcional, se vc salvar duração
         val pos = prefs.getLong(keyResume, 0L)
-        // Se você não salva duração por perfil, pode usar a genérica ou salvar também
-        // Para simplificar, vou verificar se a posição é válida (> 30s)
+        
         val existe = usarResume && pos > 30000L
 
         val intent = Intent(this, PlayerActivity::class.java)
@@ -809,15 +817,73 @@ class SeriesDetailsActivity : AppCompatActivity() {
         startActivity(intent)
     }
 
+    // ✅ CORREÇÃO: Função para encontrar o primeiro episódio ou o último assistido para o botão ASSISTIR
+    private fun encontrarEpisodioParaAssistir(): EpisodeStream? {
+        // Tenta encontrar se tem algum resume salvo em qualquer episódio da série
+        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+        
+        for (season in sortedSeasons) {
+            val eps = episodesBySeason[season] ?: continue
+            for (ep in eps) {
+                val sid = ep.id.toIntOrNull() ?: 0
+                val pos = prefs.getLong("${currentProfile}_series_resume_${sid}_pos", 0L)
+                if (pos > 10000L) {
+                    currentSeason = season
+                    currentEpisode = ep
+                    return ep
+                }
+            }
+        }
+        
+        // Se não tem nada assistido, pega o Episódio 1 da Temporada 1
+        if (sortedSeasons.isNotEmpty()) {
+            val s1 = sortedSeasons.first()
+            val eps = episodesBySeason[s1]
+            if (!eps.isNullOrEmpty()) {
+                currentSeason = s1
+                currentEpisode = eps.first()
+                return eps.first()
+            }
+        }
+        return null
+    }
+
+    // ✅ CORREÇÃO: Função específica para o botão CONTINUAR
+    private fun encontrarEpisodioParaContinuar(): EpisodeStream? {
+        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+        for (season in sortedSeasons) {
+            val eps = episodesBySeason[season] ?: continue
+            for (ep in eps) {
+                val sid = ep.id.toIntOrNull() ?: 0
+                val pos = prefs.getLong("${currentProfile}_series_resume_${sid}_pos", 0L)
+                if (pos > 10000L) return ep
+            }
+        }
+        return null
+    }
+
     // ✅ RESUME ISOLADO POR PERFIL (Função auxiliar)
     private fun verificarResume() {
-        val ep = currentEpisode ?: return
-        val streamId = ep.id.toIntOrNull() ?: 0
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
-        val key = "${currentProfile}_series_resume_${streamId}_pos"
-        val pos = prefs.getLong(key, 0L)
+        var temHistorico = false
         
-        btnResume.visibility = if (pos > 10000) View.VISIBLE else View.GONE
+        // Varre todas as temporadas e episódios desta série para ver se o perfil atual assistiu algo
+        for (season in sortedSeasons) {
+            val eps = episodesBySeason[season] ?: continue
+            for (ep in eps) {
+                val sid = ep.id.toIntOrNull() ?: 0
+                val pos = prefs.getLong("${currentProfile}_series_resume_${sid}_pos", 0L)
+                if (pos > 10000L) {
+                    temHistorico = true
+                    break
+                }
+            }
+            if (temHistorico) break
+        }
+        
+        runOnUiThread {
+            btnResume.visibility = if (temHistorico) View.VISIBLE else View.GONE
+        }
     }
 
     private fun montarUrlEpisodio(ep: EpisodeStream): String {

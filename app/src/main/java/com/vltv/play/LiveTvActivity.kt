@@ -16,8 +16,7 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.recyclerview.widget.GridLayoutManager
-import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager // ✅ ALTERADO PARA LISTA
 import androidx.recyclerview.widget.RecyclerView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -30,13 +29,11 @@ import retrofit2.Callback
 import retrofit2.Response
 import java.nio.charset.Charset
 
-// --- AS ÚNICAS IMPORTAÇÕES ADICIONADAS ---
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-// ✅ IMPORTAÇÕES PARA O MINI PLAYER, DATABASE E MEDIA3
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -53,13 +50,13 @@ class LiveTvActivity : AppCompatActivity() {
     private lateinit var progressBar: ProgressBar
     private lateinit var tvCategoryTitle: TextView
 
-    // ✅ NOVOS ELEMENTOS DO PAINEL DIREITO
     private lateinit var miniPlayerView: PlayerView
     private lateinit var containerMiniPlayer: FrameLayout
     private lateinit var tvEpgAtualPainel: TextView
     private lateinit var tvEpgProximo1: TextView
     private lateinit var tvEpgProximo2: TextView
     private lateinit var tvEpgProximo3: TextView
+    
     private var player: ExoPlayer? = null
     private var isFullScreen = false
     private var serverUrl = ""
@@ -67,13 +64,9 @@ class LiveTvActivity : AppCompatActivity() {
     private var username = ""
     private var password = ""
 
-    // ✅ DATABASE INSTANCE
     private val database by lazy { AppDatabase.getDatabase(this) }
 
-    // Mantendo a estrutura original do seu cache
     private var cachedCategories: List<LiveCategory>? = null
-    
-    // IMPORTANTE: Alterado para String para evitar o erro de tipos no Cache
     private val channelsCache = mutableMapOf<String, List<LiveStream>>() 
 
     private var categoryAdapter: CategoryAdapter? = null
@@ -81,7 +74,6 @@ class LiveTvActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // ✅ APONTA PARA O LAYOUT DE 3 COLUNAS
         setContentView(R.layout.activity_live_tv_painel)
 
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
@@ -93,7 +85,6 @@ class LiveTvActivity : AppCompatActivity() {
         progressBar = findViewById(R.id.progressBar)
         tvCategoryTitle = findViewById(R.id.tvCategoryTitle)
 
-        // ✅ INICIALIZAÇÃO DOS ELEMENTOS DO PAINEL LATERAL
         miniPlayerView = findViewById(R.id.miniPlayerView)
         containerMiniPlayer = findViewById(R.id.containerMiniPlayer)
         tvEpgAtualPainel = findViewById(R.id.tvEpgAtualPainel)
@@ -106,22 +97,18 @@ class LiveTvActivity : AppCompatActivity() {
         password = prefs.getString("password", "") ?: ""
         serverUrl = prefs.getString("dns", "") ?: ""
 
-        // Configuração de Foco
         setupRecyclerFocus()
-        
-        // ✅ INICIALIZAÇÃO DO PLAYER
         initExoPlayer()
 
         rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
         rvCategories.setHasFixedSize(true)
         rvCategories.setItemViewCacheSize(50) 
         rvCategories.overScrollMode = View.OVER_SCROLL_NEVER 
-
         rvCategories.isFocusable = true
         rvCategories.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
 
-        // ✅ 2 COLUNAS PARA DAR ESPAÇO AO MINI PLAYER
-        rvChannels.layoutManager = GridLayoutManager(this, 2)
+        // ✅ MUDANÇA: AGORA É UMA LISTA VERTICAL (NÃO MAIS GRID)
+        rvChannels.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
         rvChannels.isFocusable = true
         rvChannels.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
         rvChannels.setHasFixedSize(true)
@@ -147,11 +134,15 @@ class LiveTvActivity : AppCompatActivity() {
     private fun playInMiniPlayer(canal: LiveStream) {
         val streamUrl = "$serverUrl/live/$username/$password/${canal.id}.ts"
         val mediaItem = MediaItem.fromUri(Uri.parse(streamUrl))
-        player?.setMediaItem(mediaItem)
-        player?.prepare()
-        player?.playWhenReady = true
         
-        // Garante conversão para String antes de chamar a função
+        // Verifica se é o mesmo item para não recarregar à toa
+        val currentItem = player?.currentMediaItem
+        if (currentItem?.localConfiguration?.uri.toString() != streamUrl) {
+            player?.setMediaItem(mediaItem)
+            player?.prepare()
+            player?.playWhenReady = true
+        }
+        
         val idString = canal.id.toString()
         carregarEpgNoPainel(idString)
     }
@@ -170,7 +161,6 @@ class LiveTvActivity : AppCompatActivity() {
     }
 
     private fun buscarEpgApiESalvar(streamId: String) {
-        // ✅ USO DE ARGUMENTOS NOMEADOS PARA EVITAR ERRO DE ORDEM/TIPO
         XtreamApi.service.getShortEpg(
             user = username, 
             pass = password, 
@@ -201,24 +191,56 @@ class LiveTvActivity : AppCompatActivity() {
         })
     }
 
+    // ✅ LÓGICA DE EXPANSÃO DINÂMICA (ZERO DELAY + FOCO PRESERVADO)
     private fun toggleFullScreen() {
-        if (!isFullScreen) {
-            isFullScreen = true
-            miniPlayerView.useController = true
-            containerMiniPlayer.layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            )
+        val containerLateral = findViewById<View>(R.id.layoutInfoEpgLateral)
+        val scrollEpg = findViewById<View>(R.id.layoutInfoEpgScroll)
+        val colunaDoMeio = rvChannels.parent as View // Pega o layout que segura a lista e o titulo
+
+        isFullScreen = !isFullScreen
+
+        if (isFullScreen) {
+            // Modo Tela Cheia: Esconde listas, expande player
             rvCategories.visibility = View.GONE
-            rvChannels.visibility = View.GONE
-            findViewById<View>(R.id.layoutInfoEpgLateral)?.visibility = View.GONE
+            colunaDoMeio.visibility = View.GONE
+            scrollEpg.visibility = View.GONE
+
+            // Expande container lateral para ocupar tudo
+            val paramsSide = containerLateral.layoutParams
+            paramsSide.width = ViewGroup.LayoutParams.MATCH_PARENT
+            containerLateral.layoutParams = paramsSide
+
+            // Expande container do player para ocupar tudo
+            val paramsPlayer = containerMiniPlayer.layoutParams
+            paramsPlayer.height = ViewGroup.LayoutParams.MATCH_PARENT
+            containerMiniPlayer.layoutParams = paramsPlayer
+
+            miniPlayerView.useController = true
+            miniPlayerView.requestFocus() // Passa foco para o player
         } else {
-            isFullScreen = false
+            // Modo Mini: Restaura listas e tamanhos
+            rvCategories.visibility = View.VISIBLE
+            colunaDoMeio.visibility = View.VISIBLE
+            scrollEpg.visibility = View.VISIBLE
+
+            // Restaura largura lateral (380dp)
+            val paramsSide = containerLateral.layoutParams
+            paramsSide.width = dpToPx(380)
+            containerLateral.layoutParams = paramsSide
+
+            // Restaura altura do player (220dp)
+            val paramsPlayer = containerMiniPlayer.layoutParams
+            paramsPlayer.height = dpToPx(220)
+            containerMiniPlayer.layoutParams = paramsPlayer
+
             miniPlayerView.useController = false
-            val intent = Intent(this, LiveTvActivity::class.java)
-            finish()
-            startActivity(intent)
+            rvChannels.requestFocus() // ✅ O FOCO VOLTA PARA A LISTA (ONDE ESTAVA ANTES)
         }
+    }
+
+    // Função auxiliar para converter DP em Pixels
+    private fun dpToPx(dp: Int): Int {
+        return (dp * resources.displayMetrics.density).toInt()
     }
 
     private fun decodeBase64(text: String?): String {
@@ -307,7 +329,6 @@ class LiveTvActivity : AppCompatActivity() {
             return 
         }
         progressBar.visibility = View.VISIBLE
-        // ✅ ARGUMENTOS NOMEADOS PARA EVITAR ERROS
         XtreamApi.service.getLiveStreams(
             user = username, 
             pass = password, 
@@ -334,14 +355,23 @@ class LiveTvActivity : AppCompatActivity() {
     private fun aplicarCanais(categoria: LiveCategory, canais: List<LiveStream>) {
         tvCategoryTitle.text = categoria.name
         channelAdapter = ChannelAdapter(canais, username, password) { canal ->
-            // ✅ VERIFICAÇÃO DE PLAYER EXTERNO
             val streamUrl = "$serverUrl/live/$username/$password/${canal.id}.ts"
             val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
             val playerPref = prefs.getString("player_type", "Interno")
             
             if (playerPref == "Interno") {
-                playInMiniPlayer(canal)
-                toggleFullScreen()
+                // ✅ VERIFICAÇÃO DE CLIQUE DUPLO PARA EXPANDIR
+                if (isFullScreen) {
+                    // Já está em tela cheia, não faz nada ou recarrega
+                } else {
+                    // Se já estiver tocando esse canal, expande. Se não, toca.
+                    val currentUri = player?.currentMediaItem?.localConfiguration?.uri.toString()
+                    if (currentUri == streamUrl) {
+                        toggleFullScreen()
+                    } else {
+                        playInMiniPlayer(canal)
+                    }
+                }
             } else {
                 abrirPlayerExterno(streamUrl, playerPref ?: "VLC")
             }
@@ -421,13 +451,17 @@ class LiveTvActivity : AppCompatActivity() {
                     holder.tvName.setTextColor(Color.YELLOW); holder.tvName.textSize = 20f 
                     view.setBackgroundResource(R.drawable.bg_focus_neon)
                     view.animate().scaleX(1.15f).scaleY(1.15f).setDuration(200).start()
-                    playInMiniPlayer(item)
+                    // Chama a função de clique (que lida com o play na mini tela)
+                    onClick(item)
                 } else {
                     holder.tvName.setTextColor(Color.WHITE); holder.tvName.textSize = 16f
                     view.setBackgroundResource(0); view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start()
                 }
             }
-            holder.itemView.setOnClickListener { onClick(item) }
+            holder.itemView.setOnClickListener { 
+                // Clique manual (touch ou OK do controle)
+                onClick(item) 
+            }
         }
         private fun carregarEpg(holder: VH, canal: LiveStream) {
             epgCacheMap[canal.id]?.let { mostrarEpg(holder, it); return }

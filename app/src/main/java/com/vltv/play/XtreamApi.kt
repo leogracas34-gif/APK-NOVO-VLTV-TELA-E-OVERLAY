@@ -1,17 +1,19 @@
 package com.vltv.play
 
-import okhttp3.OkHttpClient // ✅ Importado para configurar a conexão
+import okhttp3.Cache
+import okhttp3.Interceptor
+import okhttp3.OkHttpClient
 import retrofit2.Call
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
 import retrofit2.http.Query
-import java.util.concurrent.TimeUnit // ✅ Importado para configurar os tempos
+import java.io.File
+import java.util.concurrent.TimeUnit
 
 // ---------------------
-// Modelos de Dados (TODOS MANTIDOS)
+// Modelos de Dados (MANTIDOS)
 // ---------------------
-
 data class XtreamLoginResponse(val user_info: UserInfo?, val server_info: ServerInfo?)
 data class UserInfo(val username: String?, val status: String?, val exp_date: String?)
 data class ServerInfo(val url: String?, val port: String?, val server_protocol: String?)
@@ -26,43 +28,19 @@ data class LiveStream(val stream_id: Int, val name: String, val stream_icon: Str
     val icon: String? get() = stream_icon
 }
 
-data class VodStream(
-    val stream_id: Int,
-    val name: String,
-    val title: String?,
-    val stream_icon: String?,
-    val container_extension: String?,
-    val rating: String?
-) {
-    val id: Int get() = stream_id
-    val icon: String? get() = stream_icon
-    val extension: String? get() = container_extension
-}
-
-data class SeriesStream(
-    val series_id: Int,
-    val name: String,
-    val cover: String?,
-    val rating: String?
-) {
-    val id: Int get() = series_id
-    val icon: String? get() = cover
-}
-
+data class VodStream(val stream_id: Int, val name: String, val title: String?, val stream_icon: String?, val container_extension: String?, val rating: String?)
+data class SeriesStream(val series_id: Int, val name: String, val cover: String?, val rating: String?)
 data class SeriesInfoResponse(val episodes: Map<String, List<EpisodeStream>>?)
 data class EpisodeStream(val id: String, val title: String, val container_extension: String?, val season: Int, val episode_num: Int, val info: EpisodeInfo?)
 data class EpisodeInfo(val plot: String?, val duration: String?, val movie_image: String?)
-
 data class VodInfoResponse(val info: VodInfoData?)
 data class VodInfoData(val plot: String?, val genre: String?, val director: String?, val cast: String?, val releasedate: String?, val rating: String?, val movie_image: String?)
-
 data class EpgWrapper(val epg_listings: List<EpgResponseItem>?)
 data class EpgResponseItem(val id: String?, val epg_id: String?, val title: String?, val lang: String?, val start: String?, val end: String?, val description: String?, val channel_id: String?, val start_timestamp: String?, val stop_timestamp: String?, val stop: String?)
 
 // ---------------------
-// Interface Retrofit (TODAS AS FUNÇÕES ORIGINAIS + AJUSTES)
+// Interface Retrofit
 // ---------------------
-
 interface XtreamService {
     @GET("player_api.php")
     fun login(@Query("username") user: String, @Query("password") pass: String): Call<XtreamLoginResponse>
@@ -77,29 +55,7 @@ interface XtreamService {
     fun getVodCategories(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_vod_categories"): Call<List<LiveCategory>>
 
     @GET("player_api.php")
-    fun getVodStreams(
-        @Query("username") user: String, 
-        @Query("password") pass: String, 
-        @Query("action") action: String = "get_vod_streams", 
-        @Query("category_id") categoryId: String = "0"
-    ): Call<List<VodStream>>
-
-    @GET("player_api.php")
     fun getAllVodStreams(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_vod_streams"): Call<List<VodStream>>
-
-    @GET("player_api.php")
-    fun getVodInfo(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_vod_info", @Query("vod_id") vodId: Int): Call<VodInfoResponse>
-
-    @GET("player_api.php")
-    fun getSeriesCategories(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_series_categories"): Call<List<LiveCategory>>
-
-    @GET("player_api.php")
-    fun getSeries(
-        @Query("username") user: String, 
-        @Query("password") pass: String, 
-        @Query("action") action: String = "get_series", 
-        @Query("category_id") categoryId: String = "0"
-    ): Call<List<SeriesStream>>
 
     @GET("player_api.php")
     fun getAllSeries(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_series"): Call<List<SeriesStream>>
@@ -115,14 +71,22 @@ object XtreamApi {
     private var retrofit: Retrofit? = null
     private var baseUrl: String = "http://tvblack.shop/"
 
-    // ✅ CONFIGURAÇÃO TURBINADA DO OKHTTP (GZIP + TIMEOUTS)
+    // ✅ CONFIGURAÇÃO ULTRA VELOCIDADE
     private val okHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
-            // Timeouts longos para garantir que listas gigantes de 50mil filmes baixem sem erro
-            .connectTimeout(90, TimeUnit.SECONDS)
-            .readTimeout(90, TimeUnit.SECONDS)
-            .writeTimeout(90, TimeUnit.SECONDS)
-            // Retry automático em caso de oscilação de rede
+            // 1. GZIP INTERCEPTOR: Força o cabeçalho de compressão
+            .addInterceptor { chain ->
+                val request = chain.request().newBuilder()
+                    .header("Accept-Encoding", "gzip")
+                    .header("Connection", "keep-alive")
+                    .header("Accept", "*/*")
+                    .build()
+                chain.proceed(request)
+            }
+            // 2. TIMEOUTS INTELIGENTES: Longos para listas gigantes, mas com retry
+            .connectTimeout(60, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
             .build()
     }
@@ -136,7 +100,7 @@ object XtreamApi {
         if (retrofit == null) {
             retrofit = Retrofit.Builder()
                 .baseUrl(baseUrl)
-                .client(okHttpClient) // ✅ INJEÇÃO DO CLIENTE OTIMIZADO
+                .client(okHttpClient)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build()
         }

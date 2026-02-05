@@ -16,6 +16,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
 import com.vltv.play.databinding.ActivityHomeBinding
+import com.vltv.play.DownloadHelper
 import com.vltv.play.data.AppDatabase
 import com.vltv.play.data.VodEntity
 import com.vltv.play.data.SeriesEntity
@@ -41,8 +42,12 @@ class HomeActivity : AppCompatActivity() {
     // ✅ VARIÁVEL DE PERFIL INTEGRADA
     private var currentProfile: String = "Padrao"
 
-    // ✅ INSTÂNCIA DO BANCO DE DADOS ROOM (MANTIDA)
+    // ✅ INSTÂNCIA DO BANCO DE DADOS ROOM
     private val database by lazy { AppDatabase.getDatabase(this) }
+
+    // ✅ CONTROLE PARA EVITAR RECARREGAMENTO DESNECESSÁRIO NA TELA
+    private var isMoviesLoaded = false
+    private var isSeriesLoaded = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -61,19 +66,19 @@ class HomeActivity : AppCompatActivity() {
         setupClicks()
         setupFirebaseRemoteConfig() // ✅ Chamada ativada para o Firebase
         
-        // ✅ 1. CARREGAMENTO IMEDIATO (INSTANTÂNEO DO BANCO)
+        // 1. TENTA CARREGAR O QUE JÁ TEM (BANCO)
         carregarDadosLocaisImediato()
         
-        // ✅ 2. INICIA DOWNLOAD SILENCIOSO EM BACKGROUND (TURBINADO)
-        sincronizarConteudoSilenciosamente()
+        // 2. DISPARA A ATUALIZAÇÃO (PRIORIDADE ALTA PARA EXIBIÇÃO)
+        sincronizarConteudoComPrioridadeVisual()
 
-        // ✅ 3. CARREGA O HISTÓRICO LOCAL
+        // 3. HISTÓRICO
         carregarContinuarAssistindoLocal()
 
         // ✅ LÓGICA KIDS: Verifica se o perfil selecionado foi o Kids
         val isKidsMode = intent.getBooleanExtra("IS_KIDS_MODE", false)
         if (isKidsMode) {
-            currentProfile = "Kids" // Garante o nome do perfil Kids
+            currentProfile = "Kids" 
             binding.root.postDelayed({
                 binding.cardKids.performClick()
                 Toast.makeText(this, "Modo Kids Ativado", Toast.LENGTH_SHORT).show()
@@ -81,24 +86,25 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ LÊ DO BANCO DE DADOS PARA A TELA (ZERO DELAY)
+    // ✅ LÊ DO BANCO DE DADOS PARA A TELA (ZERO DELAY SE JÁ TIVER DADOS)
     private fun carregarDadosLocaisImediato() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 // Busca os itens salvos no banco Room
                 val localMovies = database.streamDao().getRecentVods(20)
-                val movieItems = localMovies.map { VodItem(it.stream_id.toString(), it.name, it.stream_icon ?: "") }
-
                 val localSeries = database.streamDao().getRecentSeries(20)
-                val seriesItems = localSeries.map { VodItem(it.series_id.toString(), it.name, it.cover ?: "") }
 
                 withContext(Dispatchers.Main) {
-                    if (movieItems.isNotEmpty()) {
+                    if (localMovies.isNotEmpty()) {
+                        isMoviesLoaded = true
+                        val movieItems = localMovies.map { VodItem(it.stream_id.toString(), it.name, it.stream_icon ?: "") }
                         binding.rvRecentlyAdded.adapter = HomeRowAdapter(movieItems) { selectedItem ->
                             abrirDetalhesFilme(selectedItem)
                         }
                     }
-                    if (seriesItems.isNotEmpty()) {
+                    if (localSeries.isNotEmpty()) {
+                        isSeriesLoaded = true
+                        val seriesItems = localSeries.map { VodItem(it.series_id.toString(), it.name, it.cover ?: "") }
                         binding.rvRecentSeries.adapter = HomeRowAdapter(seriesItems) { selectedItem ->
                             abrirDetalhesSerie(selectedItem)
                         }
@@ -110,8 +116,8 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ SINCRONIZAÇÃO EM SEGUNDO PLANO (OTIMIZADA COM XTREAM API + GZIP)
-    private fun sincronizarConteudoSilenciosamente() {
+    // ✅ NOVA LÓGICA: MOSTRAR PRIMEIRO, SALVAR DEPOIS
+    private fun sincronizarConteudoComPrioridadeVisual() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val user = prefs.getString("username", "") ?: ""
         val pass = prefs.getString("password", "") ?: ""
@@ -122,73 +128,114 @@ class HomeActivity : AppCompatActivity() {
             try {
                 val palavrasProibidas = listOf("XXX", "PORN", "ADULTO", "SEXO", "EROTICO", "🔞", "PORNÔ")
 
-                // --- 1. Sincroniza Filmes (VOD) usando API Rápida ---
-                val responseVod = XtreamApi.service.getAllVodStreams(user, pass).execute()
-                if (responseVod.isSuccessful && responseVod.body() != null) {
-                    val listApi = responseVod.body()!!
-                    val vodEntities = listApi.filter { vod ->
-                        !palavrasProibidas.any { vod.name.uppercase().contains(it) }
-                    }.map { vod ->
-                        VodEntity(
-                            stream_id = vod.stream_id,
-                            name = vod.name,
-                            title = vod.name,
-                            stream_icon = vod.stream_icon,
-                            container_extension = vod.container_extension,
-                            rating = vod.rating,
-                            category_id = "0", // Otimização
-                            added = System.currentTimeMillis() // Salva data atual
-                        )
-                    }
-                    database.streamDao().insertVodStreams(vodEntities)
-                }
+                // --- 1. Sincroniza Filmes (VOD) ---
+                // Se a internet estiver lenta, ele vai demorar no execute(), mas assim que baixar, mostra NA HORA.
+                try {
+                    val responseVod = XtreamApi.service.getAllVodStreams(user, pass).execute()
+                    if (responseVod.isSuccessful && responseVod.body() != null) {
+                        val listApi = responseVod.body()!!
+                        
+                        // Processamento na memória (Rápido)
+                        val vodEntities = listApi.filter { vod ->
+                            !palavrasProibidas.any { vod.name.uppercase().contains(it) }
+                        }.map { vod ->
+                            VodEntity(
+                                stream_id = vod.stream_id,
+                                name = vod.name,
+                                title = vod.name,
+                                stream_icon = vod.stream_icon,
+                                container_extension = vod.container_extension,
+                                rating = vod.rating,
+                                category_id = "0",
+                                added = System.currentTimeMillis() // Ordem de chegada
+                            )
+                        }
 
-                // --- 2. Sincroniza Séries usando API Rápida ---
-                val responseSeries = XtreamApi.service.getAllSeries(user, pass).execute()
-                if (responseSeries.isSuccessful && responseSeries.body() != null) {
-                    val listApi = responseSeries.body()!!
-                    val seriesEntities = listApi.filter { serie ->
-                        !palavrasProibidas.any { serie.name.uppercase().contains(it) }
-                    }.map { serie ->
-                        SeriesEntity(
-                            series_id = serie.series_id,
-                            name = serie.name,
-                            cover = serie.cover,
-                            rating = serie.rating,
-                            category_id = "0",
-                            last_modified = System.currentTimeMillis()
-                        )
-                    }
-                    database.streamDao().insertSeriesStreams(seriesEntities)
-                }
+                        // 🔥 O PULO DO GATO: Se a tela ainda está vazia, MOSTRA AGORA!
+                        // Não espera gravar no banco (que demora)
+                        if (!isMoviesLoaded) {
+                            val recentesVisual = vodEntities.take(20).map { 
+                                VodItem(it.stream_id.toString(), it.name, it.stream_icon ?: "") 
+                            }
+                            withContext(Dispatchers.Main) {
+                                binding.rvRecentlyAdded.adapter = HomeRowAdapter(recentesVisual) { selectedItem ->
+                                    abrirDetalhesFilme(selectedItem)
+                                }
+                                isMoviesLoaded = true // Marca que já mostramos
+                            }
+                        }
 
-                // --- 3. Sincroniza Canais (LIVE) ---
-                // Para canais, se a lista for muito grande, o GET padrão resolve bem
-                val responseLive = XtreamApi.service.getLiveStreams(user, pass, categoryId = "").execute() // Pega tudo se a API permitir vazio ou usar getAll se tiver
-                // Se a API não tiver getAll para live, mantemos a lógica antiga ou usamos getLiveStreams generico
-                if (responseLive.isSuccessful && responseLive.body() != null) {
-                    val listApi = responseLive.body()!!
-                    val liveEntities = listApi.map { canal ->
-                         LiveStreamEntity(
-                            stream_id = canal.stream_id,
-                            name = canal.name,
-                            stream_icon = canal.stream_icon,
-                            epg_channel_id = canal.epg_channel_id,
-                            category_id = "0" // Ajuste conforme necessário
-                        )
+                        // AGORA SIM, salva no banco com calma em segundo plano
+                        database.streamDao().insertVodStreams(vodEntities)
                     }
-                    database.streamDao().insertLiveStreams(liveEntities)
-                }
+                } catch (e: Exception) { e.printStackTrace() }
 
-                // --- 4. Atualiza a tela sem travar ---
-                withContext(Dispatchers.Main) {
-                    carregarDadosLocaisImediato()
-                }
+                // --- 2. Sincroniza Séries ---
+                try {
+                    val responseSeries = XtreamApi.service.getAllSeries(user, pass).execute()
+                    if (responseSeries.isSuccessful && responseSeries.body() != null) {
+                        val listApi = responseSeries.body()!!
+                        
+                        val seriesEntities = listApi.filter { serie ->
+                            !palavrasProibidas.any { serie.name.uppercase().contains(it) }
+                        }.map { serie ->
+                            SeriesEntity(
+                                series_id = serie.series_id,
+                                name = serie.name,
+                                cover = serie.cover,
+                                rating = serie.rating,
+                                category_id = "0",
+                                last_modified = System.currentTimeMillis()
+                            )
+                        }
+
+                        // 🔥 MOSTRA AGORA SE TIVER VAZIO
+                        if (!isSeriesLoaded) {
+                            val recentesVisual = seriesEntities.take(20).map { 
+                                VodItem(it.series_id.toString(), it.name, it.cover ?: "") 
+                            }
+                            withContext(Dispatchers.Main) {
+                                binding.rvRecentSeries.adapter = HomeRowAdapter(recentesVisual) { selectedItem ->
+                                    abrirDetalhesSerie(selectedItem)
+                                }
+                                isSeriesLoaded = true
+                            }
+                        }
+
+                        database.streamDao().insertSeriesStreams(seriesEntities)
+                    }
+                } catch (e: Exception) { e.printStackTrace() }
+
+                // --- 3. Sincroniza Canais (LIVE) - Leve e rápido ---
+                try {
+                    val responseLive = XtreamApi.service.getLiveStreams(user, pass, categoryId = "").execute()
+                    if (responseLive.isSuccessful && responseLive.body() != null) {
+                        val listApi = responseLive.body()!!
+                        val liveEntities = listApi.map { canal ->
+                             LiveStreamEntity(
+                                stream_id = canal.stream_id,
+                                name = canal.name,
+                                stream_icon = canal.stream_icon,
+                                epg_channel_id = canal.epg_channel_id,
+                                category_id = "0"
+                            )
+                        }
+                        database.streamDao().insertLiveStreams(liveEntities)
+                    }
+                } catch (e: Exception) { e.printStackTrace() }
+
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
     }
+    
+    // MANTIDA ESTRUTURA ORIGINAL PARA COMPATIBILIDADE
+    private fun carregarListasDaHome() {
+        carregarDadosLocaisImediato() 
+    }
+    private fun carregarFilmesRecentes() { carregarDadosLocaisImediato() }
+    private fun carregarSeriesRecentes() { carregarDadosLocaisImediato() }
 
     // ✅ AUXILIARES DE NAVEGAÇÃO
     private fun abrirDetalhesFilme(item: VodItem) {
@@ -211,7 +258,7 @@ class HomeActivity : AppCompatActivity() {
         startActivity(intent)
     }
 
-    // ✅ ESTRUTURA PARA BANNER DINÂMICO (MANTIDA ORIGINAL)
+    // ✅ ESTRUTURA PARA BANNER DINÂMICO (FIREBASE) TOTALMENTE MANTIDA
     private fun setupFirebaseRemoteConfig() {
         val remoteConfig = Firebase.remoteConfig
         val configSettings = remoteConfigSettings { minimumFetchIntervalInSeconds = 60 }
@@ -255,7 +302,6 @@ class HomeActivity : AppCompatActivity() {
 
             binding.cardBanner.requestFocus()
             
-            // RECARREGA O CONTINUAR ASSISTINDO
             carregarContinuarAssistindoLocal()
             
         } catch (e: Exception) {

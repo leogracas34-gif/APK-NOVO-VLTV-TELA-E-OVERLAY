@@ -29,6 +29,8 @@ import com.vltv.play.data.VodEntity
 import com.vltv.play.data.SeriesEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job // ADICIONADO PARA O BANNER
+import kotlinx.coroutines.delay // ADICIONADO PARA O BANNER
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -51,6 +53,13 @@ class HomeActivity : AppCompatActivity() {
 
     // ✅ INSTÂNCIA DO BANCO DE DADOS ROOM (ADICIONADO)
     private val database by lazy { AppDatabase.getDatabase(this) }
+
+    // --- VARIÁVEIS DO NOVO BANNER INTERATIVO ---
+    private var listaBannerItems: List<Any> = emptyList()
+    private var bannerJob: Job? = null
+    private var currentBannerIndex = 0
+    // IDs de categorias que são NOVELAS para não aparecerem no banner (Ex: 15, 20)
+    private val categoriasNovelas = listOf("15", "20", "30") 
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -129,9 +138,131 @@ class HomeActivity : AppCompatActivity() {
                             startActivity(intent)
                         }
                     }
+                    
+                    // --- NOVO: PREPARA O BANNER COM DADOS LOCAIS ---
+                    prepararBannerDosRecentes(localMovies, localSeries)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+            }
+        }
+    }
+
+    // --- FUNÇÕES DO NOVO BANNER INTERATIVO ---
+
+    private fun prepararBannerDosRecentes(filmes: List<VodEntity>, series: List<SeriesEntity>) {
+        // Filtra novelas das séries
+        val seriesFiltradas = series.filter { it.category_id !in categoriasNovelas }
+        
+        // Mistura os 5 últimos filmes e 5 últimas séries
+        val mixLançamentos = (filmes.take(5) + seriesFiltradas.take(5)).shuffled()
+        
+        if (mixLançamentos.isNotEmpty()) {
+            listaBannerItems = mixLançamentos
+            iniciarCicloBanner()
+        } else {
+            // Se o banco estiver vazio, usa o fallback do TMDB antigo
+            carregarBannerAlternado()
+        }
+    }
+
+    private fun iniciarCicloBanner() {
+        bannerJob?.cancel()
+        bannerJob = lifecycleScope.launch {
+            while (true) {
+                if (listaBannerItems.isNotEmpty()) {
+                    exibirItemNoBanner(listaBannerItems[currentBannerIndex])
+                    delay(8000) // Troca a cada 8 segundos
+                    currentBannerIndex = (currentBannerIndex + 1) % listaBannerItems.size
+                } else {
+                    break
+                }
+            }
+        }
+    }
+
+    private fun exibirItemNoBanner(item: Any) {
+        val titulo: String
+        val id: Int
+        val rating: String
+        val icon: String
+        val isSeries: Boolean
+
+        if (item is VodEntity) {
+            titulo = item.name
+            id = item.stream_id
+            rating = item.rating ?: "0.0"
+            icon = item.stream_icon ?: ""
+            isSeries = false
+        } else if (item is SeriesEntity) {
+            titulo = item.name
+            id = item.series_id
+            rating = item.rating ?: "0.0"
+            icon = item.cover ?: ""
+            isSeries = true
+        } else return
+
+        // Atualiza UI
+        binding.tvBannerTitle.text = titulo
+        binding.tvBannerOverview.text = if (isSeries) "Nova Série Adicionada" else "Novo Filme Adicionado"
+        
+        // Tenta atualizar nota e botão se existirem no XML novo, senão ignora
+        try {
+            val tvRating = findViewById<TextView>(R.id.tvBannerRating)
+            tvRating?.text = "⭐ $rating"
+            val btnPlay = findViewById<View>(R.id.btnBannerPlay)
+            btnPlay?.visibility = View.VISIBLE
+        } catch (e: Exception) {}
+
+        // Busca backdrop
+        buscarImagemBackgroundTMDB(titulo, isSeries, icon)
+
+        // CONFIGURA O CLIQUE REAL PARA ABRIR O VÍDEO
+        binding.cardBanner.setOnClickListener {
+            val intent = if (isSeries) {
+                Intent(this, SeriesDetailsActivity::class.java).apply { putExtra("series_id", id) }
+            } else {
+                Intent(this, DetailsActivity::class.java).apply { putExtra("stream_id", id) }
+            }
+            intent.putExtra("name", titulo)
+            intent.putExtra("icon", icon)
+            intent.putExtra("PROFILE_NAME", currentProfile)
+            intent.putExtra("is_series", isSeries)
+            startActivity(intent)
+        }
+    }
+
+    private fun buscarImagemBackgroundTMDB(nome: String, isSeries: Boolean, fallback: String) {
+        val tipo = if (isSeries) "tv" else "movie"
+        val query = URLEncoder.encode(nome, "UTF-8")
+        val url = "https://api.themoviedb.org/3/search/$tipo?api_key=$TMDB_API_KEY&query=$query&language=pt-BR"
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val response = URL(url).readText()
+                val results = JSONObject(response).getJSONArray("results")
+                if (results.length() > 0) {
+                    val backdropPath = results.getJSONObject(0).optString("backdrop_path")
+                    val tmdbId = results.getJSONObject(0).optString("id")
+                    
+                    withContext(Dispatchers.Main) {
+                        Glide.with(this@HomeActivity)
+                            .load("https://image.tmdb.org/t/p/original$backdropPath")
+                            .centerCrop()
+                            .placeholder(binding.imgBanner.drawable)
+                            .into(binding.imgBanner)
+                        
+                        buscarLogoOverlayHome(tmdbId, tipo, nome)
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        Glide.with(this@HomeActivity).load(fallback).centerCrop().into(binding.imgBanner)
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Glide.with(this@HomeActivity).load(fallback).centerCrop().into(binding.imgBanner)
+                }
             }
         }
     }
@@ -238,6 +369,7 @@ class HomeActivity : AppCompatActivity() {
                 val bannerTitle = remoteConfig.getString("titulo_banner_promocional")
                 
                 if (bannerUrl.isNotEmpty()) {
+                    bannerJob?.cancel() // PAUSA O BANNER AUTOMÁTICO SE TIVER PROMOÇÃO
                     // ✅ Se houver uma URL no Firebase, ela substitui o banner dinâmico do TMDB
                     runOnUiThread {
                         binding.tvBannerTitle.visibility = View.VISIBLE
@@ -258,8 +390,10 @@ class HomeActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // O TMDB carrega primeiro, e o Firebase sobrescreve se houver algo configurado
-        carregarBannerAlternado()
+        // Se o banner interativo ainda não tem itens, tenta o fallback
+        if (listaBannerItems.isEmpty()) {
+            carregarBannerAlternado()
+        }
 
         try {
             binding.etSearch.setText("")
@@ -324,9 +458,18 @@ class HomeActivity : AppCompatActivity() {
             card.isClickable = true
             
             card.setOnFocusChangeListener { _, hasFocus ->
-                card.scaleX = if (hasFocus) 1.05f else 1f
-                card.scaleY = if (hasFocus) 1.05f else 1f
-                card.elevation = if (hasFocus) 20f else 5f
+                if (hasFocus) {
+                    // --- CORREÇÃO DO ZOOM QUE "COME" O VIZINHO ---
+                    // Usamos translationZ para o botão focado ficar ACIMA dos outros
+                    card.animate().scaleX(1.08f).scaleY(1.08f).translationZ(10f).setDuration(200).start()
+                    
+                    // Se for o banner, mostra o botão "Assistir" com mais destaque (se houver)
+                    if (card.id == R.id.cardBanner) {
+                         try { findViewById<View>(R.id.btnBannerPlay)?.alpha = 1.0f } catch (e: Exception) {}
+                    }
+                } else {
+                    card.animate().scaleX(1f).scaleY(1f).translationZ(0f).setDuration(200).start()
+                }
             }
             
             card.setOnClickListener {
@@ -355,7 +498,7 @@ class HomeActivity : AppCompatActivity() {
                         intent.putExtra("PROFILE_NAME", "Kids") // ✅ FORÇA PERFIL KIDS
                         startActivity(intent)
                     }
-                    R.id.cardBanner -> { /* ação banner */ }
+                    // Clique do Banner tratado individualmente em 'exibirItemNoBanner'
                 }
             }
         }

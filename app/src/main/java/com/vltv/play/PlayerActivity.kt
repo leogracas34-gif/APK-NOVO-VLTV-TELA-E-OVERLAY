@@ -148,12 +148,12 @@ class PlayerActivity : AppCompatActivity() {
         btnPlayNextEpisode.isFocusable = true
         btnPlayNextEpisode.isFocusableInTouchMode = true
         
-        // ✅ PADRÃO NEON + AMARELO NO BOTÃO DE PRÓXIMO
+        // ✅ CORREÇÃO: Zoom suave de 1.1f e cor Branca original mantida
         btnPlayNextEpisode.setOnFocusChangeListener { view, hasFocus ->
             if (hasFocus) {
                 view.setBackgroundResource(R.drawable.bg_focus_neon)
-                btnPlayNextEpisode.setTextColor(Color.YELLOW)
-                view.animate().scaleX(1.15f).scaleY(1.15f).setDuration(150).start()
+                btnPlayNextEpisode.setTextColor(Color.WHITE)
+                view.animate().scaleX(1.1f).scaleY(1.1f).setDuration(150).start()
             } else {
                 view.setBackgroundResource(0) // Ou seu background padrão
                 btnPlayNextEpisode.setTextColor(Color.WHITE)

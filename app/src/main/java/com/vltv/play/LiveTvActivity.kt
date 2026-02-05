@@ -16,7 +16,7 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.recyclerview.widget.LinearLayoutManager // ✅ ALTERADO PARA LISTA
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -107,7 +107,6 @@ class LiveTvActivity : AppCompatActivity() {
         rvCategories.isFocusable = true
         rvCategories.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
 
-        // ✅ MUDANÇA: AGORA É UMA LISTA VERTICAL (NÃO MAIS GRID)
         rvChannels.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
         rvChannels.isFocusable = true
         rvChannels.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
@@ -135,7 +134,6 @@ class LiveTvActivity : AppCompatActivity() {
         val streamUrl = "$serverUrl/live/$username/$password/${canal.id}.ts"
         val mediaItem = MediaItem.fromUri(Uri.parse(streamUrl))
         
-        // Verifica se é o mesmo item para não recarregar à toa
         val currentItem = player?.currentMediaItem
         if (currentItem?.localConfiguration?.uri.toString() != streamUrl) {
             player?.setMediaItem(mediaItem)
@@ -191,54 +189,51 @@ class LiveTvActivity : AppCompatActivity() {
         })
     }
 
-    // ✅ LÓGICA DE EXPANSÃO DINÂMICA (ZERO DELAY + FOCO PRESERVADO)
     private fun toggleFullScreen() {
         val containerLateral = findViewById<View>(R.id.layoutInfoEpgLateral)
         val scrollEpg = findViewById<View>(R.id.layoutInfoEpgScroll)
-        val colunaDoMeio = rvChannels.parent as View // Pega o layout que segura a lista e o titulo
+        val colunaDoMeio = rvChannels.parent as View 
 
         isFullScreen = !isFullScreen
 
         if (isFullScreen) {
-            // Modo Tela Cheia: Esconde listas, expande player
+            // TELA CHEIA: Esconde listas
             rvCategories.visibility = View.GONE
             colunaDoMeio.visibility = View.GONE
             scrollEpg.visibility = View.GONE
 
-            // Expande container lateral para ocupar tudo
+            // Estica lateral
             val paramsSide = containerLateral.layoutParams
             paramsSide.width = ViewGroup.LayoutParams.MATCH_PARENT
             containerLateral.layoutParams = paramsSide
 
-            // Expande container do player para ocupar tudo
+            // Estica player
             val paramsPlayer = containerMiniPlayer.layoutParams
             paramsPlayer.height = ViewGroup.LayoutParams.MATCH_PARENT
             containerMiniPlayer.layoutParams = paramsPlayer
 
             miniPlayerView.useController = true
-            miniPlayerView.requestFocus() // Passa foco para o player
+            miniPlayerView.requestFocus()
         } else {
-            // Modo Mini: Restaura listas e tamanhos
+            // MODO NORMAL: Mostra listas
             rvCategories.visibility = View.VISIBLE
             colunaDoMeio.visibility = View.VISIBLE
             scrollEpg.visibility = View.VISIBLE
 
-            // Restaura largura lateral (380dp)
+            // Restaura tamanhos
             val paramsSide = containerLateral.layoutParams
             paramsSide.width = dpToPx(380)
             containerLateral.layoutParams = paramsSide
 
-            // Restaura altura do player (220dp)
             val paramsPlayer = containerMiniPlayer.layoutParams
             paramsPlayer.height = dpToPx(220)
             containerMiniPlayer.layoutParams = paramsPlayer
 
             miniPlayerView.useController = false
-            rvChannels.requestFocus() // ✅ O FOCO VOLTA PARA A LISTA (ONDE ESTAVA ANTES)
+            rvChannels.requestFocus()
         }
     }
 
-    // Função auxiliar para converter DP em Pixels
     private fun dpToPx(dp: Int): Int {
         return (dp * resources.displayMetrics.density).toInt()
     }
@@ -360,11 +355,9 @@ class LiveTvActivity : AppCompatActivity() {
             val playerPref = prefs.getString("player_type", "Interno")
             
             if (playerPref == "Interno") {
-                // ✅ VERIFICAÇÃO DE CLIQUE DUPLO PARA EXPANDIR
                 if (isFullScreen) {
-                    // Já está em tela cheia, não faz nada ou recarrega
+                    // Já está FullScreen, se clicar de novo não faz nada ou mostra controles
                 } else {
-                    // Se já estiver tocando esse canal, expande. Se não, toca.
                     val currentUri = player?.currentMediaItem?.localConfiguration?.uri.toString()
                     if (currentUri == streamUrl) {
                         toggleFullScreen()
@@ -438,7 +431,12 @@ class LiveTvActivity : AppCompatActivity() {
             val tvNext: TextView = v.findViewById(R.id.tvNext); val imgLogo: ImageView = v.findViewById(R.id.imgLogo)
         }
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
-            return VH(LayoutInflater.from(parent.context).inflate(R.layout.item_channel, parent, false))
+            val view = LayoutInflater.from(parent.context).inflate(R.layout.item_channel, parent, false)
+            // ✅ FORÇA LAYOUT COMPACTO (LISTA FINA)
+            val params = view.layoutParams
+            params.height = dpToPx(60) // Altura fixa de 60dp para simular lista de texto
+            view.layoutParams = params
+            return VH(view)
         }
         override fun onBindViewHolder(holder: VH, position: Int) {
             val item = list[position]
@@ -448,25 +446,20 @@ class LiveTvActivity : AppCompatActivity() {
             holder.itemView.isFocusable = true
             holder.itemView.setOnFocusChangeListener { view, hasFocus ->
                 if (hasFocus) {
-                    holder.tvName.setTextColor(Color.YELLOW); holder.tvName.textSize = 20f 
+                    holder.tvName.setTextColor(Color.YELLOW); holder.tvName.textSize = 18f 
                     view.setBackgroundResource(R.drawable.bg_focus_neon)
-                    view.animate().scaleX(1.15f).scaleY(1.15f).setDuration(200).start()
-                    // Chama a função de clique (que lida com o play na mini tela)
+                    view.animate().scaleX(1.02f).scaleY(1.02f).setDuration(150).start() // Efeito sutil
                     onClick(item)
                 } else {
-                    holder.tvName.setTextColor(Color.WHITE); holder.tvName.textSize = 16f
-                    view.setBackgroundResource(0); view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start()
+                    holder.tvName.setTextColor(Color.WHITE); holder.tvName.textSize = 14f
+                    view.setBackgroundResource(0); view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
                 }
             }
-            holder.itemView.setOnClickListener { 
-                // Clique manual (touch ou OK do controle)
-                onClick(item) 
-            }
+            holder.itemView.setOnClickListener { onClick(item) }
         }
         private fun carregarEpg(holder: VH, canal: LiveStream) {
             epgCacheMap[canal.id]?.let { mostrarEpg(holder, it); return }
             
-            // ✅ CORREÇÃO: Argumentos Nomeados
             val idParaApi = canal.id.toString()
             XtreamApi.service.getShortEpg(
                 user = user, 
@@ -493,10 +486,16 @@ class LiveTvActivity : AppCompatActivity() {
         override fun getItemCount() = list.size
     }
 
+    // ✅ CORREÇÃO BOTÃO VOLTAR
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
-            if (isFullScreen) { toggleFullScreen(); return true }
-            finish(); return true
+            if (isFullScreen) { 
+                toggleFullScreen() 
+                return true // ✅ Consome o evento e não deixa fechar o app
+            }
+            // Se não estiver full, fecha a activity normalmente
+            finish()
+            return true
         }
         return super.onKeyDown(keyCode, event)
     }

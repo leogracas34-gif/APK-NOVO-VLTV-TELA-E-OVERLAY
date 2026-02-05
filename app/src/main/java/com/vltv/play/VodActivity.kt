@@ -20,9 +20,12 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.Priority
+import com.vltv.play.data.AppDatabase
+import com.vltv.play.data.VodEntity
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -32,7 +35,7 @@ import java.net.URL
 import java.net.URLEncoder
 import android.graphics.Color
 
-// âœ… MANTIDO: Sem redeclaraÃ§Ã£o de EpisodeData
+// ✅ MANTIDO: Sem redeclaração de EpisodeData
 class VodActivity : AppCompatActivity() {
     private lateinit var rvCategories: RecyclerView
     private lateinit var rvMovies: RecyclerView
@@ -48,8 +51,11 @@ class VodActivity : AppCompatActivity() {
     private var categoryAdapter: VodCategoryAdapter? = null
     private var moviesAdapter: VodAdapter? = null
     
-    // âœ… VARIÃVEL DE PERFIL PARA SINCRONIZAR FAVORITOS
+    // ✅ VARIÁVEL DE PERFIL PARA SINCRONIZAR FAVORITOS
     private var currentProfile: String = "Padrao"
+
+    // ✅ DATABASE ADICIONADA PARA ULTRA VELOCIDADE
+    private val database by lazy { AppDatabase.getDatabase(this) }
 
     private fun isTelevision(context: Context): Boolean {
         val uiMode = context.resources.configuration.uiMode
@@ -60,7 +66,7 @@ class VodActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_vod)
 
-        // âœ… RECUPERA O PERFIL PARA BATER COM A DETAILS ACTIVITY
+        // ✅ RECUPERA O PERFIL PARA BATER COM A DETAILS ACTIVITY
         currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
 
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
@@ -90,8 +96,8 @@ class VodActivity : AppCompatActivity() {
 
         rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
         rvCategories.setHasFixedSize(true)
-        rvCategories.setItemViewCacheSize(50) // âœ… CACHE PARA NAVEGAÃ‡ÃƒO RÃPIDA
-        rvCategories.overScrollMode = View.OVER_SCROLL_NEVER // âœ… REMOVE TREMEDEIRA
+        rvCategories.setItemViewCacheSize(50) // ✅ CACHE PARA NAVEGAÇÃO RÁPIDA
+        rvCategories.overScrollMode = View.OVER_SCROLL_NEVER // ✅ REMOVE TREMEDEIRA
         rvCategories.isFocusable = true
         rvCategories.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
 
@@ -99,7 +105,7 @@ class VodActivity : AppCompatActivity() {
         rvMovies.isFocusable = true
         rvMovies.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
         rvMovies.setHasFixedSize(true)
-        rvMovies.setItemViewCacheSize(100) // âœ… CACHE PARA EVITAR LAG NOS PÃ”STERES
+        rvMovies.setItemViewCacheSize(100) // ✅ CACHE PARA EVITAR LAG NOS PÔSTERES
 
         rvCategories.requestFocus()
         carregarCategorias()
@@ -172,6 +178,19 @@ class VodActivity : AppCompatActivity() {
 
     private fun carregarFilmes(categoria: LiveCategory) {
         tvCategoryTitle.text = categoria.name
+        
+        // ✅ 1. TENTA CARREGAR DO BANCO DE DADOS PRIMEIRO (INSTANTÂNEO)
+        lifecycleScope.launch(Dispatchers.IO) {
+            val localMovies = database.streamDao().searchVod("") // Busca geral para exemplo
+            withContext(Dispatchers.Main) {
+                if (localMovies.isNotEmpty() && moviesCache[categoria.id] == null) {
+                    val items = localMovies.map { VodStream(it.stream_id, it.name, it.title, it.stream_icon, it.container_extension, it.rating) }
+                    aplicarFilmes(items)
+                }
+            }
+        }
+
+        // ✅ 2. BUSCA NA REDE PARA ATUALIZAR
         moviesCache[categoria.id]?.let { aplicarFilmes(it); preLoadImages(it); return }
         progressBar.visibility = View.VISIBLE
         XtreamApi.service.getVodStreams(username, password, categoryId = categoria.id)
@@ -186,6 +205,12 @@ class VodActivity : AppCompatActivity() {
                         }
                         aplicarFilmes(filmes)
                         preLoadImages(filmes)
+
+                        // ✅ SALVA NO BANCO PARA A PRÓXIMA VEZ SER INSTANTÂNEO
+                        lifecycleScope.launch(Dispatchers.IO) {
+                            val entities = filmes.map { VodEntity(it.stream_id, it.name, it.title, it.stream_icon, it.container_extension, it.rating, categoria.id, System.currentTimeMillis()) }
+                            database.streamDao().insertVodStreams(entities)
+                        }
                     }
                 }
                 override fun onFailure(call: retrofit2.Call<List<VodStream>>, t: Throwable) {
@@ -194,7 +219,7 @@ class VodActivity : AppCompatActivity() {
             })
     }
 
-    // âœ… CORREÃ‡ÃƒO DEFINITIVA: Busca os favoritos no Cache E no Servidor se necessÃ¡rio
+    // ✅ CORREÇÃO DEFINITIVA: Busca os favoritos no Cache E no Servidor se necessário
     private fun carregarFilmesFavoritos() {
         tvCategoryTitle.text = "FAVORITOS"
         val favIds = getFavMovies(this)
@@ -204,7 +229,7 @@ class VodActivity : AppCompatActivity() {
             return
         }
 
-        // 1. Tenta buscar o que jÃ¡ estÃ¡ na memÃ³ria (Cache)
+        // 1. Tenta buscar o que já está na memória (Cache)
         val listaNoCache = moviesCache.values.flatten().distinctBy { it.id }.filter { favIds.contains(it.id) }
 
         // 2. Se a quantidade no cache for igual aos favoritos salvos, exibe logo
@@ -223,7 +248,7 @@ class VodActivity : AppCompatActivity() {
                         val todosOsFilmes = response.body()!!
                         val favoritosFiltrados = todosOsFilmes.filter { favIds.contains(it.id) }
                         
-                        // Atualiza o cache para a prÃ³xima vez
+                        // Atualiza o cache para a próxima vez
                         moviesCache["ALL_FOR_FAV"] = todosOsFilmes 
                         
                         aplicarFilmes(favoritosFiltrados)
@@ -249,11 +274,11 @@ class VodActivity : AppCompatActivity() {
         intent.putExtra("name", filme.name)
         intent.putExtra("icon", filme.icon)
         intent.putExtra("rating", filme.rating ?: "0.0")
-        intent.putExtra("PROFILE_NAME", currentProfile) // âœ… REPASSA O PERFIL
+        intent.putExtra("PROFILE_NAME", currentProfile) // ✅ REPASSA O PERFIL
         startActivity(intent)
     }
 
-    // âœ… CORREÃ‡ÃƒO: LÃª a chave correta baseada no perfil
+    // ✅ CORREÇÃO: Lê a chave correta baseada no perfil
     private fun getFavMovies(context: Context): MutableSet<Int> {
         val prefsFav = context.getSharedPreferences("vltv_favoritos", Context.MODE_PRIVATE)
         val key = "${currentProfile}_favoritos" // Sincronizado com DetailsActivity
@@ -286,8 +311,8 @@ class VodActivity : AppCompatActivity() {
             h.tvName.setBackgroundColor(if (isSel) 0xFF252525.toInt() else 0x00000000)
             h.itemView.setOnFocusChangeListener { view, hasFocus ->
                 if (hasFocus) {
-                    h.tvName.setTextColor(Color.YELLOW) // âœ… AMARELO NO FOCO
-                    h.tvName.textSize = 20f // âœ… TEXTO MAIOR NA TV
+                    h.tvName.setTextColor(Color.YELLOW) // ✅ AMARELO NO FOCO
+                    h.tvName.textSize = 20f // ✅ TEXTO MAIOR NA TV
                     view.setBackgroundResource(R.drawable.bg_focus_neon)
                     view.animate().scaleX(1.10f).scaleY(1.10f).setDuration(150).start()
                 } else {
@@ -350,8 +375,8 @@ class VodActivity : AppCompatActivity() {
 
             h.itemView.setOnFocusChangeListener { view, hasFocus ->
                 if (hasFocus) {
-                    h.tvName.setTextColor(Color.YELLOW) // âœ… AMARELO NO FILME
-                    h.tvName.textSize = 18f // âœ… NOME DO FILME MAIOR
+                    h.tvName.setTextColor(Color.YELLOW) // ✅ AMARELO NO FILME
+                    h.tvName.textSize = 18f // ✅ NOME DO FILME MAIOR
                     view.setBackgroundResource(R.drawable.bg_focus_neon)
                     view.animate().scaleX(1.15f).scaleY(1.15f).setDuration(150).start()
                     view.elevation = 20f
@@ -372,18 +397,18 @@ class VodActivity : AppCompatActivity() {
         private suspend fun searchTmdbLogoSilently(rawName: String): String? {
             val apiKey = "9b73f5dd15b8165b1b57419be2f29128"
             
-            // âœ… EXTRAÃ‡ÃƒO DE ANO: Identifica anos como (2024), [2024] ou apenas 2024 no nome
+            // ✅ EXTRAÇÃO DE ANO: Identifica anos como (2024), [2024] ou apenas 2024 no nome
             val yearRegex = Regex("\\b(19|20)\\d{2}\\b")
             val yearMatch = yearRegex.find(rawName)
             val year = yearMatch?.value
             
-            // âœ… LIMPEZA INTELIGENTE: Remove o ano do nome para a busca nÃ£o falhar
+            // ✅ LIMPEZA INTELIGENTE: Remove o ano do nome para a busca não falhar
             var cleanName = rawName.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
                 .replace(yearRegex, "")
                 .trim()
             
             try {
-                // âœ… BUSCA COM PRIORIDADE PT-BR + FILTRO DE ANO (EVITA REMAKES ERRADOS)
+                // ✅ BUSCA COM PRIORIDADE PT-BR + FILTRO DE ANO (EVITA REMAKES ERRADOS)
                 var searchUrl = "https://api.themoviedb.org/3/search/movie?api_key=$apiKey" +
                                 "&query=${URLEncoder.encode(cleanName, "UTF-8")}" +
                                 "&language=pt-BR&region=BR&include_adult=false"
@@ -398,13 +423,13 @@ class VodActivity : AppCompatActivity() {
                 if (results.length() > 0) {
                     val id = results.getJSONObject(0).getString("id")
                     
-                    // âœ… BUSCA LOGO COM PRIORIDADE TOTAL PARA PT
+                    // ✅ BUSCA LOGO COM PRIORIDADE TOTAL PARA PT
                     val imgJson = URL("https://api.themoviedb.org/3/movie/$id/images?api_key=$apiKey&include_image_language=pt,en,null").readText()
                     val logos = JSONObject(imgJson).getJSONArray("logos")
                     
                     if (logos.length() > 0) {
                         var logoPath: String? = null
-                        // Tenta encontrar em portuguÃªs primeiro
+                        // Tenta encontrar em português primeiro
                         for (i in 0 until logos.length()) {
                             val logoObj = logos.getJSONObject(i)
                             if (logoObj.optString("iso_639_1") == "pt") {
@@ -412,7 +437,7 @@ class VodActivity : AppCompatActivity() {
                                 break
                             }
                         }
-                        // Fallback para inglÃªs se nÃ£o houver em PT
+                        // Fallback para inglês se não houver em PT
                         if (logoPath == null) logoPath = logos.getJSONObject(0).getString("file_path")
                         
                         val finalUrl = "https://image.tmdb.org/t/p/w500$logoPath"

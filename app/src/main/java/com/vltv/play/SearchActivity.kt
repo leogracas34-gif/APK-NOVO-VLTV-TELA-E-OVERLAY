@@ -21,8 +21,11 @@ import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.*
 import kotlin.coroutines.CoroutineContext
 
-// ✅ IMPORTAÇÃO DA DATABASE PARA BUSCA INSTANTÂNEA
+// IMPORTAÇÃO DA DATABASE E ENTIDADES
 import com.vltv.play.data.AppDatabase
+import com.vltv.play.data.VodEntity
+import com.vltv.play.data.SeriesEntity
+import com.vltv.play.data.LiveStreamEntity
 
 class SearchActivity : AppCompatActivity(), CoroutineScope {
 
@@ -33,7 +36,7 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
     private lateinit var progressBar: ProgressBar
     private lateinit var tvEmpty: TextView
     
-    // ✅ DATABASE INICIALIZADA
+    // DATABASE INICIALIZADA VIA LAZY
     private val database by lazy { AppDatabase.getDatabase(this) }
 
     // Variáveis da Busca Otimizada
@@ -59,7 +62,7 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
         setupRecyclerView()
         setupSearchLogic()
         
-        // O PULO DO GATO: Carrega da Database ou API
+        // Carregamento Híbrido: Primeiro Database, depois API
         carregarDadosIniciais()
     }
 
@@ -92,13 +95,11 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
             override fun afterTextChanged(s: Editable?) {
                 val texto = s.toString().trim()
                 
-                // Se ainda está baixando os dados, avisa ou espera
                 if (isCarregandoDados) return 
 
-                // Cancela busca anterior e inicia nova (Instantânea)
                 jobBuscaInstantanea?.cancel()
                 jobBuscaInstantanea = launch {
-                    delay(100) // Pequeno delay de 0.1s só para não piscar demais
+                    delay(100) 
                     filtrarNaMemoria(texto)
                 }
             }
@@ -106,7 +107,6 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
 
-        // Botão de busca (teclado ou icone) força o filtro
         btnDoSearch.setOnClickListener { 
             filtrarNaMemoria(etQuery.text.toString().trim()) 
         }
@@ -119,7 +119,6 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
         }
     }
 
-    // --- LÓGICA DE CARREGAMENTO (HÍBRIDA: DATABASE + API) ---
     private fun carregarDadosIniciais() {
         isCarregandoDados = true
         progressBar.visibility = View.VISIBLE
@@ -133,10 +132,10 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
 
         launch {
             try {
-                // ✅ TENTA CARREGAR DA DATABASE PRIMEIRO (INSTANTÂNEO)
+                // TENTA CARREGAR DA DATABASE PRIMEIRO USANDO OS NOMES DO SEU DAO
                 val resultadosLocal = withContext(Dispatchers.IO) {
-                    val filmes = database.streamDao().getRecentMovies(2000).map {
-                        SearchResultItem(it.stream_id, it.name ?: "", "movie", it.rating, it.container_extension)
+                    val filmes = database.streamDao().getRecentVods(2000).map {
+                        SearchResultItem(it.stream_id, it.name ?: "", "movie", it.rating, it.stream_icon)
                     }
                     val series = database.streamDao().getRecentSeries(2000).map {
                         SearchResultItem(it.series_id, it.name ?: "", "series", it.rating, it.cover)
@@ -146,10 +145,10 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
 
                 if (resultadosLocal.isNotEmpty()) {
                     catalogoCompleto = resultadosLocal
-                    finalizarCarregamento()
+                    finalizarUI()
                 }
 
-                // BUSCA NA API EM SEGUNDO PLANO PARA ATUALIZAR CASO ESTEJA VAZIO OU DESATUALIZADO
+                // BUSCA NA API EM SEGUNDO PLANO
                 val resultadosAPI = withContext(Dispatchers.IO) {
                     val deferredFilmes = async { buscarFilmes(username, password) }
                     val deferredSeries = async { buscarSeries(username, password) }
@@ -160,7 +159,7 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
 
                 if (resultadosAPI.isNotEmpty()) {
                     catalogoCompleto = resultadosAPI
-                    finalizarCarregamento()
+                    finalizarUI()
                 }
 
             } catch (e: Exception) {
@@ -173,7 +172,7 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
         }
     }
 
-    private fun finalizarCarregamento() {
+    private fun finalizarUI() {
         isCarregandoDados = false
         progressBar.visibility = View.GONE
         tvEmpty.visibility = View.GONE
@@ -190,13 +189,8 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
         }
     }
 
-    // --- LÓGICA DE FILTRO (INSTANTÂNEA NA MEMÓRIA) ---
     private fun filtrarNaMemoria(query: String) {
-        if (catalogoCompleto.isEmpty() && !isCarregandoDados) {
-            tvEmpty.text = "Nenhum dado carregado."
-            tvEmpty.visibility = View.VISIBLE
-            return
-        }
+        if (catalogoCompleto.isEmpty() && !isCarregandoDados) return
 
         if (query.length < 1) {
             adapter.submitList(emptyList())
@@ -221,7 +215,7 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
         }
     }
 
-    // --- FUNÇÕES DE API MANTIDAS INTEGRALMENTE ---
+    // --- FUNÇÕES DE API MANTIDAS SEM ALTERAÇÃO ---
     
     private fun buscarFilmes(u: String, p: String): List<SearchResultItem> {
         return try {
@@ -274,7 +268,6 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
         } catch (e: Exception) { emptyList() }
     }
 
-    // --- NAVEGAÇÃO MANTIDA ---
     private fun abrirDetalhes(item: SearchResultItem) {
         when (item.type) {
             "movie" -> {

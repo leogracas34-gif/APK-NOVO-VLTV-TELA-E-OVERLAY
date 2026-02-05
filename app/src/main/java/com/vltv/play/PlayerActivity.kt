@@ -96,8 +96,11 @@ class PlayerActivity : AppCompatActivity() {
                 val dur = p.duration
                 val pos = p.currentPosition
                 if (dur > 0) {
-                    val remaining = dur - pos
-                    if (remaining in 1..60_000) {
+                    // ✅ LÓGICA DE PRECISÃO: 98% da duração do episódio
+                    val progress = pos.toFloat() / dur.toFloat()
+                    
+                    if (progress >= 0.98f) {
+                        val remaining = dur - pos
                         val seconds = (remaining / 1000L).toInt()
                         tvNextEpisodeTitle.text = "Próximo episódio em ${seconds}s"
                         
@@ -110,7 +113,7 @@ class PlayerActivity : AppCompatActivity() {
                         if (remaining <= 1000L) {
                             nextEpisodeContainer.visibility = View.GONE
                         }
-                    } else if (remaining > 60_000) {
+                    } else {
                         nextEpisodeContainer.visibility = View.GONE
                     }
                 }
@@ -148,7 +151,7 @@ class PlayerActivity : AppCompatActivity() {
         btnPlayNextEpisode.isFocusable = true
         btnPlayNextEpisode.isFocusableInTouchMode = true
         
-        // ✅ CORREÇÃO: Zoom suave de 1.1f e cor Branca original mantida
+        // ✅ CORREÇÃO: Zoom suave de 1.1f e cor Branca original mantida com foco Neon
         btnPlayNextEpisode.setOnFocusChangeListener { view, hasFocus ->
             if (hasFocus) {
                 view.setBackgroundResource(R.drawable.bg_focus_neon)

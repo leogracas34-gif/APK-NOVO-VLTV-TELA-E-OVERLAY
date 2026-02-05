@@ -24,7 +24,7 @@ class LoginActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityLoginBinding
 
-    // SEUS 6 SERVIDORES XTREAM (MANTIDOS E PROTEGIDOS)
+    // SEUS 6 SERVIDORES XTREAM (MANTIDOS)
     private val SERVERS = listOf(
         "http://tvblack.shop",
         "http://redeinternadestiny.top",
@@ -36,7 +36,7 @@ class LoginActivity : AppCompatActivity() {
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(5, TimeUnit.SECONDS)
-        .readTimeout(5, TimeUnit.SECONDS)
+        .readTimeout(10, TimeUnit.SECONDS) // Aumentado um pouco para DNS lentos
         .retryOnConnectionFailure(true)
         .build()
 
@@ -52,10 +52,11 @@ class LoginActivity : AppCompatActivity() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val savedUser = prefs.getString("username", null)
         val savedPass = prefs.getString("password", null)
+        val savedDns = prefs.getString("dns", "") ?: ""
 
-        // Se já estiver logado, vai direto e inicia sincronização silenciosa
+        // Se já tem login, inicia o motor de pré-carga e entra
         if (!savedUser.isNullOrBlank() && !savedPass.isNullOrBlank()) {
-            preCarregarDadosESair(prefs.getString("dns", "") ?: "", savedUser, savedPass)
+            iniciarMotorEEntrar(savedDns, savedUser, savedPass)
             return
         }
 
@@ -79,7 +80,7 @@ class LoginActivity : AppCompatActivity() {
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // ✅ DISPARO PARALELO (CORRIDA DE DNS)
+                // ✅ CORRIDA DE DNS: Dispara todos e pega o primeiro sucesso
                 val dnsVencedor = withContext(Dispatchers.IO) {
                     SERVERS.map { server ->
                         async { testarServidor(server, user, pass) }
@@ -89,19 +90,18 @@ class LoginActivity : AppCompatActivity() {
                 withContext(Dispatchers.Main) {
                     if (dnsVencedor != null) {
                         salvarDadosLogin(dnsVencedor, user, pass)
-                        // ✅ ASSIM QUE LOGA, JÁ INICIA O TURBO
-                        preCarregarDadosESair(dnsVencedor, user, pass)
+                        iniciarMotorEEntrar(dnsVencedor, user, pass)
                     } else {
                         binding.progressBar.visibility = View.GONE
                         binding.btnLogin.isEnabled = true
-                        Toast.makeText(this@LoginActivity, "Falha em todos os servidores. Verifique seus dados.", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this@LoginActivity, "Falha na conexão. Verifique seus dados.", Toast.LENGTH_LONG).show()
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     binding.progressBar.visibility = View.GONE
                     binding.btnLogin.isEnabled = true
-                    Toast.makeText(this@LoginActivity, "Erro de conexão", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@LoginActivity, "Erro: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -116,7 +116,8 @@ class LoginActivity : AppCompatActivity() {
             client.newCall(request).execute().use { response ->
                 if (response.isSuccessful) {
                     val body = response.body?.string() ?: ""
-                    if (body.contains("auth\":1")) base else null
+                    // Verifica se a resposta contém o sucesso da autenticação Xtream
+                    if (body.contains("\"auth\":1") || body.contains("user_info")) base else null
                 } else null
             }
         } catch (e: Exception) {
@@ -124,17 +125,16 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ O SEGREDO DO INSTANTÂNEO: Baixa enquanto a tela muda
-    private fun preCarregarDadosESair(dns: String, user: String, pass: String) {
+    private fun iniciarMotorEEntrar(dns: String, user: String, pass: String) {
+        // Configura a URL base para o Retrofit/XtreamApi
         XtreamApi.setBaseUrl(if (dns.endsWith("/")) dns else "$dns/")
         
-        // Dispara o download em background IMEDIATAMENTE
+        // 🚀 PRÉ-CARGA TURBO: Baixa enquanto o Android abre a outra tela
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // Inicia sincronização de VOD e Series antes de abrir a Home
                 val responseVod = XtreamApi.service.getAllVodStreams(user, pass).execute()
                 if (responseVod.isSuccessful && responseVod.body() != null) {
-                    val entities = responseVod.body()!!.map { 
+                    val entities = responseVod.body()!!.take(500).map { // Pega os primeiros 500 para não travar
                         VodEntity(it.stream_id, it.name, it.name, it.stream_icon, it.container_extension, it.rating, "0", System.currentTimeMillis()) 
                     }
                     AppDatabase.getDatabase(this@LoginActivity).streamDao().insertVodStreams(entities)
@@ -142,7 +142,9 @@ class LoginActivity : AppCompatActivity() {
             } catch (e: Exception) { e.printStackTrace() }
         }
 
-        startHomeActivity()
+        val intent = Intent(this, HomeActivity::class.java)
+        startActivity(intent)
+        finish()
     }
 
     private fun salvarDadosLogin(dns: String, user: String, pass: String) {
@@ -153,12 +155,6 @@ class LoginActivity : AppCompatActivity() {
             putString("password", pass)
             apply()
         }
-    }
-
-    private fun startHomeActivity() {
-        val intent = Intent(this, HomeActivity::class.java)
-        startActivity(intent)
-        finish()
     }
 
     private fun setupTouchAndDpad() {

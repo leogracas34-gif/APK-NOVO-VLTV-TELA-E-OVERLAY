@@ -21,6 +21,9 @@ import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.*
 import kotlin.coroutines.CoroutineContext
 
+// ✅ IMPORTAÇÃO DA DATABASE PARA BUSCA INSTANTÂNEA
+import com.vltv.play.data.AppDatabase
+
 class SearchActivity : AppCompatActivity(), CoroutineScope {
 
     private lateinit var etQuery: EditText
@@ -30,6 +33,9 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
     private lateinit var progressBar: ProgressBar
     private lateinit var tvEmpty: TextView
     
+    // ✅ DATABASE INICIALIZADA
+    private val database by lazy { AppDatabase.getDatabase(this) }
+
     // Variáveis da Busca Otimizada
     private val supervisor = SupervisorJob()
     override val coroutineContext: CoroutineContext
@@ -53,7 +59,7 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
         setupRecyclerView()
         setupSearchLogic()
         
-        // O PULO DO GATO: Baixa tudo agora para não travar depois
+        // O PULO DO GATO: Carrega da Database ou API
         carregarDadosIniciais()
     }
 
@@ -113,13 +119,13 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
         }
     }
 
-    // --- LÓGICA DE CARREGAMENTO (FAZ O DOWNLOAD UMA VEZ SÓ) ---
+    // --- LÓGICA DE CARREGAMENTO (HÍBRIDA: DATABASE + API) ---
     private fun carregarDadosIniciais() {
         isCarregandoDados = true
         progressBar.visibility = View.VISIBLE
-        tvEmpty.text = "Carregando catálogo completo..."
+        tvEmpty.text = "Carregando catálogo..."
         tvEmpty.visibility = View.VISIBLE
-        etQuery.isEnabled = false // Trava a busca enquanto carrega
+        etQuery.isEnabled = false 
 
         val prefs = getSharedPreferences("vltv_prefs", MODE_PRIVATE)
         val username = prefs.getString("username", "") ?: ""
@@ -127,54 +133,71 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
 
         launch {
             try {
-                // Baixa Filmes, Séries e Canais AO MESMO TEMPO (Async)
-                val resultados = withContext(Dispatchers.IO) {
+                // ✅ TENTA CARREGAR DA DATABASE PRIMEIRO (INSTANTÂNEO)
+                val resultadosLocal = withContext(Dispatchers.IO) {
+                    val filmes = database.streamDao().getRecentMovies(2000).map {
+                        SearchResultItem(it.stream_id, it.name ?: "", "movie", it.rating, it.container_extension)
+                    }
+                    val series = database.streamDao().getRecentSeries(2000).map {
+                        SearchResultItem(it.series_id, it.name ?: "", "series", it.rating, it.cover)
+                    }
+                    filmes + series
+                }
+
+                if (resultadosLocal.isNotEmpty()) {
+                    catalogoCompleto = resultadosLocal
+                    finalizarCarregamento()
+                }
+
+                // BUSCA NA API EM SEGUNDO PLANO PARA ATUALIZAR CASO ESTEJA VAZIO OU DESATUALIZADO
+                val resultadosAPI = withContext(Dispatchers.IO) {
                     val deferredFilmes = async { buscarFilmes(username, password) }
                     val deferredSeries = async { buscarSeries(username, password) }
                     val deferredCanais = async { buscarCanais(username, password) }
 
-                    // Junta tudo numa lista só
-                    val lista1 = deferredFilmes.await()
-                    val lista2 = deferredSeries.await()
-                    val lista3 = deferredCanais.await()
-                    
-                    lista1 + lista2 + lista3
+                    deferredFilmes.await() + deferredSeries.await() + deferredCanais.await()
                 }
 
-                catalogoCompleto = resultados
-                isCarregandoDados = false
-                
-                progressBar.visibility = View.GONE
-                tvEmpty.visibility = View.GONE
-                etQuery.isEnabled = true
-                etQuery.requestFocus()
-                
-                // Se veio algum texto da tela anterior, já filtra agora
-                val initial = intent.getStringExtra("initial_query")
-                if (!initial.isNullOrBlank()) {
-                    etQuery.setText(initial)
-                    filtrarNaMemoria(initial)
-                } else {
-                    // Se não tem busca inicial, mostra sugestão ou nada
-                    tvEmpty.text = "Digite para buscar..."
-                    tvEmpty.visibility = View.VISIBLE
+                if (resultadosAPI.isNotEmpty()) {
+                    catalogoCompleto = resultadosAPI
+                    finalizarCarregamento()
                 }
 
             } catch (e: Exception) {
                 isCarregandoDados = false
                 progressBar.visibility = View.GONE
-                tvEmpty.text = "Erro ao carregar dados. Tente novamente."
+                tvEmpty.text = "Erro ao carregar dados."
                 tvEmpty.visibility = View.VISIBLE
                 etQuery.isEnabled = true
             }
         }
     }
 
+    private fun finalizarCarregamento() {
+        isCarregandoDados = false
+        progressBar.visibility = View.GONE
+        tvEmpty.visibility = View.GONE
+        etQuery.isEnabled = true
+        etQuery.requestFocus()
+        
+        val initial = intent.getStringExtra("initial_query")
+        if (!initial.isNullOrBlank()) {
+            etQuery.setText(initial)
+            filtrarNaMemoria(initial)
+        } else {
+            tvEmpty.text = "Digite para buscar..."
+            tvEmpty.visibility = View.VISIBLE
+        }
+    }
+
     // --- LÓGICA DE FILTRO (INSTANTÂNEA NA MEMÓRIA) ---
     private fun filtrarNaMemoria(query: String) {
-        if (catalogoCompleto.isEmpty()) return
+        if (catalogoCompleto.isEmpty() && !isCarregandoDados) {
+            tvEmpty.text = "Nenhum dado carregado."
+            tvEmpty.visibility = View.VISIBLE
+            return
+        }
 
-        // AJUSTE PARA BUSCA IMEDIATA COM 1 LETRA
         if (query.length < 1) {
             adapter.submitList(emptyList())
             tvEmpty.text = "Digite para buscar..."
@@ -184,12 +207,9 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
 
         val qNorm = query.lowercase().trim()
 
-        // Filtragem Super Rápida na CPU
         val resultadosFiltrados = catalogoCompleto.filter { item ->
-            // Verifica se o título contém o texto digitado (ignora maiúsculas/minúsculas)
             item.title.lowercase().contains(qNorm)
-        } // Limite de 100 resultados para não travar a lista visual se a busca for genérica "a"
-        .take(100) 
+        }.take(100) 
 
         adapter.submitList(resultadosFiltrados)
         
@@ -201,7 +221,7 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
         }
     }
 
-    // --- FUNÇÕES DE API (BAIXAM TUDO SEM FILTRO) ---
+    // --- FUNÇÕES DE API MANTIDAS INTEGRALMENTE ---
     
     private fun buscarFilmes(u: String, p: String): List<SearchResultItem> {
         return try {
@@ -254,7 +274,7 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
         } catch (e: Exception) { emptyList() }
     }
 
-    // --- NAVEGAÇÃO ---
+    // --- NAVEGAÇÃO MANTIDA ---
     private fun abrirDetalhes(item: SearchResultItem) {
         when (item.type) {
             "movie" -> {

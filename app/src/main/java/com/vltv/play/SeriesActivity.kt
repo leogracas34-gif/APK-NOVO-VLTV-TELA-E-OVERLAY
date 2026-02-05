@@ -297,7 +297,8 @@ class SeriesActivity : AppCompatActivity() {
         // ✅ ADICIONADO: BUSCA NO BANCO PRIMEIRO (ULTRA VELOCIDADE)
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val localData = database.streamDao().getRecentSeries(500)
+                // Pegamos 1000 registros para garantir que cobrimos a categoria
+                val localData = database.streamDao().getRecentSeries(1000)
                 val filtradas = localData.filter { it.category_id == categoria.id }
                 if (filtradas.isNotEmpty() && seriesCache[categoria.id] == null) {
                     val mapped = filtradas.map { SeriesStream(it.series_id, it.name, it.cover, it.rating) }
@@ -335,7 +336,7 @@ class SeriesActivity : AppCompatActivity() {
                         aplicarSeries(series)
                         preLoadImages(series) // ✅ PRELOAD DA API
 
-                        // ✅ ADICIONADO: SALVA NO BANCO SILENCIOSAMENTE
+                        // ✅ ADICIONADO: SALVA NO BANCO SILENCIOSAMENTE PARA O PRÓXIMO ACESSO
                         lifecycleScope.launch(Dispatchers.IO) {
                             try {
                                 val entities = series.map { SeriesEntity(it.series_id, it.name, it.cover, it.rating, categoria.id, System.currentTimeMillis()) }
@@ -612,7 +613,7 @@ class SeriesActivity : AppCompatActivity() {
                         
                         val finalUrl = "https://image.tmdb.org/t/p/w500$finalPath"
                         
-                        // ✅ Salva no Cache
+                        // ✅ Salva no Cache para nunca mais precisar buscar na internet
                         seriesCachePrefs.edit().putString("logo_$rawName", finalUrl).apply()
 
                         withContext(Dispatchers.Main) {

@@ -23,7 +23,7 @@ data class VodEntity(
     val container_extension: String?,
     val rating: String?,
     val category_id: String,
-    val added: Long // ✅ CAMPO ADICIONADO PARA CORRIGIR O ERRO
+    val added: Long
 )
 
 @Entity(tableName = "series_streams")
@@ -33,7 +33,7 @@ data class SeriesEntity(
     val cover: String?,
     val rating: String?,
     val category_id: String,
-    val last_modified: Long // ✅ CAMPO ADICIONADO PARA CORRIGIR O ERRO
+    val last_modified: Long
 )
 
 @Entity(tableName = "categories")
@@ -58,11 +58,9 @@ data class EpgEntity(
 @Dao
 interface StreamDao {
     
-    // Busca VODs recentes (Corrige erro Unresolved reference: getRecentVods)
     @Query("SELECT * FROM vod_streams ORDER BY added DESC LIMIT :limit")
     suspend fun getRecentVods(limit: Int): List<VodEntity>
 
-    // Busca Séries recentes (Corrige erro Unresolved reference: getRecentSeries)
     @Query("SELECT * FROM series_streams ORDER BY last_modified DESC LIMIT :limit")
     suspend fun getRecentSeries(limit: Int): List<SeriesEntity>
 
@@ -78,7 +76,6 @@ interface StreamDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertVodStreams(streams: List<VodEntity>)
 
-    // Insere Séries (Corrige erro Unresolved reference: insertSeriesStreams)
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSeriesStreams(series: List<SeriesEntity>)
 
@@ -89,7 +86,7 @@ interface StreamDao {
     suspend fun clearLive()
 }
 
-// --- DATABASE (Configuração Central) ---
+// --- DATABASE (Configuração Central Turbinada) ---
 
 @Database(entities = [LiveStreamEntity::class, VodEntity::class, SeriesEntity::class, CategoryEntity::class, EpgEntity::class], version = 1, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
@@ -106,8 +103,11 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "vltv_play_db"
                 )
-                .fallbackToDestructiveMigration() // ✅ Evita erro se mudar a versão do banco
+                .fallbackToDestructiveMigration()
+                // ✅ ATIVA O MODO DE ALTA PERFORMANCE (ESCRITA E LEITURA AO MESMO TEMPO)
+                .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
                 .build()
+                
                 INSTANCE = instance
                 instance
             }

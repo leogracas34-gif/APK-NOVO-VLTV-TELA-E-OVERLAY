@@ -40,6 +40,11 @@ import java.net.URL
 import java.net.URLEncoder
 import kotlinx.coroutines.Job // Adicionado para controle de fluxo
 
+// ✅ IMPORTAÇÕES DA DATABASE MANTIDAS
+import androidx.lifecycle.lifecycleScope
+import com.vltv.play.data.AppDatabase
+import com.vltv.play.data.SeriesEntity
+
 class SeriesActivity : AppCompatActivity() {
 
     private lateinit var rvCategories: RecyclerView
@@ -61,6 +66,9 @@ class SeriesActivity : AppCompatActivity() {
 
     // ✅ VARIÁVEL DE PERFIL INTEGRADA PARA SINCRONIZAR FAVORITOS
     private var currentProfile: String = "Padrao"
+
+    // ✅ DATABASE INICIALIZADA (ADICIONADO)
+    private val database by lazy { AppDatabase.getDatabase(this) }
 
     // ✅ FUNÇÃO PARA DETECTAR SE É TV BOX OU CELULAR
     private fun isTelevision(context: Context): Boolean {
@@ -286,6 +294,18 @@ class SeriesActivity : AppCompatActivity() {
     private fun carregarSeries(categoria: LiveCategory) {
         tvCategoryTitle.text = categoria.name
 
+        // ✅ ADICIONADO: BUSCA NO BANCO PRIMEIRO (ULTRA VELOCIDADE)
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val localData = database.streamDao().getRecentSeries(500)
+                val filtradas = localData.filter { it.category_id == categoria.id }
+                if (filtradas.isNotEmpty() && seriesCache[categoria.id] == null) {
+                    val mapped = filtradas.map { SeriesStream(it.series_id, it.name, it.cover, it.rating) }
+                    withContext(Dispatchers.Main) { aplicarSeries(mapped) }
+                }
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+
         seriesCache[categoria.id]?.let { seriesCacheadas ->
             aplicarSeries(seriesCacheadas)
             preLoadImages(seriesCacheadas) // ✅ PRELOAD DO CACHE
@@ -314,6 +334,14 @@ class SeriesActivity : AppCompatActivity() {
 
                         aplicarSeries(series)
                         preLoadImages(series) // ✅ PRELOAD DA API
+
+                        // ✅ ADICIONADO: SALVA NO BANCO SILENCIOSAMENTE
+                        lifecycleScope.launch(Dispatchers.IO) {
+                            try {
+                                val entities = series.map { SeriesEntity(it.series_id, it.name, it.cover, it.rating, categoria.id, System.currentTimeMillis()) }
+                                database.streamDao().insertSeriesStreams(entities)
+                            } catch (e: Exception) { e.printStackTrace() }
+                        }
                     }
                 }
 

@@ -92,13 +92,16 @@ class HomeActivity : AppCompatActivity() {
         sincronizarConteudoSilenciosamente()
 
         carregarListasDaHome()
+        
+        // ✅ ATUALIZA O AVATAR NO RODAPÉ
+        atualizarAvatarRodape()
 
         // ✅ LÓGICA KIDS
         val isKidsMode = intent.getBooleanExtra("IS_KIDS_MODE", false)
         if (isKidsMode) {
             currentProfile = "Kids"
             binding.root.postDelayed({
-                binding.cardKids.performClick()
+                binding.cardKids?.performClick()
                 Toast.makeText(this, "Modo Kids Ativado", Toast.LENGTH_SHORT).show()
             }, 500)
         }
@@ -119,6 +122,18 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
+    // ✅ NOVA FUNÇÃO: Carrega o avatar que o cliente escolheu para o perfil
+    private fun atualizarAvatarRodape() {
+        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+        val avatarName = prefs.getString("${currentProfile}_avatar_key", "avatar_default") ?: "avatar_default"
+        val resID = resources.getIdentifier(avatarName, "drawable", packageName)
+        
+        if (resID != 0) {
+            binding.imgNavProfile?.setImageResource(resID)
+        }
+        binding.tvNavProfileName?.text = currentProfile
+    }
+
     // ✅ BUSCA NO BANCO DE DADOS LOCAL IMEDIATAMENTE
     private fun carregarDadosLocaisImediato() {
         lifecycleScope.launch(Dispatchers.IO) {
@@ -131,12 +146,12 @@ class HomeActivity : AppCompatActivity() {
 
                 withContext(Dispatchers.Main) {
                     if (movieItems.isNotEmpty()) {
-                        binding.rvRecentlyAdded.adapter = HomeRowAdapter(movieItems) { selectedItem ->
+                        binding.rvRecentlyAdded?.adapter = HomeRowAdapter(movieItems) { selectedItem ->
                             abrirDetalhes(selectedItem.id.toIntOrNull() ?: 0, selectedItem.name, selectedItem.streamIcon, false)
                         }
                     }
                     if (seriesItems.isNotEmpty()) {
-                        binding.rvRecentSeries.adapter = HomeRowAdapter(seriesItems) { selectedItem ->
+                        binding.rvRecentSeries?.adapter = HomeRowAdapter(seriesItems) { selectedItem ->
                             abrirDetalhes(selectedItem.id.toIntOrNull() ?: 0, selectedItem.name, selectedItem.streamIcon, true)
                         }
                     }
@@ -205,12 +220,12 @@ class HomeActivity : AppCompatActivity() {
 
         // ✅ CORREÇÃO PARA O NOME NÃO FICAR PRESO:
         // Limpa a logo anterior e reseta o texto a cada transição
-        binding.imgBannerLogo.setImageDrawable(null)
-        binding.imgBannerLogo.visibility = View.GONE
-        binding.tvBannerTitle.visibility = View.VISIBLE
-        binding.tvBannerTitle.text = titulo
+        binding.imgBannerLogo?.setImageDrawable(null)
+        binding.imgBannerLogo?.visibility = View.GONE
+        binding.tvBannerTitle?.visibility = View.VISIBLE
+        binding.tvBannerTitle?.text = titulo
         
-        binding.tvBannerOverview.text = if (isSeries) "Série em Destaque" else "Filme em Destaque"
+        binding.tvBannerOverview?.text = if (isSeries) "Série em Destaque" else "Filme em Destaque"
         
         try {
             val tvRating = findViewById<TextView>(R.id.tvBannerRating)
@@ -221,7 +236,7 @@ class HomeActivity : AppCompatActivity() {
 
         buscarImagemBackgroundTMDB(titulo, isSeries, icon)
 
-        binding.cardBanner.setOnClickListener {
+        binding.cardBanner?.setOnClickListener {
             abrirDetalhes(id, titulo, icon, isSeries)
         }
     }
@@ -256,19 +271,19 @@ class HomeActivity : AppCompatActivity() {
                         Glide.with(this@HomeActivity)
                             .load("https://image.tmdb.org/t/p/original$backdropPath")
                             .centerCrop()
-                            .placeholder(binding.imgBanner.drawable)
-                            .into(binding.imgBanner)
+                            .placeholder(binding.imgBanner?.drawable)
+                            .into(binding.imgBanner!!)
                         
                         buscarLogoOverlayHome(tmdbId, tipo, nome)
                     }
                 } else {
                     withContext(Dispatchers.Main) {
-                        Glide.with(this@HomeActivity).load(fallback).centerCrop().into(binding.imgBanner)
+                        Glide.with(this@HomeActivity).load(fallback).centerCrop().into(binding.imgBanner!!)
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    Glide.with(this@HomeActivity).load(fallback).centerCrop().into(binding.imgBanner)
+                    Glide.with(this@HomeActivity).load(fallback).centerCrop().into(binding.imgBanner!!)
                 }
             }
         }
@@ -366,16 +381,16 @@ class HomeActivity : AppCompatActivity() {
                 if (bannerUrl.isNotEmpty()) {
                     bannerJob?.cancel() 
                     runOnUiThread {
-                        binding.tvBannerTitle.visibility = View.VISIBLE
-                        binding.tvBannerTitle.text = bannerTitle.ifEmpty { "Destaque VLTV" }
-                        binding.tvBannerOverview.text = "" 
-                        binding.imgBannerLogo.visibility = View.GONE
+                        binding.tvBannerTitle?.visibility = View.VISIBLE
+                        binding.tvBannerTitle?.text = bannerTitle.ifEmpty { "Destaque VLTV" }
+                        binding.tvBannerOverview?.text = "" 
+                        binding.imgBannerLogo?.visibility = View.GONE
                         
                         Glide.with(this@HomeActivity)
                             .load(bannerUrl)
                             .centerCrop()
                             .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
-                            .into(binding.imgBanner)
+                            .into(binding.imgBanner!!)
                     }
                 }
             }
@@ -385,43 +400,40 @@ class HomeActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (listaBannerItems.isEmpty()) { carregarBannerAlternado() }
+        
+        // ✅ ATUALIZA AVATAR AO VOLTAR PARA A TELA
+        atualizarAvatarRodape()
+
         try {
-            binding.etSearch.setText("")
-            binding.etSearch.clearFocus()
-            binding.etSearch.background = null 
-            binding.etSearch.animate().scaleX(1f).scaleY(1f).setDuration(0).start()
+            binding.etSearch?.setText("")
+            binding.etSearch?.clearFocus()
+            binding.etSearch?.background = null 
+            binding.etSearch?.animate()?.scaleX(1f)?.scaleY(1f)?.setDuration(0)?.start()
             val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.hideSoftInputFromWindow(binding.etSearch.windowToken, 0)
-            binding.cardBanner.requestFocus()
+            imm.hideSoftInputFromWindow(binding.etSearch?.windowToken, 0)
+            binding.cardBanner?.requestFocus()
             carregarContinuarAssistindoLocal()
         } catch (e: Exception) { e.printStackTrace() }
     }
 
     private fun setupClicks() {
-        binding.etSearch.setOnClickListener {
+        // ✅ CLICKS DO RODAPÉ MOBILE (ADICIONADOS)
+        binding.navHome?.setOnClickListener { carregarListasDaHome() }
+        binding.navSearch?.setOnClickListener { binding.etSearch?.performClick() }
+        binding.navDownloads?.setOnClickListener { startActivity(Intent(this, DownloadsActivity::class.java)) }
+        binding.navProfile?.setOnClickListener { abrirMenuOpcoes() }
+
+        binding.etSearch?.setOnClickListener {
             val intent = Intent(this, SearchActivity::class.java)
             intent.putExtra("PROFILE_NAME", currentProfile)
             startActivity(intent)
         }
 
-        binding.btnSettings.setOnClickListener {
-            val itens = arrayOf("Trocar Perfil", "Meus downloads", "Configurações", "Sair")
-            AlertDialog.Builder(this)
-                .setTitle("Opções - $currentProfile")
-                .setItems(itens) { _, which ->
-                    when (which) {
-                        0 -> finish() 
-                        1 -> startActivity(Intent(this, DownloadsActivity::class.java))
-                        2 -> startActivity(Intent(this, SettingsActivity::class.java))
-                        3 -> mostrarDialogoSair()
-                    }
-                }
-                .show()
-        }
+        binding.btnSettings?.setOnClickListener { abrirMenuOpcoes() }
 
         val cards = listOf(binding.cardLiveTv, binding.cardMovies, binding.cardSeries, binding.cardKids, binding.cardBanner)
         cards.forEach { card ->
-            card.setOnFocusChangeListener { _, hasFocus ->
+            card?.setOnFocusChangeListener { _, hasFocus ->
                 if (hasFocus) {
                     card.animate().scaleX(1.08f).scaleY(1.08f).translationZ(10f).setDuration(200).start()
                 } else {
@@ -429,7 +441,7 @@ class HomeActivity : AppCompatActivity() {
                 }
             }
             
-            card.setOnClickListener {
+            card?.setOnClickListener {
                 when (card.id) {
                     R.id.cardLiveTv -> startActivity(Intent(this, LiveTvActivity::class.java).apply { putExtra("SHOW_PREVIEW", true); putExtra("PROFILE_NAME", currentProfile) })
                     R.id.cardMovies -> startActivity(Intent(this, VodActivity::class.java).apply { putExtra("SHOW_PREVIEW", false); putExtra("PROFILE_NAME", currentProfile) })
@@ -440,12 +452,27 @@ class HomeActivity : AppCompatActivity() {
         }
         
         // Navegação DPAD (TV)
-        binding.cardLiveTv.setOnKeyListener { _, keyCode, event ->
-            if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && event.action == KeyEvent.ACTION_DOWN) { binding.cardMovies.requestFocus(); true }
-            else if (keyCode == KeyEvent.KEYCODE_DPAD_UP && event.action == KeyEvent.ACTION_DOWN) { binding.etSearch.requestFocus(); true }
+        binding.cardLiveTv?.setOnKeyListener { _, keyCode, event ->
+            if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && event.action == KeyEvent.ACTION_DOWN) { binding.cardMovies?.requestFocus(); true }
+            else if (keyCode == KeyEvent.KEYCODE_DPAD_UP && event.action == KeyEvent.ACTION_DOWN) { binding.etSearch?.requestFocus(); true }
             else false
         }
-        // ... (O restante do código de DPAD continua igual ao seu original)
+        // ... (O restante do código de DPAD continua exatamente como no seu original)
+    }
+
+    private fun abrirMenuOpcoes() {
+        val itens = arrayOf("Trocar Perfil", "Meus downloads", "Configurações", "Sair")
+        AlertDialog.Builder(this)
+            .setTitle("Opções - $currentProfile")
+            .setItems(itens) { _, which ->
+                when (which) {
+                    0 -> finish() 
+                    1 -> startActivity(Intent(this, DownloadsActivity::class.java))
+                    2 -> startActivity(Intent(this, SettingsActivity::class.java))
+                    3 -> mostrarDialogoSair()
+                }
+            }
+            .show()
     }
 
     private fun mostrarDialogoSair() {
@@ -472,8 +499,8 @@ class HomeActivity : AppCompatActivity() {
                     val titulo = if (item.has("title")) item.getString("title") else item.optString("name", "Destaque")
                     val tmdbId = item.getString("id")
                     withContext(Dispatchers.Main) {
-                        binding.tvBannerTitle.text = titulo
-                        Glide.with(this@HomeActivity).load("https://image.tmdb.org/t/p/original${item.getString("backdrop_path")}").centerCrop().into(binding.imgBanner)
+                        binding.tvBannerTitle?.text = titulo
+                        Glide.with(this@HomeActivity).load("https://image.tmdb.org/t/p/original${item.getString("backdrop_path")}").centerCrop().into(binding.imgBanner!!)
                         buscarLogoOverlayHome(tmdbId, tipoAtual, titulo)
                     }
                 }
@@ -489,15 +516,15 @@ class HomeActivity : AppCompatActivity() {
                 if (logos != null && logos.length() > 0) {
                     val fullLogoUrl = "https://image.tmdb.org/t/p/w500${logos.getJSONObject(0).getString("file_path")}"
                     withContext(Dispatchers.Main) {
-                        binding.tvBannerTitle.visibility = View.GONE
-                        binding.imgBannerLogo.visibility = View.VISIBLE
-                        Glide.with(this@HomeActivity).load(fullLogoUrl).into(binding.imgBannerLogo)
+                        binding.tvBannerTitle?.visibility = View.GONE
+                        binding.imgBannerLogo?.visibility = View.VISIBLE
+                        Glide.with(this@HomeActivity).load(fullLogoUrl).into(binding.imgBannerLogo!!)
                     }
                 } else {
-                    withContext(Dispatchers.Main) { binding.tvBannerTitle.visibility = View.VISIBLE; binding.imgBannerLogo.visibility = View.GONE }
+                    withContext(Dispatchers.Main) { binding.tvBannerTitle?.visibility = View.VISIBLE; binding.imgBannerLogo?.visibility = View.GONE }
                 }
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) { binding.tvBannerTitle.visibility = View.VISIBLE; binding.imgBannerLogo.visibility = View.GONE }
+                withContext(Dispatchers.Main) { binding.tvBannerTitle?.visibility = View.VISIBLE; binding.imgBannerLogo?.visibility = View.GONE }
             }
         }
     }
@@ -532,7 +559,7 @@ class HomeActivity : AppCompatActivity() {
                     VodItem(it.optString("stream_id"), it.optString("name"), it.optString("stream_icon"))
                 }
                 withContext(Dispatchers.Main) {
-                    binding.rvRecentlyAdded.adapter = HomeRowAdapter(finalRecentList) { item ->
+                    binding.rvRecentlyAdded?.adapter = HomeRowAdapter(finalRecentList) { item ->
                         abrirDetalhes(item.id.toIntOrNull() ?: 0, item.name, item.streamIcon, false)
                     }
                 }
@@ -559,7 +586,7 @@ class HomeActivity : AppCompatActivity() {
                     VodItem(it.optString("series_id"), it.optString("name"), it.optString("cover"))
                 }
                 withContext(Dispatchers.Main) {
-                    binding.rvRecentSeries.adapter = HomeRowAdapter(finalSeriesList) { item ->
+                    binding.rvRecentSeries?.adapter = HomeRowAdapter(finalSeriesList) { item ->
                         abrirDetalhes(item.id.toIntOrNull() ?: 0, item.name, item.streamIcon, true)
                     }
                 }
@@ -577,11 +604,11 @@ class HomeActivity : AppCompatActivity() {
             if (name.isNotEmpty()) historyList.add(VodItem(id, name, icon))
         }
         if (historyList.isNotEmpty()) {
-            binding.rvContinueWatching.visibility = View.VISIBLE
-            binding.rvContinueWatching.adapter = HomeRowAdapter(historyList.reversed()) { item ->
+            binding.rvContinueWatching?.visibility = View.VISIBLE
+            binding.rvContinueWatching?.adapter = HomeRowAdapter(historyList.reversed()) { item ->
                 val isSeries = prefs.getBoolean("${currentProfile}_history_is_series_${item.id}", false)
                 abrirDetalhes(item.id.toIntOrNull() ?: 0, item.name, item.streamIcon, isSeries)
             }
-        } else { binding.rvContinueWatching.visibility = View.GONE }
+        } else { binding.rvContinueWatching?.visibility = View.GONE }
     }
 }

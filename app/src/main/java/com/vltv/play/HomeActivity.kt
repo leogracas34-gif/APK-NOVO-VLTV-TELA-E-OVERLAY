@@ -151,11 +151,9 @@ class HomeActivity : AppCompatActivity() {
     // --- FUNÇÕES DO NOVO BANNER INTERATIVO ---
 
     private fun prepararBannerDosRecentes(filmes: List<VodEntity>, series: List<SeriesEntity>) {
-        // Filtra novelas das séries
-        val seriesFiltradas = series.filter { it.category_id !in categoriasNovelas }
         
-        // Mistura os 5 últimos filmes e 5 últimas séries
-        val mixLançamentos = (filmes.take(5) + seriesFiltradas.take(5)).shuffled()
+        // Mistura os 10 últimos filmes
+        val mixLançamentos = filmes.take(10).shuffled()
         
         if (mixLançamentos.isNotEmpty()) {
             listaBannerItems = mixLançamentos

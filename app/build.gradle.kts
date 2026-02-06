@@ -85,6 +85,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
 
-    // ✅ ADICIONADO: CircleImageView para Avatares Redondos
+    // Adicionado para o Avatar do Perfil
     implementation("de.hdodenhof:circleimageview:3.1.0")
 }

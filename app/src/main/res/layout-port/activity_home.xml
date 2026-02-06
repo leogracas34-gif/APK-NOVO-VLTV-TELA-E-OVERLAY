@@ -150,6 +150,26 @@
             </HorizontalScrollView>
 
             <TextView
+                android:id="@+id/tvTitleContinue"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Continuar Assistindo"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:layout_margin="16dp"
+                android:visibility="gone"/>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvContinueWatching"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:visibility="gone"
+                app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+                android:paddingStart="16dp"
+                android:clipToPadding="false"/>
+
+            <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Filmes Adicionados Recentemente"
@@ -184,26 +204,6 @@
                 android:paddingStart="16dp"
                 android:clipToPadding="false"
                 tools:listitem="@layout/item_vod_home"/>
-
-            <TextView
-                android:id="@+id/tvTitleContinue"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Continuar Assistindo"
-                android:textColor="#FFFFFF"
-                android:textSize="16sp"
-                android:layout_margin="16dp"
-                android:visibility="gone"/>
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rvContinueWatching"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:visibility="gone"
-                app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
-                android:paddingStart="16dp"
-                android:clipToPadding="false"/>
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>

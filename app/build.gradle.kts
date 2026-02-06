@@ -2,7 +2,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.gms.google-services")
-    id("kotlin-kapt") // ðŸ”¥ NecessÃ¡rio para o Room funcionar
+    id("kotlin-kapt") // 🔥 Necessário para o Room funcionar
 }
 
 android {
@@ -52,13 +52,13 @@ dependencies {
     implementation("androidx.recyclerview:recyclerview:1.3.2")
     implementation("androidx.cardview:cardview:1.0.0")
 
-    // ðŸ”¥ ROOM DATABASE (Adicionado para Banco de Dados Local Ultra RÃ¡pido)
+    // 🔥 ROOM DATABASE (Adicionado para Banco de Dados Local Ultra Rápido)
     val room_version = "2.6.1"
     implementation("androidx.room:room-runtime:$room_version")
     implementation("androidx.room:room-ktx:$room_version")
     kapt("androidx.room:room-compiler:$room_version")
 
-    // ðŸ”¥ FIREBASE
+    // 🔥 FIREBASE
     implementation(platform("com.google.firebase:firebase-bom:32.7.2"))
     implementation("com.google.firebase:firebase-analytics-ktx")
     implementation("com.google.firebase:firebase-firestore-ktx")
@@ -72,7 +72,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0") // Para debug de rede
 
-    // Player de VÃ­deo (Media3/ExoPlayer)
+    // Player de Vídeo (Media3/ExoPlayer)
     implementation("androidx.media3:media3-exoplayer:1.2.0")
     implementation("androidx.media3:media3-ui:1.2.0")
     implementation("androidx.media3:media3-exoplayer-hls:1.2.0") 

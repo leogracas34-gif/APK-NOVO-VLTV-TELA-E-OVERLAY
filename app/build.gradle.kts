@@ -1,4 +1,4 @@
-plugins {
+Plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.gms.google-services")
@@ -81,4 +81,7 @@ dependencies {
     // Coroutines (Performance em segundo plano)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0") // Para escopo de coroutine na UI
+
+    // ✅ ADICIONADO: CircleImageView para Avatares Redondos (Estilo Disney+)
+    implementation("de.hdodenhof:circleimageview:3.1.0")
 }

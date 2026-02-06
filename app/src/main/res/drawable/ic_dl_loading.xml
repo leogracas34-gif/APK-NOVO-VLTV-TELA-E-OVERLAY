@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- círculo completo claro -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#55FFFFFF"
+        android:strokeWidth="2"
+        android:pathData="M12,2
+                          A10,10 0 1,1 11.999,2" />
+
+    <!-- arco destacado (parte que vai “enchendo”) -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:pathData="M12,2
+                          A10,10 0 0,1 20,10" />
+</vector>

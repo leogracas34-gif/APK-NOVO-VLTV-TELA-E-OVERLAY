@@ -23,7 +23,6 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:padding="16dp">
-
                 <TextView
                     android:id="@+id/tvHeaderTitle"
                     android:layout_width="wrap_content"
@@ -34,7 +33,6 @@
                     android:textSize="22sp"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent" />
-
                 <ImageView
                     android:id="@+id/btnCast"
                     android:layout_width="28dp"
@@ -52,35 +50,27 @@
                 android:layout_margin="16dp"
                 app:cardCornerRadius="12dp"
                 app:cardBackgroundColor="#000000">
-
-                <FrameLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent">
-
+                <FrameLayout android:layout_width="match_parent" android:layout_height="match_parent">
                     <ImageView
                         android:id="@+id/imgBanner"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
                         android:scaleType="centerCrop" />
-
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
                         android:background="@drawable/banner_gradient_overlay" />
-
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_gravity="bottom"
                         android:orientation="vertical"
                         android:padding="16dp">
-
                         <ImageView
                             android:id="@+id/imgBannerLogo"
                             android:layout_width="180dp"
                             android:layout_height="80dp"
                             android:visibility="gone" />
-
                         <TextView
                             android:id="@+id/tvBannerTitle"
                             android:layout_width="wrap_content"
@@ -88,14 +78,6 @@
                             android:textColor="#FFFFFF"
                             android:textSize="24sp"
                             android:textStyle="bold" />
-
-                        <TextView
-                            android:id="@+id/tvBannerOverview"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:textColor="#CCCCCC"
-                            android:textSize="14sp"
-                            android:layout_marginTop="8dp" />
                     </LinearLayout>
                 </FrameLayout>
             </androidx.cardview.widget.CardView>
@@ -106,45 +88,44 @@
                 android:scrollbars="none"
                 android:layout_marginTop="8dp"
                 android:paddingStart="16dp">
-
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal">
-
                     <androidx.cardview.widget.CardView
                         android:id="@+id/cardLiveTv"
                         android:layout_width="100dp"
                         android:layout_height="60dp"
                         app:cardCornerRadius="8dp"
                         app:cardBackgroundColor="#202125"
-                        android:layout_marginEnd="12dp"
-                        android:clickable="true"
-                        android:focusable="true">
+                        android:layout_marginEnd="12dp">
                         <TextView android:layout_width="match_parent" android:layout_height="match_parent" android:text="Canais" android:textColor="#FFFFFF" android:gravity="center" android:textSize="12sp"/>
                     </androidx.cardview.widget.CardView>
-
                     <androidx.cardview.widget.CardView
                         android:id="@+id/cardMovies"
                         android:layout_width="100dp"
                         android:layout_height="60dp"
                         app:cardCornerRadius="8dp"
                         app:cardBackgroundColor="#202125"
-                        android:layout_marginEnd="12dp"
-                        android:clickable="true"
-                        android:focusable="true">
+                        android:layout_marginEnd="12dp">
                         <TextView android:layout_width="match_parent" android:layout_height="match_parent" android:text="Filmes" android:textColor="#FFFFFF" android:gravity="center" android:textSize="12sp"/>
                     </androidx.cardview.widget.CardView>
-
                     <androidx.cardview.widget.CardView
                         android:id="@+id/cardSeries"
                         android:layout_width="100dp"
                         android:layout_height="60dp"
                         app:cardCornerRadius="8dp"
                         app:cardBackgroundColor="#202125"
-                        android:clickable="true"
-                        android:focusable="true">
+                        android:layout_marginEnd="12dp">
                         <TextView android:layout_width="match_parent" android:layout_height="match_parent" android:text="Séries" android:textColor="#FFFFFF" android:gravity="center" android:textSize="12sp"/>
+                    </androidx.cardview.widget.CardView>
+                    <androidx.cardview.widget.CardView
+                        android:id="@+id/cardKids"
+                        android:layout_width="100dp"
+                        android:layout_height="60dp"
+                        app:cardCornerRadius="8dp"
+                        app:cardBackgroundColor="#202125">
+                        <TextView android:layout_width="match_parent" android:layout_height="match_parent" android:text="Kids" android:textColor="#FFFFFF" android:gravity="center" android:textSize="12sp"/>
                     </androidx.cardview.widget.CardView>
                 </LinearLayout>
             </HorizontalScrollView>
@@ -158,7 +139,6 @@
                 android:textSize="16sp"
                 android:layout_margin="16dp"
                 android:visibility="gone"/>
-
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/rvContinueWatching"
                 android:layout_width="match_parent"
@@ -176,7 +156,6 @@
                 android:textColor="#FFFFFF"
                 android:textSize="16sp"
                 android:layout_margin="16dp"/>
-
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/rvRecentlyAdded"
                 android:layout_width="match_parent"
@@ -184,8 +163,7 @@
                 android:orientation="horizontal"
                 app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
                 android:paddingStart="16dp"
-                android:clipToPadding="false"
-                tools:listitem="@layout/item_vod_home"/>
+                android:clipToPadding="false"/>
 
             <TextView
                 android:layout_width="wrap_content"
@@ -194,7 +172,6 @@
                 android:textColor="#FFFFFF"
                 android:textSize="16sp"
                 android:layout_margin="16dp"/>
-
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/rvRecentSeries"
                 android:layout_width="match_parent"
@@ -202,8 +179,7 @@
                 android:orientation="horizontal"
                 app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
                 android:paddingStart="16dp"
-                android:clipToPadding="false"
-                tools:listitem="@layout/item_vod_home"/>
+                android:clipToPadding="false"/>
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
@@ -216,55 +192,43 @@
         android:orientation="horizontal"
         android:gravity="center"
         app:layout_constraintBottom_toBottomOf="parent">
-
         <LinearLayout
             android:id="@+id/navHome"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:gravity="center"
-            android:orientation="vertical"
-            android:clickable="true"
-            android:focusable="true">
+            android:orientation="vertical">
             <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@drawable/ic_home" app:tint="#FFFFFF"/>
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Início" android:textColor="#FFFFFF" android:textSize="10sp" android:layout_marginTop="4dp"/>
         </LinearLayout>
-
         <LinearLayout
             android:id="@+id/navSearch"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:gravity="center"
-            android:orientation="vertical"
-            android:clickable="true"
-            android:focusable="true">
+            android:orientation="vertical">
             <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@drawable/ic_search" app:tint="#808080"/>
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Pesquisa" android:textColor="#808080" android:textSize="10sp" android:layout_marginTop="4dp"/>
         </LinearLayout>
-
         <LinearLayout
             android:id="@+id/navDownloads"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:gravity="center"
-            android:orientation="vertical"
-            android:clickable="true"
-            android:focusable="true">
+            android:orientation="vertical">
             <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@drawable/ic_download" app:tint="#808080"/>
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Downloads" android:textColor="#808080" android:textSize="10sp" android:layout_marginTop="4dp"/>
         </LinearLayout>
-
         <LinearLayout
             android:id="@+id/navProfile"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:gravity="center"
-            android:orientation="vertical"
-            android:clickable="true"
-            android:focusable="true">
+            android:orientation="vertical">
             <de.hdodenhof.circleimageview.CircleImageView
                 android:id="@+id/imgNavProfile"
                 android:layout_width="24dp"
@@ -272,7 +236,5 @@
                 android:src="@drawable/avatar_default"/>
             <TextView android:id="@+id/tvNavProfileName" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Perfil" android:textColor="#808080" android:textSize="10sp" android:layout_marginTop="4dp"/>
         </LinearLayout>
-
     </LinearLayout>
-
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000">
+
+    <ImageView
+        android:id="@+id/imgBackground"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:src="@drawable/bg_poster_placeholder"
+        android:tint="#CC000510"
+        android:alpha="0.8"
+        android:tintMode="src_over" /> 
+
+    <View
+        android:id="@+id/vGradientOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:alpha="1.0"
+        android:background="@drawable/bg_radial_neon_glow"/>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/cardLogin"
+        android:layout_width="0dp" 
+        android:layout_height="wrap_content"
+        android:padding="32dp"
+        android:background="@drawable/bg_login_card_premium"
+        android:elevation="40dp"
+        app:layout_constraintWidth_max="400dp"
+        app:layout_constraintWidth_percent="0.82"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <TextView
+            android:id="@+id/tvTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="VLTV+"
+            android:textColor="#00E5FF" 
+            android:textSize="44sp"
+            android:fontFamily="sans-serif-condensed-light"
+            android:textStyle="bold"
+            android:letterSpacing="0.15"
+            android:shadowColor="#00E5FF"
+            android:shadowDx="2"
+            android:shadowDy="2"
+            android:shadowRadius="12"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <EditText
+            android:id="@+id/etUsername"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:layout_marginTop="35dp"
+            android:background="@drawable/bg_login_input_premium"
+            android:paddingStart="18dp"
+            android:paddingEnd="18dp"
+            android:hint="Usuário"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#99FFFFFF"
+            android:inputType="text"
+            android:imeOptions="actionNext"
+            app:layout_constraintTop_toBottomOf="@id/tvTitle" />
+
+        <EditText
+            android:id="@+id/etPassword"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_login_input_premium"
+            android:paddingStart="18dp"
+            android:paddingEnd="18dp"
+            android:hint="Senha"
+            android:inputType="textPassword"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#99FFFFFF"
+            android:imeOptions="actionDone"
+            app:layout_constraintTop_toBottomOf="@id/etUsername" />
+
+        <Button
+            android:id="@+id/btnLogin"
+            android:layout_width="match_parent"
+            android:layout_height="54dp"
+            android:layout_marginTop="36dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:background="@drawable/bg_button_login_neon"
+            android:backgroundTint="@null" 
+            app:backgroundTint="@null"
+            android:text="ENTRAR"
+            android:textColor="#000000"
+            android:textSize="17sp"
+            android:textStyle="bold"
+            android:elevation="8dp"
+            android:focusable="true"
+            android:clickable="true"
+            android:focusableInTouchMode="true" 
+            app:layout_constraintTop_toBottomOf="@id/etPassword" />
+
+        <ProgressBar
+            android:id="@+id/progressBar"
+            android:layout_width="35dp"
+            android:layout_height="35dp"
+            android:visibility="gone"
+            android:indeterminateTint="#00E5FF"
+            app:layout_constraintTop_toBottomOf="@id/btnLogin"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="20dp"/>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

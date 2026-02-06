@@ -410,7 +410,7 @@ class HomeActivity : AppCompatActivity() {
             binding.etSearch?.background = null 
             binding.etSearch?.animate()?.scaleX(1f)?.scaleY(1f)?.setDuration(0)?.start()
             val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.hideSoftInputFromWindow(binding.etSearch?.windowToken, 0)
+            imm.hideSoftInputFromWindow(binding.etSearch?.windowToken ?: return, 0)
             binding.cardBanner?.requestFocus()
             carregarContinuarAssistindoLocal()
         } catch (e: Exception) { e.printStackTrace() }
@@ -457,7 +457,26 @@ class HomeActivity : AppCompatActivity() {
             else if (keyCode == KeyEvent.KEYCODE_DPAD_UP && event.action == KeyEvent.ACTION_DOWN) { binding.etSearch?.requestFocus(); true }
             else false
         }
-        // ... (O restante do código de DPAD continua exatamente como no seu original)
+        
+        binding.cardMovies?.setOnKeyListener { _, keyCode, event ->
+            if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && event.action == KeyEvent.ACTION_DOWN) { binding.cardSeries?.requestFocus(); true }
+            else if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && event.action == KeyEvent.ACTION_DOWN) { binding.cardLiveTv?.requestFocus(); true }
+            else if (keyCode == KeyEvent.KEYCODE_DPAD_UP && event.action == KeyEvent.ACTION_DOWN) { binding.etSearch?.requestFocus(); true }
+            else false
+        }
+
+        binding.cardSeries?.setOnKeyListener { _, keyCode, event ->
+            if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && event.action == KeyEvent.ACTION_DOWN) { binding.cardKids?.requestFocus(); true }
+            else if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && event.action == KeyEvent.ACTION_DOWN) { binding.cardMovies?.requestFocus(); true }
+            else if (keyCode == KeyEvent.KEYCODE_DPAD_UP && event.action == KeyEvent.ACTION_DOWN) { binding.etSearch?.requestFocus(); true }
+            else false
+        }
+
+        binding.cardKids?.setOnKeyListener { _, keyCode, event ->
+            if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && event.action == KeyEvent.ACTION_DOWN) { binding.cardSeries?.requestFocus(); true }
+            else if (keyCode == KeyEvent.KEYCODE_DPAD_UP && event.action == KeyEvent.ACTION_DOWN) { binding.etSearch?.requestFocus(); true }
+            else false
+        }
     }
 
     private fun abrirMenuOpcoes() {

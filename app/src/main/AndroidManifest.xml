@@ -29,7 +29,7 @@
         <activity
             android:name=".LoginActivity"
             android:exported="true"
-            android:screenOrientation="sensorLandscape">
+            android:screenOrientation="unspecified">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -41,7 +41,7 @@
             android:name=".HomeActivity"
             android:banner="@mipmap/ic_launcher"
             android:exported="true"
-            android:screenOrientation="sensorLandscape" />
+            android:screenOrientation="unspecified" />
 
         <activity
             android:name=".LiveTvActivity"
@@ -60,42 +60,42 @@
         <activity
             android:name=".VodActivity"
             android:banner="@mipmap/ic_launcher"
-            android:screenOrientation="sensorLandscape" />
+            android:screenOrientation="unspecified" />
 
         <activity
             android:name=".DetailsActivity"
             android:banner="@mipmap/ic_launcher"
-            android:screenOrientation="sensorLandscape" />
+            android:screenOrientation="unspecified" />
 
         <activity
             android:name=".SeriesActivity"
             android:banner="@mipmap/ic_launcher"
-            android:screenOrientation="sensorLandscape" />
+            android:screenOrientation="unspecified" />
 
         <activity
             android:name=".SeriesDetailsActivity"
             android:banner="@mipmap/ic_launcher"
-            android:screenOrientation="sensorLandscape" />
+            android:screenOrientation="unspecified" />
 
         <activity
             android:name=".SearchActivity"
             android:banner="@mipmap/ic_launcher"
-            android:screenOrientation="sensorLandscape" />
+            android:screenOrientation="unspecified" />
 
         <activity
             android:name=".SettingsActivity"
             android:banner="@mipmap/ic_launcher"
-            android:screenOrientation="sensorLandscape" />
+            android:screenOrientation="unspecified" />
 
         <activity
             android:name=".DownloadsActivity"
             android:banner="@mipmap/ic_launcher"
-            android:screenOrientation="sensorLandscape" />
+            android:screenOrientation="unspecified" />
 
         <activity
             android:name=".KidsActivity"
             android:banner="@mipmap/ic_launcher"
-            android:screenOrientation="sensorLandscape"
+            android:screenOrientation="unspecified"
             android:exported="false" />
 
     </application>

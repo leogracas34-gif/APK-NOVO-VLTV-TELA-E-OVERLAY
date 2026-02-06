@@ -162,8 +162,6 @@ class HomeActivity : AppCompatActivity() {
     }
 }
 
-    }
-
     private fun iniciarCicloBanner() {
         bannerJob?.cancel()
         bannerJob = lifecycleScope.launch {

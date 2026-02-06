@@ -93,7 +93,7 @@ class HomeActivity : AppCompatActivity() {
 
         carregarListasDaHome()
 
-        // ✅ ATUALIZA O AVATAR NO RODAPÉ (NOVO)
+        // ✅ ATUALIZA O AVATAR NO RODAPÉ
         atualizarAvatarRodape()
 
         // ✅ LÓGICA KIDS
@@ -114,10 +114,8 @@ class HomeActivity : AppCompatActivity() {
                    (resources.configuration.uiMode and Configuration.UI_MODE_TYPE_MASK) == Configuration.UI_MODE_TYPE_TELEVISION
 
         if (isTV) {
-            // Se for TV, mantém deitado (Landscape)
             requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         } else {
-            // Se for Celular, mantém em pé (Portrait) para Home/Busca/Listas
             requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         }
     }
@@ -129,7 +127,6 @@ class HomeActivity : AppCompatActivity() {
             val avatarName = prefs.getString("${currentProfile}_avatar_key", "avatar_default") ?: "avatar_default"
             val resID = resources.getIdentifier(avatarName, "drawable", packageName)
             
-            // Só tenta atualizar se os componentes do rodapé existirem (Layout Celular)
             if (resID != 0) {
                 binding.imgNavProfile?.setImageResource(resID)
             }
@@ -151,19 +148,16 @@ class HomeActivity : AppCompatActivity() {
 
                 withContext(Dispatchers.Main) {
                     if (movieItems.isNotEmpty()) {
-                        // ADICIONADO ?. PARA EVITAR CRASH
                         binding.rvRecentlyAdded?.adapter = HomeRowAdapter(movieItems) { selectedItem ->
                             abrirDetalhes(selectedItem.id.toIntOrNull() ?: 0, selectedItem.name, selectedItem.streamIcon, false)
                         }
                     }
                     if (seriesItems.isNotEmpty()) {
-                        // ADICIONADO ?. PARA EVITAR CRASH
                         binding.rvRecentSeries?.adapter = HomeRowAdapter(seriesItems) { selectedItem ->
                             abrirDetalhes(selectedItem.id.toIntOrNull() ?: 0, selectedItem.name, selectedItem.streamIcon, true)
                         }
                     }
                     
-                    // --- PREPARA O BANNER COM DADOS LOCAIS ---
                     prepararBannerDosRecentes(localMovies, localSeries)
                 }
             } catch (e: Exception) {
@@ -175,10 +169,8 @@ class HomeActivity : AppCompatActivity() {
     // --- FUNÇÕES DO NOVO BANNER INTERATIVO ---
 
     private fun prepararBannerDosRecentes(filmes: List<VodEntity>, series: List<SeriesEntity>) {
-        // ✅ FILTRO INTELIGENTE: Pega filmes E séries, mas EXCLUI novelas pelo ID da categoria
         val seriesSemNovelas = series.filter { it.category_id?.trim() !in categoriasNovelas }
         
-        // Mistura os 10 últimos lançamentos (5 filmes e 5 séries filtradas)
         val mixLançamentos = (filmes.take(5) + seriesSemNovelas.take(5)).shuffled()
         
         if (mixLançamentos.isNotEmpty()) {
@@ -225,7 +217,6 @@ class HomeActivity : AppCompatActivity() {
             isSeries = true
         } else return
 
-        // ✅ CORREÇÃO PARA O NOME NÃO FICAR PRESO:
         // ADICIONADO ?. PARA EVITAR CRASH
         binding.imgBannerLogo?.setImageDrawable(null)
         binding.imgBannerLogo?.visibility = View.GONE
@@ -474,7 +465,26 @@ class HomeActivity : AppCompatActivity() {
             else if (keyCode == KeyEvent.KEYCODE_DPAD_UP && event.action == KeyEvent.ACTION_DOWN) { binding.etSearch?.requestFocus(); true }
             else false
         }
-        // ... (O restante do código de DPAD continua igual ao seu original)
+        
+        binding.cardMovies?.setOnKeyListener { _, keyCode, event ->
+            if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && event.action == KeyEvent.ACTION_DOWN) { binding.cardSeries?.requestFocus(); true }
+            else if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && event.action == KeyEvent.ACTION_DOWN) { binding.cardLiveTv?.requestFocus(); true }
+            else if (keyCode == KeyEvent.KEYCODE_DPAD_UP && event.action == KeyEvent.ACTION_DOWN) { binding.etSearch?.requestFocus(); true }
+            else false
+        }
+
+        binding.cardSeries?.setOnKeyListener { _, keyCode, event ->
+            if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && event.action == KeyEvent.ACTION_DOWN) { binding.cardKids?.requestFocus(); true }
+            else if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && event.action == KeyEvent.ACTION_DOWN) { binding.cardMovies?.requestFocus(); true }
+            else if (keyCode == KeyEvent.KEYCODE_DPAD_UP && event.action == KeyEvent.ACTION_DOWN) { binding.etSearch?.requestFocus(); true }
+            else false
+        }
+
+        binding.cardKids?.setOnKeyListener { _, keyCode, event ->
+            if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && event.action == KeyEvent.ACTION_DOWN) { binding.cardSeries?.requestFocus(); true }
+            else if (keyCode == KeyEvent.KEYCODE_DPAD_UP && event.action == KeyEvent.ACTION_DOWN) { binding.etSearch?.requestFocus(); true }
+            else false
+        }
     }
 
     private fun abrirMenuOpcoes() {

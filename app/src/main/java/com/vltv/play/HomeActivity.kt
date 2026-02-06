@@ -150,7 +150,7 @@ class HomeActivity : AppCompatActivity() {
 
     // --- FUNÇÕES DO NOVO BANNER INTERATIVO ---
 
-    private fun prepararBannerDosRecentes(filmes: List<VodEntity>, series: List<SeriesEntity>) {
+    private fun prepararBannerDosRecentes(filmes: List<VodEntity>) {
         
         // Mistura os 10 últimos filmes
         val mixLançamentos = filmes.take(10).shuffled()

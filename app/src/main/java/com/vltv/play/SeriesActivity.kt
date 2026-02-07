@@ -24,6 +24,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.Priority
+import com.bumptech.glide.load.DecodeFormat
 import com.bumptech.glide.request.target.Target
 import retrofit2.Call
 import retrofit2.Callback
@@ -140,8 +141,9 @@ class SeriesActivity : AppCompatActivity() {
                         Glide.with(this@SeriesActivity)
                             .load(url)
                             .diskCacheStrategy(DiskCacheStrategy.ALL)
+                            .format(DecodeFormat.PREFER_RGB_565) // Otimização TV Box
                             .priority(Priority.LOW) 
-                            .preload(200, 300)
+                            .preload(180, 270) // Redimensionado
                     }
                 }
             }
@@ -199,6 +201,7 @@ class SeriesActivity : AppCompatActivity() {
                         Glide.with(this@SeriesActivity)
                             .load(fullLogoUrl)
                             .diskCacheStrategy(DiskCacheStrategy.ALL)
+                            .format(DecodeFormat.PREFER_RGB_565)
                             .preload()
                     }
                 }
@@ -530,8 +533,11 @@ class SeriesActivity : AppCompatActivity() {
             val context = holder.itemView.context
             
             Glide.with(context)
+                .asBitmap() // Adicionado para performance
                 .load(item.icon)
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .format(DecodeFormat.PREFER_RGB_565) // Adicionado para economizar RAM
+                .override(180, 270) // Redimensionamento fixo
                 .priority(if (isTelevision(context)) Priority.HIGH else Priority.IMMEDIATE)
                 .thumbnail(0.1f)
                 .placeholder(R.drawable.bg_logo_placeholder)
@@ -544,7 +550,12 @@ class SeriesActivity : AppCompatActivity() {
             if (cachedUrl != null) {
                 holder.tvName.visibility = View.GONE
                 holder.imgLogo.visibility = View.VISIBLE
-                Glide.with(context).load(cachedUrl).diskCacheStrategy(DiskCacheStrategy.ALL).into(holder.imgLogo)
+                Glide.with(context)
+                    .load(cachedUrl)
+                    .format(DecodeFormat.PREFER_RGB_565)
+                    .override(180, 100)
+                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+                    .into(holder.imgLogo)
             } else {
                 holder.job = CoroutineScope(Dispatchers.IO).launch {
                     searchTmdbLogo(item.name, holder.imgLogo, position, holder)
@@ -619,7 +630,12 @@ class SeriesActivity : AppCompatActivity() {
                         withContext(Dispatchers.Main) {
                             if (holder.adapterPosition == pos) {
                                 targetView.visibility = View.VISIBLE
-                                Glide.with(targetView.context).load(finalUrl).diskCacheStrategy(DiskCacheStrategy.ALL).into(targetView)
+                                Glide.with(targetView.context)
+                                    .load(finalUrl)
+                                    .format(DecodeFormat.PREFER_RGB_565)
+                                    .override(180, 100)
+                                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+                                    .into(targetView)
                                 holder.tvName.visibility = View.GONE
                             }
                         }

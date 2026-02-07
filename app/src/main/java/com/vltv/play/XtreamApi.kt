@@ -1,6 +1,8 @@
 package com.vltv.play
 
+import okhttp3.Interceptor
 import okhttp3.OkHttpClient
+import okhttp3.Response
 import retrofit2.Call
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -9,7 +11,7 @@ import retrofit2.http.Query
 import java.util.concurrent.TimeUnit
 
 // ---------------------
-// Modelos de Dados (Mapeamento de Compatibilidade)
+// Modelos de Dados (Mapeamento de Compatibilidade - MANTIDOS INTACTOS)
 // ---------------------
 
 data class XtreamLoginResponse(val user_info: UserInfo?, val server_info: ServerInfo?)
@@ -54,7 +56,6 @@ data class SeriesStream(
     val icon: String? get() = cover
 }
 
-// ✅ CORREÇÃO DOS EPGS PARA LIVETV E PLAYER
 data class EpgWrapper(val epg_listings: List<EpgResponseItem>?)
 data class EpgResponseItem(
     val id: String?, 
@@ -70,7 +71,6 @@ data class EpgResponseItem(
     val stop_timestamp: String?
 )
 
-// ✅ CORREÇÃO DAS SÉRIES PARA SERIESDETAILS
 data class SeriesInfoResponse(val episodes: Map<String, List<EpisodeStream>>?)
 data class EpisodeStream(
     val id: String, 
@@ -86,7 +86,7 @@ data class VodInfoResponse(val info: VodInfoData?)
 data class VodInfoData(val plot: String?, val genre: String?, val director: String?, val cast: String?, val releasedate: String?, val rating: String?, val movie_image: String?)
 
 // ---------------------
-// Interface Retrofit (Nomes Originais Restaurados)
+// Interface Retrofit (MANTIDA INTACTA)
 // ---------------------
 
 interface XtreamService {
@@ -127,6 +127,22 @@ interface XtreamService {
     fun getShortEpg(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_short_epg", @Query("stream_id") streamId: String, @Query("limit") limit: Int = 2): Call<EpgWrapper>
 }
 
+// 🔥 CLASSE DA "VPN" (INTERCEPTOR) ADICIONADA
+class VpnInterceptor : Interceptor {
+    override fun intercept(chain: Interceptor.Chain): Response {
+        val originalRequest = chain.request()
+        
+        // Camufla a requisição para parecer um navegador Desktop (evita bloqueio de ISP)
+        val requestWithHeaders = originalRequest.newBuilder()
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36")
+            .header("Accept", "*/*")
+            .header("Connection", "keep-alive")
+            .build()
+            
+        return chain.proceed(requestWithHeaders)
+    }
+}
+
 object XtreamApi {
     private var retrofit: Retrofit? = null
     private var baseUrl: String = "http://tvblack.shop/"
@@ -136,6 +152,7 @@ object XtreamApi {
             .connectTimeout(60, TimeUnit.SECONDS)
             .readTimeout(60, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
+            .addInterceptor(VpnInterceptor()) // ✅ VPN / INTERCEPTOR ATIVADO AQUI
             .build()
     }
 

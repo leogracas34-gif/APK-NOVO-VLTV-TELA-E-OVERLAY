@@ -10,7 +10,6 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
-import android.widget.LinearLayout
 import android.widget.PopupMenu
 import android.widget.TextView
 import android.widget.Toast
@@ -25,7 +24,6 @@ import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.Priority
-import com.bumptech.glide.load.DecodeFormat
 import com.vltv.play.data.AppDatabase
 import com.vltv.play.data.VodEntity
 import retrofit2.Call
@@ -37,6 +35,7 @@ import java.net.URL
 import java.net.URLEncoder
 import android.graphics.Color
 
+// âœ… MANTIDO: Sem redeclaraÃ§Ã£o de EpisodeData
 class VodActivity : AppCompatActivity() {
     private lateinit var rvCategories: RecyclerView
     private lateinit var rvMovies: RecyclerView
@@ -52,8 +51,10 @@ class VodActivity : AppCompatActivity() {
     private var categoryAdapter: VodCategoryAdapter? = null
     private var moviesAdapter: VodAdapter? = null
     
+    // âœ… VARIÃVEL DE PERFIL PARA SINCRONIZAR FAVORITOS
     private var currentProfile: String = "Padrao"
 
+    // âœ… DATABASE ADICIONADA PARA ULTRA VELOCIDADE
     private val database by lazy { AppDatabase.getDatabase(this) }
 
     private fun isTelevision(context: Context): Boolean {
@@ -65,6 +66,7 @@ class VodActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_vod)
 
+        // âœ… RECUPERA O PERFIL PARA BATER COM A DETAILS ACTIVITY
         currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
 
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
@@ -92,55 +94,18 @@ class VodActivity : AppCompatActivity() {
 
         setupRecyclerFocus()
 
-        // ✅ LÓGICA DE READEQUAÇÃO DINÂMICA REVISADA COM LAYOUTPARAMS EXPLÍCITOS
-        val mainLayout = findViewById<LinearLayout>(R.id.mainLayout)
-        val divider = findViewById<View>(R.id.categoryDivider)
-
-        if (isTelevision(this)) {
-            // MODO TV: Barra Lateral Vertical
-            mainLayout?.orientation = LinearLayout.HORIZONTAL
-            divider?.visibility = View.VISIBLE
-            
-            val params = rvCategories.layoutParams as LinearLayout.LayoutParams
-            params.width = (250 * resources.displayMetrics.density).toInt()
-            params.height = ViewGroup.LayoutParams.MATCH_PARENT
-            params.weight = 0f
-            rvCategories.layoutParams = params
-            
-            rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
-            rvMovies.layoutManager = GridLayoutManager(this, 5)
-        } else {
-            // MODO CELULAR: Barra Suspensa no Topo (Horizontal)
-            mainLayout?.orientation = LinearLayout.VERTICAL
-            divider?.visibility = View.GONE
-            
-            // Força as categorias para o topo com largura total
-            val params = rvCategories.layoutParams as LinearLayout.LayoutParams
-            params.width = ViewGroup.LayoutParams.MATCH_PARENT
-            params.height = ViewGroup.LayoutParams.WRAP_CONTENT
-            params.weight = 0f
-            rvCategories.layoutParams = params
-            
-            // Garante que o Grid de filmes ocupe o espaço restante
-            val movieParams = rvMovies.layoutParams as LinearLayout.LayoutParams
-            movieParams.height = 0
-            movieParams.weight = 1f
-            rvMovies.layoutParams = movieParams
-            
-            rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.HORIZONTAL, false)
-            rvMovies.layoutManager = GridLayoutManager(this, 3) 
-        }
-
+        rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
         rvCategories.setHasFixedSize(true)
-        rvCategories.setItemViewCacheSize(50)
-        rvCategories.overScrollMode = View.OVER_SCROLL_NEVER
+        rvCategories.setItemViewCacheSize(50) // âœ… CACHE PARA NAVEGAÃ‡ÃƒO RÃPIDA
+        rvCategories.overScrollMode = View.OVER_SCROLL_NEVER // âœ… REMOVE TREMEDEIRA
         rvCategories.isFocusable = true
         rvCategories.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
 
+        rvMovies.layoutManager = GridLayoutManager(this, 5)
         rvMovies.isFocusable = true
         rvMovies.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
         rvMovies.setHasFixedSize(true)
-        rvMovies.setItemViewCacheSize(100)
+        rvMovies.setItemViewCacheSize(100) // âœ… CACHE PARA EVITAR LAG NOS PÃ”STERES
 
         rvCategories.requestFocus()
         carregarCategorias()
@@ -164,9 +129,8 @@ class VodActivity : AppCompatActivity() {
                     withContext(Dispatchers.Main) {
                         Glide.with(this@VodActivity).load(url)
                             .diskCacheStrategy(DiskCacheStrategy.ALL)
-                            .format(DecodeFormat.PREFER_RGB_565)
                             .priority(Priority.LOW)
-                            .preload(180, 270)
+                            .preload(200, 300)
                     }
                 }
             }
@@ -215,6 +179,7 @@ class VodActivity : AppCompatActivity() {
     private fun carregarFilmes(categoria: LiveCategory) {
         tvCategoryTitle.text = categoria.name
         
+        // âœ… 1. TENTA CARREGAR DO BANCO DE DADOS PRIMEIRO (SEM TRAVAR)
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val allLocal = database.streamDao().searchVod("") 
@@ -229,6 +194,7 @@ class VodActivity : AppCompatActivity() {
             } catch (e: Exception) { e.printStackTrace() }
         }
 
+        // âœ… 2. BUSCA NA REDE PARA ATUALIZAR
         moviesCache[categoria.id]?.let { aplicarFilmes(it); preLoadImages(it); return }
         progressBar.visibility = View.VISIBLE
         XtreamApi.service.getVodStreams(username, password, categoryId = categoria.id)
@@ -244,6 +210,7 @@ class VodActivity : AppCompatActivity() {
                         aplicarFilmes(filmes)
                         preLoadImages(filmes)
 
+                        // âœ… SALVA NO BANCO VINCULANDO A CATEGORIA CORRETAMENTE
                         lifecycleScope.launch(Dispatchers.IO) {
                             try {
                                 val entities = filmes.map { VodEntity(it.stream_id, it.name, it.title, it.stream_icon, it.container_extension, it.rating, categoria.id, System.currentTimeMillis()) }
@@ -339,11 +306,22 @@ class VodActivity : AppCompatActivity() {
             val isSel = selectedPos == p
             h.tvName.setTextColor(getColor(if (isSel) R.color.red_primary else R.color.gray_text))
             h.tvName.setBackgroundColor(if (isSel) 0xFF252525.toInt() else 0x00000000)
-            
+            h.itemView.setOnFocusChangeListener { view, hasFocus ->
+                if (hasFocus) {
+                    h.tvName.setTextColor(Color.YELLOW)
+                    h.tvName.textSize = 20f
+                    view.setBackgroundResource(R.drawable.bg_focus_neon)
+                    view.animate().scaleX(1.10f).scaleY(1.10f).setDuration(150).start()
+                } else {
+                    h.tvName.textSize = 16f
+                    view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
+                    view.setBackgroundResource(0)
+                    if (selectedPos != h.adapterPosition) h.tvName.setTextColor(getColor(R.color.gray_text))
+                }
+            }
             h.itemView.setOnClickListener {
-                val oldPos = selectedPos
+                notifyItemChanged(selectedPos)
                 selectedPos = h.adapterPosition
-                notifyItemChanged(oldPos)
                 notifyItemChanged(selectedPos)
                 onClick(item)
             }
@@ -365,12 +343,8 @@ class VodActivity : AppCompatActivity() {
             h.tvName.text = item.name
             h.tvName.visibility = View.VISIBLE
             h.imgLogo.visibility = View.GONE
-            
-            Glide.with(h.itemView.context)
-                .asBitmap()
-                .load(item.icon)
-                .format(DecodeFormat.PREFER_RGB_565)
-                .override(180, 270)
+            h.imgLogo.setImageDrawable(null)
+            Glide.with(h.itemView.context).load(item.icon)
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .placeholder(R.drawable.bg_logo_placeholder)
                 .centerCrop()
@@ -389,17 +363,30 @@ class VodActivity : AppCompatActivity() {
                             if (h.adapterPosition == p) {
                                 h.tvName.visibility = View.GONE
                                 h.imgLogo.visibility = View.VISIBLE
-                                Glide.with(h.itemView.context)
-                                    .load(url)
-                                    .format(DecodeFormat.PREFER_RGB_565)
-                                    .override(180, 100)
-                                    .into(h.imgLogo)
+                                Glide.with(h.itemView.context).load(url).into(h.imgLogo)
                             }
                         }
                     }
                 }
             }
 
+            h.itemView.setOnFocusChangeListener { view, hasFocus ->
+                if (hasFocus) {
+                    h.tvName.setTextColor(Color.YELLOW)
+                    h.tvName.textSize = 18f
+                    view.setBackgroundResource(R.drawable.bg_focus_neon)
+                    view.animate().scaleX(1.15f).scaleY(1.15f).setDuration(150).start()
+                    view.elevation = 20f
+                    if (h.imgLogo.visibility != View.VISIBLE) h.tvName.visibility = View.VISIBLE
+                } else {
+                    h.tvName.setTextColor(Color.WHITE)
+                    h.tvName.textSize = 14f
+                    view.setBackgroundResource(0)
+                    view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
+                    view.elevation = 4f
+                    h.tvName.visibility = View.GONE
+                }
+            }
             h.itemView.setOnClickListener { onClick(item) }
         }
         override fun getItemCount() = list.size
@@ -424,7 +411,8 @@ class VodActivity : AppCompatActivity() {
                         for (i in 0 until logos.length()) {
                             val logoObj = logos.getJSONObject(i)
                             if (logoObj.optString("iso_639_1") == "pt") {
-                                logoPath = logoObj.getString("file_path"); break
+                                logoPath = logoObj.getString("file_path")
+                                break
                             }
                         }
                         if (logoPath == null) logoPath = logos.getJSONObject(0).getString("file_path")

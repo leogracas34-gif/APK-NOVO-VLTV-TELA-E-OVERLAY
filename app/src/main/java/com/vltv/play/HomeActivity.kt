@@ -29,6 +29,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.vltv.play.databinding.ActivityHomeBinding
 import com.vltv.play.DownloadHelper
 import com.vltv.play.data.AppDatabase
@@ -247,7 +248,7 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun exibirItemNoBanner(item: Any) {
-        val titulo: String
+        val tituloOriginal: String
         val id: Int
         val rating: String
         val icon: String
@@ -255,35 +256,40 @@ class HomeActivity : AppCompatActivity() {
         val logoSalva: String?
 
         if (item is VodEntity) {
-            titulo = item.name
+            tituloOriginal = item.name
             id = item.stream_id
             rating = item.rating ?: "0.0"
             icon = item.stream_icon ?: ""
             isSeries = false
             // Tenta pegar a logo do banco se você já tiver o campo, senão ignora
-            logoSalva = try { item.javaClass.getField("logo_url").get(item) as? String } catch(e: Exception) { null }
+            logoSalva = item.logo_url
         } else if (item is SeriesEntity) {
-            titulo = item.name
+            tituloOriginal = item.name
             id = item.series_id
             rating = item.rating ?: "0.0"
             icon = item.cover ?: ""
             isSeries = true
-            logoSalva = try { item.javaClass.getField("logo_url").get(item) as? String } catch(e: Exception) { null }
+            logoSalva = item.logo_url
         } else return
 
-        // ✅ MUDANÇA PARA O NOME NÃO FICAR TRAVADO:
-        // Reseta a visibilidade da logo e do texto a cada troca de banner
+        // ✅ LÓGICA DA VASSOURA INTEGRADA PARA TIRAR ATRASO NO TEXTO
+        val tituloLimpo = limparNomeParaTMDB(tituloOriginal)
+
+        // ✅ SINCRONIA IMEDIATA: Reseta a visibilidade da logo e do texto a cada troca de banner
         binding.imgBannerLogo.visibility = View.GONE
         binding.tvBannerTitle.visibility = View.VISIBLE
-        binding.tvBannerTitle.text = titulo
+        binding.tvBannerTitle.text = tituloLimpo
         
-        binding.tvBannerOverview.text = if (isSeries) "Nova Série Adicionada" else "Novo Filme Adicionado"
+        binding.tvBannerOverview.text = if (isSeries) "Série em Destaque" else "Filme em Destaque"
 
-        // ✅ CARREGAMENTO INSTANTÂNEO SE JÁ EXISTIR LOGO NO BANCO
+        // ✅ CARREGAMENTO INSTANTÂNEO SE JÁ EXISTIR LOGO NO DATABASE (SEM PISCA-PISCA)
         if (!logoSalva.isNullOrEmpty()) {
             binding.tvBannerTitle.visibility = View.GONE
             binding.imgBannerLogo.visibility = View.VISIBLE
-            Glide.with(this).load(logoSalva).into(binding.imgBannerLogo)
+            Glide.with(this)
+                .load(logoSalva)
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .into(binding.imgBannerLogo)
         }
         
         // Tenta atualizar nota e botão se existirem no XML novo, senão ignora
@@ -295,7 +301,7 @@ class HomeActivity : AppCompatActivity() {
         } catch (e: Exception) {}
 
         // Busca backdrop
-        buscarImagemBackgroundTMDB(titulo, isSeries, icon, id)
+        buscarImagemBackgroundTMDB(tituloOriginal, isSeries, icon, id)
 
         // CONFIGURA O CLIQUE REAL PARA ABRIR O VÍDEO
         binding.cardBanner.setOnClickListener {
@@ -304,7 +310,7 @@ class HomeActivity : AppCompatActivity() {
             } else {
                 Intent(this, DetailsActivity::class.java).apply { putExtra("stream_id", id) }
             }
-            intent.putExtra("name", titulo)
+            intent.putExtra("name", tituloOriginal)
             intent.putExtra("icon", icon)
             intent.putExtra("PROFILE_NAME", currentProfile)
             intent.putExtra("is_series", isSeries)
@@ -312,9 +318,9 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // 🧹 NOVA FUNÇÃO INTERNA: VASSOURA PARA LIMPAR NOMES DE IPTV
+    // 🧹 NOVA FUNÇÃO INTERNA: VASSOURA PARA LIMPAR NOMES DE IPTV (PORTUGUÊS BRASIL)
     private fun limparNomeParaTMDB(nome: String): String {
-        return nome.replace(Regex("(?i)\\b(4K|FHD|HD|SD|720P|1080P|2160P|DUBLADO|LEGENDADO|DUAL|AUDIO|LATINO|PT-BR|PTBR|WEB-DL|BLURAY|MKV|MP4|AVI|REPACK|H264|H265|HEVC|WEB)\\b"), "")
+        return nome.replace(Regex("(?i)\\b(4K|FHD|HD|SD|720P|1080P|2160P|DUBLADO|LEGENDADO|DUAL|AUDIO|LATINO|PT-BR|PTBR|WEB-DL|BLURAY|MKV|MP4|AVI|REPACK|H264|H265|HEVC|WEB|S01|E01|SEASON|TEMPORADA)\\b"), "")
                    .replace(Regex("\\(\\d{4}\\)|\\[.*?\\]|\\{.*?\\}"), "")
                    .replace(Regex("\\s+"), " ")
                    .trim()
@@ -322,9 +328,11 @@ class HomeActivity : AppCompatActivity() {
 
     private fun buscarImagemBackgroundTMDB(nome: String, isSeries: Boolean, fallback: String, internalId: Int) {
         val tipo = if (isSeries) "tv" else "movie"
-        val nomeLimpo = limparNomeParaTMDB(nome) // ✅ APLICAÇÃO DA VASSOURA
+        val nomeLimpo = limparNomeParaTMDB(nome) 
         val query = URLEncoder.encode(nomeLimpo, "UTF-8")
-        val url = "https://api.themoviedb.org/3/search/$tipo?api_key=$TMDB_API_KEY&query=$query&language=pt-BR"
+        
+        // 🔥 FORÇANDO BUSCA PORTUGUÊS BRASIL
+        val url = "https://api.themoviedb.org/3/search/$tipo?api_key=$TMDB_API_KEY&query=$query&language=pt-BR&region=BR"
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
@@ -351,6 +359,63 @@ class HomeActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     Glide.with(this@HomeActivity).load(fallback).centerCrop().into(binding.imgBanner)
+                }
+            }
+        }
+    }
+
+    // ✅ ATUALIZADO: BUSCA LOGO (PT-BR) E SALVA NO BANCO DE DADOS
+    private fun buscarLogoOverlayHome(tmdbId: String, tipo: String, rawName: String, internalId: Int, isSeries: Boolean) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // 🔥 SOLICITA LOGOS COM PRIORIDADE PARA PORTUGUÊS
+                val imagesUrl = "https://api.themoviedb.org/3/$tipo/$tmdbId/images?api_key=$TMDB_API_KEY&include_image_language=pt,en,null"
+                val imagesJson = URL(imagesUrl).readText()
+                val imagesObj = JSONObject(imagesJson)
+
+                if (imagesObj.has("logos")) {
+                    val logos = imagesObj.getJSONArray("logos")
+                    if (logos.length() > 0) {
+                        var logoPath: String? = null
+                        for (i in 0 until logos.length()) {
+                            val logo = logos.getJSONObject(i)
+                            if (logo.optString("iso_639_1") == "pt") {
+                                logoPath = logo.getString("file_path")
+                                break
+                            }
+                        }
+                        if (logoPath == null) logoPath = logos.getJSONObject(0).getString("file_path")
+                        
+                        val fullLogoUrl = "https://image.tmdb.org/t/p/w500$logoPath"
+
+                        // ✅ SALVA NO DATABASE PARA CARREGAMENTO INSTANTÂNEO NO PRÓXIMO GIRO
+                        try {
+                            if (isSeries) {
+                                database.streamDao().updateSeriesLogo(internalId, fullLogoUrl)
+                            } else {
+                                database.streamDao().updateVodLogo(internalId, fullLogoUrl)
+                            }
+                        } catch(e: Exception) {
+                            e.printStackTrace()
+                        }
+
+                        withContext(Dispatchers.Main) {
+                            binding.tvBannerTitle.visibility = View.GONE
+                            binding.imgBannerLogo.visibility = View.VISIBLE
+                            Glide.with(this@HomeActivity).load(fullLogoUrl).into(binding.imgBannerLogo)
+                        }
+                        return@launch
+                    }
+                }
+                
+                withContext(Dispatchers.Main) {
+                    binding.tvBannerTitle.visibility = View.VISIBLE
+                    binding.imgBannerLogo.visibility = View.GONE
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    binding.tvBannerTitle.visibility = View.VISIBLE
+                    binding.imgBannerLogo.visibility = View.GONE
                 }
             }
         }
@@ -734,60 +799,6 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ ATUALIZADO: SALVA A LOGO NO BANCO DE DADOS
-    private fun buscarLogoOverlayHome(tmdbId: String, tipo: String, rawName: String, internalId: Int, isSeries: Boolean) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val imagesUrl = "https://api.themoviedb.org/3/$tipo/$tmdbId/images?api_key=$TMDB_API_KEY&include_image_language=pt,en,null"
-                val imagesJson = URL(imagesUrl).readText()
-                val imagesObj = JSONObject(imagesJson)
-
-                if (imagesObj.has("logos")) {
-                    val logos = imagesObj.getJSONArray("logos")
-                    if (logos.length() > 0) {
-                        var logoPath: String? = null
-                        for (i in 0 until logos.length()) {
-                            val logo = logos.getJSONObject(i)
-                            if (logo.optString("iso_639_1") == "pt") {
-                                logoPath = logo.getString("file_path")
-                                break
-                            }
-                        }
-                        if (logoPath == null) logoPath = logos.getJSONObject(0).getString("file_path")
-                        
-                        val fullLogoUrl = "https://image.tmdb.org/t/p/w500$logoPath"
-
-                        // ✅ SALVA NO BANCO DE DADOS PARA SER INSTANTÂNEO
-                        try {
-                            if (isSeries) {
-                                database.streamDao().updateSeriesLogo(internalId, fullLogoUrl)
-                            } else {
-                                database.streamDao().updateVodLogo(internalId, fullLogoUrl)
-                            }
-                        } catch(e: Exception) {}
-
-                        withContext(Dispatchers.Main) {
-                            binding.tvBannerTitle.visibility = View.GONE
-                            binding.imgBannerLogo.visibility = View.VISIBLE
-                            Glide.with(this@HomeActivity).load(fullLogoUrl).into(binding.imgBannerLogo)
-                        }
-                        return@launch
-                    }
-                }
-                
-                withContext(Dispatchers.Main) {
-                    binding.tvBannerTitle.visibility = View.VISIBLE
-                    binding.imgBannerLogo.visibility = View.GONE
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    binding.tvBannerTitle.visibility = View.VISIBLE
-                    binding.imgBannerLogo.visibility = View.GONE
-                }
-            }
-        }
-    }
-
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
             mostrarDialogoSair()
@@ -808,56 +819,15 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun carregarFilmesRecentes() {
-        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
-        CoroutineScope(Dispatchers.IO).launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val dns = prefs.getString("dns", "") ?: ""
-                val user = prefs.getString("username", "") ?: ""
-                val pass = prefs.getString("password", "") ?: ""
-                
-                val urlString = "$dns/player_api.php?username=$user&password=$pass&action=get_vod_streams"
-                val response = URL(urlString).readText()
-                val jsonArray = org.json.JSONArray(response)
-                
-                val rawList = mutableListOf<JSONObject>()
-                val palavrasProibidas = listOf("XXX", "PORN", "ADULTO", "SEXO", "EROTICO", "🔞", "PORNÔ")
-
-                for (i in 0 until jsonArray.length()) {
-                    val obj = jsonArray.getJSONObject(i)
-                    val nome = obj.optString("name").uppercase()
-                    
-                    val eAdulto = palavrasProibidas.any { nome.contains(it) }
-                    if (!eAdulto) {
-                        rawList.add(obj)
-                    }
-                }
-
-                val sortedList = rawList.sortedWith(compareByDescending<JSONObject> { 
-                    it.optLong("added") 
-                }.thenByDescending { 
-                    it.optInt("stream_id") 
-                })
-                
-                val finalRecentList = mutableListOf<VodItem>()
-                val limit = if (sortedList.size > 20) 20 else sortedList.size
-                
-                for (i in 0 until limit) {
-                    val obj = sortedList[i]
-                    finalRecentList.add(VodItem(
-                        id = obj.optString("stream_id"),
-                        name = obj.optString("name"),
-                        streamIcon = obj.optString("stream_icon")
-                    ))
-                }
-
+                val list = database.streamDao().getRecentVods(20).map { VodItem(it.stream_id.toString(), it.name, it.stream_icon ?: "") }
                 withContext(Dispatchers.Main) {
-                    binding.rvRecentlyAdded.adapter = HomeRowAdapter(finalRecentList) { selectedItem ->
+                    binding.rvRecentlyAdded.adapter = HomeRowAdapter(list) { selectedItem ->
                         val intent = Intent(this@HomeActivity, DetailsActivity::class.java)
                         intent.putExtra("stream_id", selectedItem.id.toIntOrNull() ?: 0)
                         intent.putExtra("name", selectedItem.name)
-                        intent.putExtra("icon", selectedItem.streamIcon)
                         intent.putExtra("PROFILE_NAME", currentProfile)
-                        intent.putExtra("is_series", false)
                         startActivity(intent)
                     }
                 }
@@ -868,49 +838,15 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun carregarSeriesRecentes() {
-        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
-        CoroutineScope(Dispatchers.IO).launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val dns = prefs.getString("dns", "") ?: ""
-                val user = prefs.getString("username", "") ?: ""
-                val pass = prefs.getString("password", "") ?: ""
-                
-                val urlString = "$dns/player_api.php?username=$user&password=$pass&action=get_series"
-                val response = URL(urlString).readText()
-                val jsonArray = org.json.JSONArray(response)
-                
-                val rawList = mutableListOf<JSONObject>()
-                val palavrasProibidas = listOf("XXX", "PORN", "ADULTO", "SEXO", "EROTICO", "🔞", "PORNÔ")
-
-                for (i in 0 until jsonArray.length()) {
-                    val obj = jsonArray.getJSONObject(i)
-                    val nome = obj.optString("name").uppercase()
-                    
-                    val eAdulto = palavrasProibidas.any { nome.contains(it) }
-                    if (!eAdulto) {
-                        rawList.add(obj)
-                    }
-                }
-
-                val sortedList = rawList.sortedByDescending { it.optLong("last_modified") }.take(20)
-                
-                val finalSeriesList = mutableListOf<VodItem>()
-                for (obj in sortedList) {
-                    finalSeriesList.add(VodItem(
-                        id = obj.optString("series_id"),
-                        name = obj.optString("name"),
-                        streamIcon = obj.optString("cover") // Séries usam 'cover'
-                    ))
-                }
-
+                val list = database.streamDao().getRecentSeries(20).map { VodItem(it.series_id.toString(), it.name, it.cover ?: "") }
                 withContext(Dispatchers.Main) {
-                    binding.rvRecentSeries.adapter = HomeRowAdapter(finalSeriesList) { selectedItem ->
+                    binding.rvRecentSeries.adapter = HomeRowAdapter(list) { selectedItem ->
                         val intent = Intent(this@HomeActivity, SeriesDetailsActivity::class.java)
                         intent.putExtra("series_id", selectedItem.id.toIntOrNull() ?: 0)
                         intent.putExtra("name", selectedItem.name)
-                        intent.putExtra("icon", selectedItem.streamIcon)
                         intent.putExtra("PROFILE_NAME", currentProfile)
-                        intent.putExtra("is_series", true) // ✅ SEMPRE TRUE PARA SÉRIES
                         startActivity(intent)
                     }
                 }

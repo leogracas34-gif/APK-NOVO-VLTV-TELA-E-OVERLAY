@@ -92,7 +92,7 @@ class VodActivity : AppCompatActivity() {
 
         setupRecyclerFocus()
 
-        // ✅ LÓGICA DE READEQUAÇÃO DINÂMICA (SUBSTITUI OS LAYOUTMANAGERS FIXOS)
+        // ✅ LÓGICA DE READEQUAÇÃO DINÂMICA AJUSTADA
         val mainLayout = findViewById<LinearLayout>(R.id.mainLayout)
         val divider = findViewById<View>(R.id.categoryDivider)
 
@@ -118,8 +118,9 @@ class VodActivity : AppCompatActivity() {
             params.height = ViewGroup.LayoutParams.WRAP_CONTENT
             rvCategories.layoutParams = params
             
+            // ✅ Mudança para Horizontal para criar a "barra de abas"
             rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.HORIZONTAL, false)
-            rvMovies.layoutManager = GridLayoutManager(this, 3) // 3 colunas para celular
+            rvMovies.layoutManager = GridLayoutManager(this, 3) 
         }
 
         rvCategories.setHasFixedSize(true)
@@ -330,9 +331,12 @@ class VodActivity : AppCompatActivity() {
             val isSel = selectedPos == p
             h.tvName.setTextColor(getColor(if (isSel) R.color.red_primary else R.color.gray_text))
             h.tvName.setBackgroundColor(if (isSel) 0xFF252525.toInt() else 0x00000000)
+            
+            // ✅ Adição de clique para atualizar posição selecionada
             h.itemView.setOnClickListener {
-                notifyItemChanged(selectedPos)
+                val oldPos = selectedPos
                 selectedPos = h.adapterPosition
+                notifyItemChanged(oldPos)
                 notifyItemChanged(selectedPos)
                 onClick(item)
             }

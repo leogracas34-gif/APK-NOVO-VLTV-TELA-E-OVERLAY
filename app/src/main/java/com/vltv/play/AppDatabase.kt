@@ -24,7 +24,7 @@ data class VodEntity(
     val rating: String?,
     val category_id: String,
     val added: Long,
-    val logo_url: String? = null // ✅ CAMPO PARA SALVAR A LOGO
+    val logo_url: String? = null // ✅ Mantido campo da logo
 )
 
 @Entity(tableName = "series_streams")
@@ -35,14 +35,27 @@ data class SeriesEntity(
     val rating: String?,
     val category_id: String,
     val last_modified: Long,
-    val logo_url: String? = null // ✅ CAMPO PARA SALVAR A LOGO
+    val logo_url: String? = null // ✅ Mantido campo da logo
+)
+
+// ✅ ADICIONADO: Entidade de Histórico sem mexer nas outras
+@Entity(tableName = "watch_history", primaryKeys = ["stream_id", "profile_name"])
+data class WatchHistoryEntity(
+    val stream_id: Int,
+    val profile_name: String,
+    val name: String,
+    val icon: String?,
+    val last_position: Long,
+    val duration: Long,
+    val is_series: Boolean,
+    val timestamp: Long
 )
 
 @Entity(tableName = "categories")
 data class CategoryEntity(
     @PrimaryKey val category_id: String,
     val category_name: String,
-    val type: String // "live", "vod", "series"
+    val type: String 
 )
 
 @Entity(tableName = "epg_cache")
@@ -87,18 +100,25 @@ interface StreamDao {
     @Query("DELETE FROM live_streams")
     suspend fun clearLive()
 
-    // 🔥 ESTAS SÃO AS FUNÇÕES QUE ESTAVAM FALTANDO E CAUSARAM O ERRO:
+    // ✅ Mantido as funções de Logo que você adicionou
     @Query("UPDATE series_streams SET logo_url = :logoUrl WHERE series_id = :id")
     suspend fun updateSeriesLogo(id: Int, logoUrl: String)
 
     @Query("UPDATE vod_streams SET logo_url = :logoUrl WHERE stream_id = :id")
     suspend fun updateVodLogo(id: Int, logoUrl: String)
+
+    // ✅ ADICIONADO: Funções de Histórico para a Home
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun saveWatchHistory(history: WatchHistoryEntity)
+
+    @Query("SELECT * FROM watch_history WHERE profile_name = :profile ORDER BY timestamp DESC LIMIT :limit")
+    suspend fun getWatchHistory(profile: String, limit: Int = 20): List<WatchHistoryEntity>
 }
 
-// --- DATABASE (Configuração Central Turbinada) ---
+// --- DATABASE ---
 
-// ✅ Aumentei a versão para 2 para o Room entender a mudança nas tabelas
-@Database(entities = [LiveStreamEntity::class, VodEntity::class, SeriesEntity::class, CategoryEntity::class, EpgEntity::class], version = 2, exportSchema = false)
+// ✅ Versão 3 para incluir a nova tabela de Histórico
+@Database(entities = [LiveStreamEntity::class, VodEntity::class, SeriesEntity::class, CategoryEntity::class, EpgEntity::class, WatchHistoryEntity::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun streamDao(): StreamDao
 

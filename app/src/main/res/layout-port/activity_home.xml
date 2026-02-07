@@ -28,6 +28,7 @@
         android:id="@+id/nestedScrollView"
         android:layout_width="match_parent"
         android:layout_height="0dp"
+        android:clipChildren="false"
         android:clipToPadding="false"
         app:layout_constraintTop_toBottomOf="@id/headerLayout"
         app:layout_constraintBottom_toTopOf="@id/bottomNavigation">
@@ -36,19 +37,26 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
+            android:clipChildren="false"
+            android:clipToPadding="false"
             android:paddingBottom="20dp">
 
-            <androidx.cardview.widget.CardView
-                android:id="@+id/cardBanner"
+            <FrameLayout
+                android:id="@+id/containerBanner"
                 android:layout_width="match_parent"
                 android:layout_height="450dp"
-                android:layout_marginHorizontal="16dp"
                 android:layout_marginTop="8dp"
-                app:cardCornerRadius="20dp"
-                app:cardBackgroundColor="#202020"
-                app:cardElevation="0dp"
-                android:focusable="true"
-                android:clickable="true">
+                android:clipChildren="false"
+                android:clipToPadding="false">
+
+                <androidx.viewpager2.widget.ViewPager2
+                    android:id="@+id/viewPagerBanner"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:clipChildren="false"
+                    android:clipToPadding="false"
+                    android:paddingStart="40dp"
+                    android:paddingEnd="40dp" />
 
                 <FrameLayout
                     android:layout_width="match_parent"
@@ -95,7 +103,7 @@
                             android:textSize="14sp" />
                     </LinearLayout>
                 </FrameLayout>
-            </androidx.cardview.widget.CardView>
+            </FrameLayout>
 
             <GridLayout
                 android:id="@+id/mainButtonsLayout"

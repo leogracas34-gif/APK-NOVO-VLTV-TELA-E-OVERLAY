@@ -2,14 +2,22 @@ package com.vltv.play
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ActivityInfo
+import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
+import android.graphics.Point
+import android.hardware.display.DisplayManager
+import android.view.Display
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -38,7 +46,7 @@ import java.net.URL
 import java.net.URLEncoder
 import kotlin.random.Random
 
-// âœ… FIREBASE ATIVADO
+// ✅ FIREBASE ATIVADO
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.remoteconfig.ktx.remoteConfig
 import com.google.firebase.remoteconfig.ktx.remoteConfigSettings
@@ -48,28 +56,32 @@ class HomeActivity : AppCompatActivity() {
     private lateinit var binding: ActivityHomeBinding
     private val TMDB_API_KEY = "9b73f5dd15b8165b1b57419be2f29128"
     
-    // âœ… VARIÃVEL DE PERFIL INTEGRADA
+    // ✅ VARIÁVEL DE PERFIL INTEGRADA
     private var currentProfile: String = "Padrao"
 
-    // âœ… INSTÃ‚NCIA DO BANCO DE DADOS ROOM (ADICIONADO)
+    // ✅ INSTÂNCIA DO BANCO DE DADOS ROOM (ADICIONADO)
     private val database by lazy { AppDatabase.getDatabase(this) }
 
-    // --- VARIÃVEIS DO NOVO BANNER INTERATIVO ---
+    // --- VARIÁVEIS DO NOVO BANNER INTERATIVO ---
     private var listaBannerItems: List<Any> = emptyList()
     private var bannerJob: Job? = null
     private var currentBannerIndex = 0
-    // IDs de categorias que sÃ£o NOVELAS para nÃ£o aparecerem no banner (Ex: 15, 20)
+    // IDs de categorias que são NOVELAS para não aparecerem no banner (Ex: 15, 20)
     private val categoriasNovelas = listOf("15", "20", "30") 
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // 🔥 NOVO: RECONHECIMENTO AUTOMÁTICO DE CELULAR vs TV
+        configurarOrientacaoAutomatica()
+        
         binding = ActivityHomeBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // âœ… RECUPERA O PERFIL SELECIONADO
+        // ✅ RECUPERA O PERFIL SELECIONADO
         currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
         
-        // Exibe o nome do perfil (se vocÃª tiver um TextView para isso no layout, ex: tvProfileName)
+        // Exibe o nome do perfil (se você tiver um TextView para isso no layout, ex: tvProfileName)
         // binding.tvProfileName.text = "Perfil: $currentProfile"
 
         val windowInsetsController =
@@ -81,17 +93,17 @@ class HomeActivity : AppCompatActivity() {
         DownloadHelper.registerReceiver(this)
 
         setupClicks()
-        setupFirebaseRemoteConfig() // âœ… Chamada ativada para o Firebase
+        setupFirebaseRemoteConfig() // ✅ Chamada ativada para o Firebase
         
-        // âœ… CARREGAMENTO INICIAL DO BANCO DE DADOS (ADICIONADO)
+        // ✅ CARREGAMENTO INICIAL DO BANCO DE DADOS (ADICIONADO)
         carregarDadosLocaisImediato()
         
-        // âœ… INICIA DOWNLOAD SILENCIOSO EM BACKGROUND (ADICIONADO)
+        // ✅ INICIA DOWNLOAD SILENCIOSO EM BACKGROUND (ADICIONADO)
         sincronizarConteudoSilenciosamente()
 
-        carregarListasDaHome() // âœ… CHAMADA ADICIONADA PARA CARREGAR OS RECENTES
+        carregarListasDaHome() // ✅ CHAMADA ADICIONADA PARA CARREGAR OS RECENTES
 
-        // âœ… LÃ“GICA KIDS: Verifica se o perfil selecionado foi o Kids
+        // ✅ LÓGICA KIDS: Verifica se o perfil selecionado foi o Kids
         val isKidsMode = intent.getBooleanExtra("IS_KIDS_MODE", false)
         if (isKidsMode) {
             currentProfile = "Kids" // Garante o nome do perfil Kids
@@ -102,17 +114,74 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // âœ… NOVA FUNÃ‡ÃƒO: BUSCA NO BANCO DE DADOS LOCAL IMEDIATAMENTE (ADICIONADO)
+    // 🔥 NOVA FUNÇÃO: DETECTA AUTOMATICAMENTE CELULAR vs TV E CONFIGURA ORIENTAÇÃO
+    private fun configurarOrientacaoAutomatica() {
+        if (isTVDevice()) {
+            // TV Android -> FORÇA PAISAGEM
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        } else {
+            // Celular -> FORÇA RETRATO
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
+    }
+
+    // 🔥 FUNÇÃO DE DETECÇÃO PRECISA: TV vs CELULAR
+    private fun isTVDevice(): Boolean {
+        return try {
+            // Método 1: Verifica características de TV (mais preciso)
+            packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK) ||
+            packageManager.hasSystemFeature(PackageManager.FEATURE_TELEVISION) ||
+            packageManager.hasSystemFeature("android.hardware.type.television") ||
+            
+            // Método 2: Verifica modo UI Television
+            (resources.configuration.uiMode and Configuration.UI_MODE_TYPE_MASK) == 
+            Configuration.UI_MODE_TYPE_TELEVISION ||
+            
+            // Método 3: Tamanho de tela grande (TVs geralmente > 600dp)
+            isLargeScreen()
+            
+        } catch (e: Exception) {
+            false // Default para celular se der erro
+        }
+    }
+
+    // 🔥 DETECTA TELA GRANDE (TVs têm telas maiores)
+    private fun isLargeScreen(): Boolean {
+        return try {
+            val display = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val displayManager = getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+                val display = displayManager.getDisplay(Display.DEFAULT_DISPLAY)
+                val point = Point()
+                display?.getRealSize(point)
+                point
+            } else {
+                @Suppress("DEPRECATION")
+                val point = Point()
+                windowManager.defaultDisplay.getRealSize(point)
+                point
+            }
+            
+            val width = display.x
+            val height = display.y
+            // TVs geralmente têm largura > 1200 pixels
+            width > 1200 || height > 800
+            
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    // ✅ NOVA FUNÇÃO: BUSCA NO BANCO DE DADOS LOCAL IMEDIATAMENTE (ADICIONADO)
     private fun carregarDadosLocaisImediato() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 // Busca os itens salvos no banco Room
                 val localMovies = database.streamDao().getRecentVods(20)
-                // âœ… CORREÃ‡ÃƒO AQUI: Adicionado ?: "" para evitar o erro de Type mismatch
+                // ✅ CORREÇÃO AQUI: Adicionado ?: "" para evitar o erro de Type mismatch
                 val movieItems = localMovies.map { VodItem(it.stream_id.toString(), it.name, it.stream_icon ?: "") }
 
                 val localSeries = database.streamDao().getRecentSeries(20)
-                // âœ… CORREÃ‡ÃƒO AQUI: Adicionado ?: "" para evitar o erro de Type mismatch
+                // ✅ CORREÇÃO AQUI: Adicionado ?: "" para evitar o erro de Type mismatch
                 val seriesItems = localSeries.map { VodItem(it.series_id.toString(), it.name, it.cover ?: "") }
 
                 withContext(Dispatchers.Main) {
@@ -148,7 +217,7 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // --- FUNÃ‡Ã•ES DO NOVO BANNER INTERATIVO ---
+    // --- FUNÇÕES DO NOVO BANNER INTERATIVO ---
 
     private fun prepararBannerDosRecentes(filmes: List<VodEntity>, series: List<SeriesEntity>) {
     // Pegamos apenas a lista de filmes, ignorando a de séries
@@ -198,18 +267,18 @@ class HomeActivity : AppCompatActivity() {
             isSeries = true
         } else return
 
-        // âœ… MUDANÃ‡A PARA O NOME NÃƒO FICAR TRAVADO:
+        // ✅ MUDANÇA PARA O NOME NÃO FICAR TRAVADO:
         // Reseta a visibilidade da logo e do texto a cada troca de banner
         binding.imgBannerLogo.visibility = View.GONE
         binding.tvBannerTitle.visibility = View.VISIBLE
         binding.tvBannerTitle.text = titulo
         
-        binding.tvBannerOverview.text = if (isSeries) "Nova SÃ©rie Adicionada" else "Novo Filme Adicionado"
+        binding.tvBannerOverview.text = if (isSeries) "Nova Série Adicionada" else "Novo Filme Adicionado"
         
-        // Tenta atualizar nota e botÃ£o se existirem no XML novo, senÃ£o ignora
+        // Tenta atualizar nota e botão se existirem no XML novo, senão ignora
         try {
             val tvRating = findViewById<TextView>(R.id.tvBannerRating)
-            tvRating?.text = "â­ $rating"
+            tvRating?.text = "⭐ $rating"
             val btnPlay = findViewById<View>(R.id.btnBannerPlay)
             btnPlay?.visibility = View.VISIBLE
         } catch (e: Exception) {}
@@ -217,7 +286,7 @@ class HomeActivity : AppCompatActivity() {
         // Busca backdrop
         buscarImagemBackgroundTMDB(titulo, isSeries, icon)
 
-        // CONFIGURA O CLIQUE REAL PARA ABRIR O VÃDEO
+        // CONFIGURA O CLIQUE REAL PARA ABRIR O VÍDEO
         binding.cardBanner.setOnClickListener {
             val intent = if (isSeries) {
                 Intent(this, SeriesDetailsActivity::class.java).apply { putExtra("series_id", id) }
@@ -267,7 +336,7 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // âœ… NOVA FUNÃ‡ÃƒO: SINCRONIZAÃ‡ÃƒO EM SEGUNDO PLANO (ADICIONADO)
+    // ✅ NOVA FUNÇÃO: SINCRONIZAÇÃO EM SEGUNDO PLANO (ADICIONADO)
     private fun sincronizarConteudoSilenciosamente() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val dns = prefs.getString("dns", "") ?: ""
@@ -283,7 +352,7 @@ class HomeActivity : AppCompatActivity() {
                 val vodResponse = URL(vodUrl).readText()
                 val vodArray = org.json.JSONArray(vodResponse)
                 val vodEntities = mutableListOf<VodEntity>()
-                val palavrasProibidas = listOf("XXX", "PORN", "ADULTO", "SEXO", "EROTICO", "ðŸ”ž", "PORNÃ”")
+                val palavrasProibidas = listOf("XXX", "PORN", "ADULTO", "SEXO", "EROTICO", "🔞", "PORNÔ")
 
                 for (i in 0 until vodArray.length()) {
                     val obj = vodArray.getJSONObject(i)
@@ -303,7 +372,7 @@ class HomeActivity : AppCompatActivity() {
                 }
                 database.streamDao().insertVodStreams(vodEntities)
 
-                // Sincroniza SÃ©ries
+                // Sincroniza Séries
                 val seriesUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_series"
                 val seriesResponse = URL(seriesUrl).readText()
                 val seriesArray = org.json.JSONArray(seriesResponse)
@@ -353,11 +422,11 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // âœ… ESTRUTURA PARA BANNER DINÃ‚MICO (FIREBASE) TOTALMENTE ATIVA
+    // ✅ ESTRUTURA PARA BANNER DINÂMICO (FIREBASE) TOTALMENTE ATIVA
     private fun setupFirebaseRemoteConfig() {
         val remoteConfig = Firebase.remoteConfig
         
-        // Define intervalo de busca curto para testes (60s) ou padrÃ£o (1h/3600s)
+        // Define intervalo de busca curto para testes (60s) ou padrão (1h/3600s)
         val configSettings = remoteConfigSettings { 
             minimumFetchIntervalInSeconds = 60 
         }
@@ -369,12 +438,12 @@ class HomeActivity : AppCompatActivity() {
                 val bannerTitle = remoteConfig.getString("titulo_banner_promocional")
                 
                 if (bannerUrl.isNotEmpty()) {
-                    bannerJob?.cancel() // PAUSA O BANNER AUTOMÃTICO SE TIVER PROMOÃ‡ÃƒO
-                    // âœ… Se houver uma URL no Firebase, ela substitui o banner dinÃ¢mico do TMDB
+                    bannerJob?.cancel() // PAUSA O BANNER AUTOMÁTICO SE TIVER PROMOÇÃO
+                    // ✅ Se houver uma URL no Firebase, ela substitui o banner dinâmico do TMDB
                     runOnUiThread {
                         binding.tvBannerTitle.visibility = View.VISIBLE
                         binding.tvBannerTitle.text = bannerTitle.ifEmpty { "Destaque VLTV" }
-                        binding.tvBannerOverview.text = "" // Geralmente banners manuais nÃ£o usam sinopse longa
+                        binding.tvBannerOverview.text = "" // Geralmente banners manuais não usam sinopse longa
                         binding.imgBannerLogo.visibility = View.GONE
                         
                         Glide.with(this@HomeActivity)
@@ -390,7 +459,7 @@ class HomeActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Se o banner interativo ainda nÃ£o tem itens, tenta o fallback
+        // Se o banner interativo ainda não tem itens, tenta o fallback
         if (listaBannerItems.isEmpty()) {
             carregarBannerAlternado()
         }
@@ -406,7 +475,7 @@ class HomeActivity : AppCompatActivity() {
 
             binding.cardBanner.requestFocus()
             
-            // âœ… RECARREGA O CONTINUAR ASSISTINDO LOCAL SEMPRE QUE VOLTAR PARA A HOME
+            // ✅ RECARREGA O CONTINUAR ASSISTINDO LOCAL SEMPRE QUE VOLTAR PARA A HOME
             carregarContinuarAssistindoLocal()
             
         } catch (e: Exception) {
@@ -429,7 +498,7 @@ class HomeActivity : AppCompatActivity() {
         binding.etSearch.setOnClickListener {
             val intent = Intent(this, SearchActivity::class.java)
             intent.putExtra("initial_query", "")
-            intent.putExtra("PROFILE_NAME", currentProfile) // âœ… REPASSA O PERFIL
+            intent.putExtra("PROFILE_NAME", currentProfile) // ✅ REPASSA O PERFIL
             startActivity(intent)
         }
 
@@ -459,11 +528,11 @@ class HomeActivity : AppCompatActivity() {
             
             card.setOnFocusChangeListener { _, hasFocus ->
                 if (hasFocus) {
-                    // --- CORREÃ‡ÃƒO DO ZOOM QUE "COME" O VIZINHO ---
-                    // Usamos translationZ para o botÃ£o focado ficar ACIMA dos outros
+                    // --- CORREÇÃO DO ZOOM QUE "COME" O VIZINHO ---
+                    // Usamos translationZ para o botão focado ficar ACIMA dos outros
                     card.animate().scaleX(1.08f).scaleY(1.08f).translationZ(10f).setDuration(200).start()
                     
-                    // Se for o banner, mostra o botÃ£o "Assistir" com mais destaque (se houver)
+                    // Se for o banner, mostra o botão "Assistir" com mais destaque (se houver)
                     if (card.id == R.id.cardBanner) {
                          try { findViewById<View>(R.id.btnBannerPlay)?.alpha = 1.0f } catch (e: Exception) {}
                     }
@@ -477,25 +546,25 @@ class HomeActivity : AppCompatActivity() {
                     R.id.cardLiveTv -> {
                         val intent = Intent(this, LiveTvActivity::class.java)
                         intent.putExtra("SHOW_PREVIEW", true)
-                        intent.putExtra("PROFILE_NAME", currentProfile) // âœ… REPASSA O PERFIL
+                        intent.putExtra("PROFILE_NAME", currentProfile) // ✅ REPASSA O PERFIL
                         startActivity(intent)
                     }
                     R.id.cardMovies -> {
                         val intent = Intent(this, VodActivity::class.java)
                         intent.putExtra("SHOW_PREVIEW", false)
-                        intent.putExtra("PROFILE_NAME", currentProfile) // âœ… REPASSA O PERFIL
+                        intent.putExtra("PROFILE_NAME", currentProfile) // ✅ REPASSA O PERFIL
                         startActivity(intent)
                     }
                     R.id.cardSeries -> {
                         val intent = Intent(this, SeriesActivity::class.java)
                         intent.putExtra("SHOW_PREVIEW", false)
-                        intent.putExtra("PROFILE_NAME", currentProfile) // âœ… REPASSA O PERFIL
+                        intent.putExtra("PROFILE_NAME", currentProfile) // ✅ REPASSA O PERFIL
                         startActivity(intent)
                     }
                     R.id.cardKids -> {
                         val intent = Intent(this, KidsActivity::class.java)
                         intent.putExtra("SHOW_PREVIEW", false)
-                        intent.putExtra("PROFILE_NAME", "Kids") // âœ… FORÃ‡A PERFIL KIDS
+                        intent.putExtra("PROFILE_NAME", "Kids") // ✅ FORÇA PERFIL KIDS
                         startActivity(intent)
                     }
                     // Clique do Banner tratado individualmente em 'exibirItemNoBanner'
@@ -564,12 +633,12 @@ class HomeActivity : AppCompatActivity() {
         }
 
         binding.btnSettings.setOnClickListener {
-            val itens = arrayOf("Trocar Perfil", "Meus downloads", "ConfiguraÃ§Ãµes", "Sair")
+            val itens = arrayOf("Trocar Perfil", "Meus downloads", "Configurações", "Sair")
             AlertDialog.Builder(this)
-                .setTitle("OpÃ§Ãµes - $currentProfile")
+                .setTitle("Opções - $currentProfile")
                 .setItems(itens) { _, which ->
                     when (which) {
-                        0 -> finish() // âœ… Volta para a tela de SeleÃ§Ã£o de Perfil
+                        0 -> finish() // ✅ Volta para a tela de Seleção de Perfil
                         1 -> startActivity(Intent(this, DownloadsActivity::class.java))
                         2 -> startActivity(Intent(this, SettingsActivity::class.java))
                         3 -> mostrarDialogoSair()
@@ -595,7 +664,7 @@ class HomeActivity : AppCompatActivity() {
                 startActivity(intent)
                 finish()
             }
-            .setNegativeButton("NÃ£o", null)
+            .setNegativeButton("Não", null)
             .show()
     }
 
@@ -623,7 +692,7 @@ class HomeActivity : AppCompatActivity() {
 
                     val overview = if (item.has("overview")) item.getString("overview") else ""
                     val backdropPath = item.getString("backdrop_path")
-                    val prefixo = if (tipoAtual == "movie") "Filme em Alta: " else "SÃ©rie em Alta: "
+                    val prefixo = if (tipoAtual == "movie") "Filme em Alta: " else "Série em Alta: "
                     val tmdbId = item.getString("id")
 
                     if (backdropPath != "null" && backdropPath.isNotBlank()) {
@@ -698,13 +767,13 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun carregarListasDaHome() {
-        // âœ… CHAMADA PARA O HISTÃ“RICO LOCAL
+        // ✅ CHAMADA PARA O HISTÓRICO LOCAL
         carregarContinuarAssistindoLocal()
         
-        // âœ… CHAMADA PARA FILMES RECENTES
+        // ✅ CHAMADA PARA FILMES RECENTES
         carregarFilmesRecentes()
 
-        // âœ… CHAMADA PARA SÃ‰RIES RECENTES
+        // ✅ CHAMADA PARA SÉRIES RECENTES
         carregarSeriesRecentes()
     }
 
@@ -721,7 +790,7 @@ class HomeActivity : AppCompatActivity() {
                 val jsonArray = org.json.JSONArray(response)
                 
                 val rawList = mutableListOf<JSONObject>()
-                val palavrasProibidas = listOf("XXX", "PORN", "ADULTO", "SEXO", "EROTICO", "ðŸ”ž", "PORNÃ”")
+                val palavrasProibidas = listOf("XXX", "PORN", "ADULTO", "SEXO", "EROTICO", "🔞", "PORNÔ")
 
                 for (i in 0 until jsonArray.length()) {
                     val obj = jsonArray.getJSONObject(i)
@@ -781,7 +850,7 @@ class HomeActivity : AppCompatActivity() {
                 val jsonArray = org.json.JSONArray(response)
                 
                 val rawList = mutableListOf<JSONObject>()
-                val palavrasProibidas = listOf("XXX", "PORN", "ADULTO", "SEXO", "EROTICO", "ðŸ”ž", "PORNÃ”")
+                val palavrasProibidas = listOf("XXX", "PORN", "ADULTO", "SEXO", "EROTICO", "🔞", "PORNÔ")
 
                 for (i in 0 until jsonArray.length()) {
                     val obj = jsonArray.getJSONObject(i)
@@ -800,7 +869,7 @@ class HomeActivity : AppCompatActivity() {
                     finalSeriesList.add(VodItem(
                         id = obj.optString("series_id"),
                         name = obj.optString("name"),
-                        streamIcon = obj.optString("cover") // SÃ©ries usam 'cover'
+                        streamIcon = obj.optString("cover") // Séries usam 'cover'
                     ))
                 }
 
@@ -811,7 +880,7 @@ class HomeActivity : AppCompatActivity() {
                         intent.putExtra("name", selectedItem.name)
                         intent.putExtra("icon", selectedItem.streamIcon)
                         intent.putExtra("PROFILE_NAME", currentProfile)
-                        intent.putExtra("is_series", true) // âœ… SEMPRE TRUE PARA SÃ‰RIES
+                        intent.putExtra("is_series", true) // ✅ SEMPRE TRUE PARA SÉRIES
                         startActivity(intent)
                     }
                 }

@@ -10,6 +10,7 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.PopupMenu
 import android.widget.TextView
 import android.widget.Toast
@@ -91,14 +92,42 @@ class VodActivity : AppCompatActivity() {
 
         setupRecyclerFocus()
 
-        rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
+        // ✅ LÓGICA DE READEQUAÇÃO DINÂMICA (SUBSTITUI OS LAYOUTMANAGERS FIXOS)
+        val mainLayout = findViewById<LinearLayout>(R.id.mainLayout)
+        val divider = findViewById<View>(R.id.categoryDivider)
+
+        if (isTelevision(this)) {
+            // MODO TV: Barra Lateral Vertical
+            mainLayout?.orientation = LinearLayout.HORIZONTAL
+            divider?.visibility = View.VISIBLE
+            
+            val params = rvCategories.layoutParams
+            params.width = (250 * resources.displayMetrics.density).toInt()
+            params.height = ViewGroup.LayoutParams.MATCH_PARENT
+            rvCategories.layoutParams = params
+            
+            rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
+            rvMovies.layoutManager = GridLayoutManager(this, 5)
+        } else {
+            // MODO CELULAR: Barra Suspensa no Topo (Horizontal)
+            mainLayout?.orientation = LinearLayout.VERTICAL
+            divider?.visibility = View.GONE
+            
+            val params = rvCategories.layoutParams
+            params.width = ViewGroup.LayoutParams.MATCH_PARENT
+            params.height = ViewGroup.LayoutParams.WRAP_CONTENT
+            rvCategories.layoutParams = params
+            
+            rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.HORIZONTAL, false)
+            rvMovies.layoutManager = GridLayoutManager(this, 3) // 3 colunas para celular
+        }
+
         rvCategories.setHasFixedSize(true)
         rvCategories.setItemViewCacheSize(50)
         rvCategories.overScrollMode = View.OVER_SCROLL_NEVER
         rvCategories.isFocusable = true
         rvCategories.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
 
-        rvMovies.layoutManager = GridLayoutManager(this, 5)
         rvMovies.isFocusable = true
         rvMovies.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
         rvMovies.setHasFixedSize(true)
@@ -126,7 +155,7 @@ class VodActivity : AppCompatActivity() {
                     withContext(Dispatchers.Main) {
                         Glide.with(this@VodActivity).load(url)
                             .diskCacheStrategy(DiskCacheStrategy.ALL)
-                            .format(DecodeFormat.PREFER_RGB_565) // Otimizado
+                            .format(DecodeFormat.PREFER_RGB_565)
                             .priority(Priority.LOW)
                             .preload(180, 270)
                     }
@@ -301,19 +330,6 @@ class VodActivity : AppCompatActivity() {
             val isSel = selectedPos == p
             h.tvName.setTextColor(getColor(if (isSel) R.color.red_primary else R.color.gray_text))
             h.tvName.setBackgroundColor(if (isSel) 0xFF252525.toInt() else 0x00000000)
-            h.itemView.setOnFocusChangeListener { view, hasFocus ->
-                if (hasFocus) {
-                    h.tvName.setTextColor(Color.YELLOW)
-                    h.tvName.textSize = 20f
-                    view.setBackgroundResource(R.drawable.bg_focus_neon)
-                    view.animate().scaleX(1.10f).scaleY(1.10f).setDuration(150).start()
-                } else {
-                    h.tvName.textSize = 16f
-                    view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
-                    view.setBackgroundResource(0)
-                    if (selectedPos != h.adapterPosition) h.tvName.setTextColor(getColor(R.color.gray_text))
-                }
-            }
             h.itemView.setOnClickListener {
                 notifyItemChanged(selectedPos)
                 selectedPos = h.adapterPosition
@@ -339,12 +355,11 @@ class VodActivity : AppCompatActivity() {
             h.tvName.visibility = View.VISIBLE
             h.imgLogo.visibility = View.GONE
             
-            // ✅ CARREGAMENTO OTIMIZADO PARA TV BOX ANTIGA
             Glide.with(h.itemView.context)
                 .asBitmap()
                 .load(item.icon)
-                .format(DecodeFormat.PREFER_RGB_565) // 🟢 Metade do uso de RAM
-                .override(180, 270) // 🟢 Redimensiona antes de processar
+                .format(DecodeFormat.PREFER_RGB_565)
+                .override(180, 270)
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .placeholder(R.drawable.bg_logo_placeholder)
                 .centerCrop()
@@ -374,23 +389,6 @@ class VodActivity : AppCompatActivity() {
                 }
             }
 
-            h.itemView.setOnFocusChangeListener { view, hasFocus ->
-                if (hasFocus) {
-                    h.tvName.setTextColor(Color.YELLOW)
-                    h.tvName.textSize = 18f
-                    view.setBackgroundResource(R.drawable.bg_focus_neon)
-                    view.animate().scaleX(1.15f).scaleY(1.15f).setDuration(150).start()
-                    view.elevation = 20f
-                    if (h.imgLogo.visibility != View.VISIBLE) h.tvName.visibility = View.VISIBLE
-                } else {
-                    h.tvName.setTextColor(Color.WHITE)
-                    h.tvName.textSize = 14f
-                    view.setBackgroundResource(0)
-                    view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
-                    view.elevation = 4f
-                    h.tvName.visibility = View.GONE
-                }
-            }
             h.itemView.setOnClickListener { onClick(item) }
         }
         override fun getItemCount() = list.size

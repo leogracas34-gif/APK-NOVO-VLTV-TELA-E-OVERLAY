@@ -24,6 +24,7 @@ import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.Priority
+import com.bumptech.glide.load.DecodeFormat
 import com.vltv.play.data.AppDatabase
 import com.vltv.play.data.VodEntity
 import retrofit2.Call
@@ -35,7 +36,6 @@ import java.net.URL
 import java.net.URLEncoder
 import android.graphics.Color
 
-// âœ… MANTIDO: Sem redeclaraÃ§Ã£o de EpisodeData
 class VodActivity : AppCompatActivity() {
     private lateinit var rvCategories: RecyclerView
     private lateinit var rvMovies: RecyclerView
@@ -51,10 +51,8 @@ class VodActivity : AppCompatActivity() {
     private var categoryAdapter: VodCategoryAdapter? = null
     private var moviesAdapter: VodAdapter? = null
     
-    // âœ… VARIÃVEL DE PERFIL PARA SINCRONIZAR FAVORITOS
     private var currentProfile: String = "Padrao"
 
-    // âœ… DATABASE ADICIONADA PARA ULTRA VELOCIDADE
     private val database by lazy { AppDatabase.getDatabase(this) }
 
     private fun isTelevision(context: Context): Boolean {
@@ -66,7 +64,6 @@ class VodActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_vod)
 
-        // âœ… RECUPERA O PERFIL PARA BATER COM A DETAILS ACTIVITY
         currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
 
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
@@ -96,8 +93,8 @@ class VodActivity : AppCompatActivity() {
 
         rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
         rvCategories.setHasFixedSize(true)
-        rvCategories.setItemViewCacheSize(50) // âœ… CACHE PARA NAVEGAÃ‡ÃƒO RÃPIDA
-        rvCategories.overScrollMode = View.OVER_SCROLL_NEVER // âœ… REMOVE TREMEDEIRA
+        rvCategories.setItemViewCacheSize(50)
+        rvCategories.overScrollMode = View.OVER_SCROLL_NEVER
         rvCategories.isFocusable = true
         rvCategories.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
 
@@ -105,7 +102,7 @@ class VodActivity : AppCompatActivity() {
         rvMovies.isFocusable = true
         rvMovies.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
         rvMovies.setHasFixedSize(true)
-        rvMovies.setItemViewCacheSize(100) // âœ… CACHE PARA EVITAR LAG NOS PÃ”STERES
+        rvMovies.setItemViewCacheSize(100)
 
         rvCategories.requestFocus()
         carregarCategorias()
@@ -127,10 +124,13 @@ class VodActivity : AppCompatActivity() {
                 val url = filmes[i].icon
                 if (!url.isNullOrEmpty()) {
                     withContext(Dispatchers.Main) {
-                        Glide.with(this@VodActivity).load(url)
+                        Glide.with(this@VodActivity)
+                            .asBitmap()
+                            .load(url)
+                            .format(DecodeFormat.PREFER_RGB_565) // Otimiza RAM
                             .diskCacheStrategy(DiskCacheStrategy.ALL)
                             .priority(Priority.LOW)
-                            .preload(200, 300)
+                            .preload(180, 270) // Redimensiona no cache
                     }
                 }
             }
@@ -179,7 +179,6 @@ class VodActivity : AppCompatActivity() {
     private fun carregarFilmes(categoria: LiveCategory) {
         tvCategoryTitle.text = categoria.name
         
-        // âœ… 1. TENTA CARREGAR DO BANCO DE DADOS PRIMEIRO (SEM TRAVAR)
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val allLocal = database.streamDao().searchVod("") 
@@ -194,7 +193,6 @@ class VodActivity : AppCompatActivity() {
             } catch (e: Exception) { e.printStackTrace() }
         }
 
-        // âœ… 2. BUSCA NA REDE PARA ATUALIZAR
         moviesCache[categoria.id]?.let { aplicarFilmes(it); preLoadImages(it); return }
         progressBar.visibility = View.VISIBLE
         XtreamApi.service.getVodStreams(username, password, categoryId = categoria.id)
@@ -210,7 +208,6 @@ class VodActivity : AppCompatActivity() {
                         aplicarFilmes(filmes)
                         preLoadImages(filmes)
 
-                        // âœ… SALVA NO BANCO VINCULANDO A CATEGORIA CORRETAMENTE
                         lifecycleScope.launch(Dispatchers.IO) {
                             try {
                                 val entities = filmes.map { VodEntity(it.stream_id, it.name, it.title, it.stream_icon, it.container_extension, it.rating, categoria.id, System.currentTimeMillis()) }
@@ -344,7 +341,13 @@ class VodActivity : AppCompatActivity() {
             h.tvName.visibility = View.VISIBLE
             h.imgLogo.visibility = View.GONE
             h.imgLogo.setImageDrawable(null)
-            Glide.with(h.itemView.context).load(item.icon)
+
+            // âœ… CARREGAMENTO OTIMIZADO PARA TV BOX
+            Glide.with(h.itemView.context)
+                .asBitmap()
+                .load(item.icon)
+                .format(DecodeFormat.PREFER_RGB_565) // 50% menos RAM
+                .override(180, 270) // Redimensiona para o tamanho do card
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .placeholder(R.drawable.bg_logo_placeholder)
                 .centerCrop()

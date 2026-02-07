@@ -23,7 +23,8 @@ data class VodEntity(
     val container_extension: String?,
     val rating: String?,
     val category_id: String,
-    val added: Long
+    val added: Long,
+    val logo_url: String? = null // ✅ CAMPO PARA SALVAR A LOGO
 )
 
 @Entity(tableName = "series_streams")
@@ -33,7 +34,8 @@ data class SeriesEntity(
     val cover: String?,
     val rating: String?,
     val category_id: String,
-    val last_modified: Long
+    val last_modified: Long,
+    val logo_url: String? = null // ✅ CAMPO PARA SALVAR A LOGO
 )
 
 @Entity(tableName = "categories")
@@ -84,11 +86,19 @@ interface StreamDao {
 
     @Query("DELETE FROM live_streams")
     suspend fun clearLive()
+
+    // 🔥 ESTAS SÃO AS FUNÇÕES QUE ESTAVAM FALTANDO E CAUSARAM O ERRO:
+    @Query("UPDATE series_streams SET logo_url = :logoUrl WHERE series_id = :id")
+    suspend fun updateSeriesLogo(id: Int, logoUrl: String)
+
+    @Query("UPDATE vod_streams SET logo_url = :logoUrl WHERE stream_id = :id")
+    suspend fun updateVodLogo(id: Int, logoUrl: String)
 }
 
 // --- DATABASE (Configuração Central Turbinada) ---
 
-@Database(entities = [LiveStreamEntity::class, VodEntity::class, SeriesEntity::class, CategoryEntity::class, EpgEntity::class], version = 1, exportSchema = false)
+// ✅ Aumentei a versão para 2 para o Room entender a mudança nas tabelas
+@Database(entities = [LiveStreamEntity::class, VodEntity::class, SeriesEntity::class, CategoryEntity::class, EpgEntity::class], version = 2, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun streamDao(): StreamDao
 
@@ -104,7 +114,6 @@ abstract class AppDatabase : RoomDatabase() {
                     "vltv_play_db"
                 )
                 .fallbackToDestructiveMigration()
-                // ✅ ATIVA O MODO DE ALTA PERFORMANCE (ESCRITA E LEITURA AO MESMO TEMPO)
                 .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
                 .build()
                 

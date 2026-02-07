@@ -252,6 +252,7 @@ class HomeActivity : AppCompatActivity() {
         val rating: String
         val icon: String
         val isSeries: Boolean
+        val logoSalva: String?
 
         if (item is VodEntity) {
             titulo = item.name
@@ -259,12 +260,15 @@ class HomeActivity : AppCompatActivity() {
             rating = item.rating ?: "0.0"
             icon = item.stream_icon ?: ""
             isSeries = false
+            // Tenta pegar a logo do banco se você já tiver o campo, senão ignora
+            logoSalva = try { item.javaClass.getField("logo_url").get(item) as? String } catch(e: Exception) { null }
         } else if (item is SeriesEntity) {
             titulo = item.name
             id = item.series_id
             rating = item.rating ?: "0.0"
             icon = item.cover ?: ""
             isSeries = true
+            logoSalva = try { item.javaClass.getField("logo_url").get(item) as? String } catch(e: Exception) { null }
         } else return
 
         // ✅ MUDANÇA PARA O NOME NÃO FICAR TRAVADO:
@@ -274,6 +278,13 @@ class HomeActivity : AppCompatActivity() {
         binding.tvBannerTitle.text = titulo
         
         binding.tvBannerOverview.text = if (isSeries) "Nova Série Adicionada" else "Novo Filme Adicionado"
+
+        // ✅ CARREGAMENTO INSTANTÂNEO SE JÁ EXISTIR LOGO NO BANCO
+        if (!logoSalva.isNullOrEmpty()) {
+            binding.tvBannerTitle.visibility = View.GONE
+            binding.imgBannerLogo.visibility = View.VISIBLE
+            Glide.with(this).load(logoSalva).into(binding.imgBannerLogo)
+        }
         
         // Tenta atualizar nota e botão se existirem no XML novo, senão ignora
         try {
@@ -284,7 +295,7 @@ class HomeActivity : AppCompatActivity() {
         } catch (e: Exception) {}
 
         // Busca backdrop
-        buscarImagemBackgroundTMDB(titulo, isSeries, icon)
+        buscarImagemBackgroundTMDB(titulo, isSeries, icon, id)
 
         // CONFIGURA O CLIQUE REAL PARA ABRIR O VÍDEO
         binding.cardBanner.setOnClickListener {
@@ -301,9 +312,18 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    private fun buscarImagemBackgroundTMDB(nome: String, isSeries: Boolean, fallback: String) {
+    // 🧹 NOVA FUNÇÃO INTERNA: VASSOURA PARA LIMPAR NOMES DE IPTV
+    private fun limparNomeParaTMDB(nome: String): String {
+        return nome.replace(Regex("(?i)\\b(4K|FHD|HD|SD|720P|1080P|2160P|DUBLADO|LEGENDADO|DUAL|AUDIO|LATINO|PT-BR|PTBR|WEB-DL|BLURAY|MKV|MP4|AVI|REPACK|H264|H265|HEVC|WEB)\\b"), "")
+                   .replace(Regex("\\(\\d{4}\\)|\\[.*?\\]|\\{.*?\\}"), "")
+                   .replace(Regex("\\s+"), " ")
+                   .trim()
+    }
+
+    private fun buscarImagemBackgroundTMDB(nome: String, isSeries: Boolean, fallback: String, internalId: Int) {
         val tipo = if (isSeries) "tv" else "movie"
-        val query = URLEncoder.encode(nome, "UTF-8")
+        val nomeLimpo = limparNomeParaTMDB(nome) // ✅ APLICAÇÃO DA VASSOURA
+        val query = URLEncoder.encode(nomeLimpo, "UTF-8")
         val url = "https://api.themoviedb.org/3/search/$tipo?api_key=$TMDB_API_KEY&query=$query&language=pt-BR"
 
         lifecycleScope.launch(Dispatchers.IO) {
@@ -321,7 +341,7 @@ class HomeActivity : AppCompatActivity() {
                             .placeholder(binding.imgBanner.drawable)
                             .into(binding.imgBanner)
                         
-                        buscarLogoOverlayHome(tmdbId, tipo, nome)
+                        buscarLogoOverlayHome(tmdbId, tipo, nome, internalId, isSeries)
                     }
                 } else {
                     withContext(Dispatchers.Main) {
@@ -705,7 +725,7 @@ class HomeActivity : AppCompatActivity() {
                                 .centerCrop()
                                 .into(binding.imgBanner)
                         }
-                        buscarLogoOverlayHome(tmdbId, tipoAtual, tituloOriginal)
+                        buscarLogoOverlayHome(tmdbId, tipoAtual, tituloOriginal, tmdbId.toInt(), tipoAtual == "tv")
                     }
                 }
             } catch (e: Exception) {
@@ -714,7 +734,8 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    private fun buscarLogoOverlayHome(tmdbId: String, tipo: String, rawName: String) {
+    // ✅ ATUALIZADO: SALVA A LOGO NO BANCO DE DADOS
+    private fun buscarLogoOverlayHome(tmdbId: String, tipo: String, rawName: String, internalId: Int, isSeries: Boolean) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val imagesUrl = "https://api.themoviedb.org/3/$tipo/$tmdbId/images?api_key=$TMDB_API_KEY&include_image_language=pt,en,null"
@@ -735,6 +756,15 @@ class HomeActivity : AppCompatActivity() {
                         if (logoPath == null) logoPath = logos.getJSONObject(0).getString("file_path")
                         
                         val fullLogoUrl = "https://image.tmdb.org/t/p/w500$logoPath"
+
+                        // ✅ SALVA NO BANCO DE DADOS PARA SER INSTANTÂNEO
+                        try {
+                            if (isSeries) {
+                                database.streamDao().updateSeriesLogo(internalId, fullLogoUrl)
+                            } else {
+                                database.streamDao().updateVodLogo(internalId, fullLogoUrl)
+                            }
+                        } catch(e: Exception) {}
 
                         withContext(Dispatchers.Main) {
                             binding.tvBannerTitle.visibility = View.GONE

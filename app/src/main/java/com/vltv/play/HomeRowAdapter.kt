@@ -7,6 +7,8 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.DecodeFormat
+import com.bumptech.glide.load.engine.DiskCacheStrategy
 
 class HomeRowAdapter(
     private val list: List<VodItem>,
@@ -28,9 +30,15 @@ class HomeRowAdapter(
         val item = list[position]
         holder.tvTitle.text = item.name
         
+        // Configuração otimizada para carregar imagens do Database instantaneamente
         Glide.with(holder.itemView.context)
+            .asBitmap() // Carregamento mais rápido para listas
             .load(item.streamIcon)
+            .format(DecodeFormat.PREFER_RGB_565) // 🟢 Reduz uso de RAM pela metade
+            .override(180, 270) // 🟢 Redimensiona para o tamanho do card (evita processar pixels inúteis)
+            .diskCacheStrategy(DiskCacheStrategy.ALL) // 🟢 Prioriza o que já está no banco/disco
             .placeholder(R.drawable.ic_launcher)
+            .thumbnail(0.1f) // 🟢 Carrega uma versão leve (10%) enquanto a original carrega
             .into(holder.ivPoster)
 
         holder.itemView.setOnClickListener { onItemClick(item) }

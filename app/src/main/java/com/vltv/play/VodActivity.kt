@@ -91,14 +91,21 @@ class VodActivity : AppCompatActivity() {
 
         setupRecyclerFocus()
 
-        rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
+        // ✅ LÓGICA CONDICIONAL DE SCROLL (MANTÉM TV VERTICAL E CELULAR HORIZONTAL)
+        if (isTelevision(this)) {
+            rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
+            rvMovies.layoutManager = GridLayoutManager(this, 5)
+        } else {
+            rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.HORIZONTAL, false)
+            rvMovies.layoutManager = GridLayoutManager(this, 3) // 3 colunas para o celular não espremer
+        }
+
         rvCategories.setHasFixedSize(true)
         rvCategories.setItemViewCacheSize(50)
         rvCategories.overScrollMode = View.OVER_SCROLL_NEVER
         rvCategories.isFocusable = true
         rvCategories.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
 
-        rvMovies.layoutManager = GridLayoutManager(this, 5)
         rvMovies.isFocusable = true
         rvMovies.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
         rvMovies.setHasFixedSize(true)
@@ -127,10 +134,10 @@ class VodActivity : AppCompatActivity() {
                         Glide.with(this@VodActivity)
                             .asBitmap()
                             .load(url)
-                            .format(DecodeFormat.PREFER_RGB_565) // Otimiza RAM
+                            .format(DecodeFormat.PREFER_RGB_565)
                             .diskCacheStrategy(DiskCacheStrategy.ALL)
                             .priority(Priority.LOW)
-                            .preload(180, 270) // Redimensiona no cache
+                            .preload(180, 270)
                     }
                 }
             }
@@ -303,22 +310,11 @@ class VodActivity : AppCompatActivity() {
             val isSel = selectedPos == p
             h.tvName.setTextColor(getColor(if (isSel) R.color.red_primary else R.color.gray_text))
             h.tvName.setBackgroundColor(if (isSel) 0xFF252525.toInt() else 0x00000000)
-            h.itemView.setOnFocusChangeListener { view, hasFocus ->
-                if (hasFocus) {
-                    h.tvName.setTextColor(Color.YELLOW)
-                    h.tvName.textSize = 20f
-                    view.setBackgroundResource(R.drawable.bg_focus_neon)
-                    view.animate().scaleX(1.10f).scaleY(1.10f).setDuration(150).start()
-                } else {
-                    h.tvName.textSize = 16f
-                    view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
-                    view.setBackgroundResource(0)
-                    if (selectedPos != h.adapterPosition) h.tvName.setTextColor(getColor(R.color.gray_text))
-                }
-            }
+            
             h.itemView.setOnClickListener {
-                notifyItemChanged(selectedPos)
+                val oldPos = selectedPos
                 selectedPos = h.adapterPosition
+                notifyItemChanged(oldPos)
                 notifyItemChanged(selectedPos)
                 onClick(item)
             }
@@ -340,14 +336,12 @@ class VodActivity : AppCompatActivity() {
             h.tvName.text = item.name
             h.tvName.visibility = View.VISIBLE
             h.imgLogo.visibility = View.GONE
-            h.imgLogo.setImageDrawable(null)
-
-            // âœ… CARREGAMENTO OTIMIZADO PARA TV BOX
+            
             Glide.with(h.itemView.context)
                 .asBitmap()
                 .load(item.icon)
-                .format(DecodeFormat.PREFER_RGB_565) // 50% menos RAM
-                .override(180, 270) // Redimensiona para o tamanho do card
+                .format(DecodeFormat.PREFER_RGB_565)
+                .override(180, 270)
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .placeholder(R.drawable.bg_logo_placeholder)
                 .centerCrop()
@@ -366,30 +360,17 @@ class VodActivity : AppCompatActivity() {
                             if (h.adapterPosition == p) {
                                 h.tvName.visibility = View.GONE
                                 h.imgLogo.visibility = View.VISIBLE
-                                Glide.with(h.itemView.context).load(url).into(h.imgLogo)
+                                Glide.with(h.itemView.context)
+                                    .load(url)
+                                    .format(DecodeFormat.PREFER_RGB_565)
+                                    .override(180, 100)
+                                    .into(h.imgLogo)
                             }
                         }
                     }
                 }
             }
 
-            h.itemView.setOnFocusChangeListener { view, hasFocus ->
-                if (hasFocus) {
-                    h.tvName.setTextColor(Color.YELLOW)
-                    h.tvName.textSize = 18f
-                    view.setBackgroundResource(R.drawable.bg_focus_neon)
-                    view.animate().scaleX(1.15f).scaleY(1.15f).setDuration(150).start()
-                    view.elevation = 20f
-                    if (h.imgLogo.visibility != View.VISIBLE) h.tvName.visibility = View.VISIBLE
-                } else {
-                    h.tvName.setTextColor(Color.WHITE)
-                    h.tvName.textSize = 14f
-                    view.setBackgroundResource(0)
-                    view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
-                    view.elevation = 4f
-                    h.tvName.visibility = View.GONE
-                }
-            }
             h.itemView.setOnClickListener { onClick(item) }
         }
         override fun getItemCount() = list.size
@@ -414,8 +395,7 @@ class VodActivity : AppCompatActivity() {
                         for (i in 0 until logos.length()) {
                             val logoObj = logos.getJSONObject(i)
                             if (logoObj.optString("iso_639_1") == "pt") {
-                                logoPath = logoObj.getString("file_path")
-                                break
+                                logoPath = logoObj.getString("file_path"); break
                             }
                         }
                         if (logoPath == null) logoPath = logos.getJSONObject(0).getString("file_path")

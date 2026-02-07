@@ -92,7 +92,7 @@ class VodActivity : AppCompatActivity() {
 
         setupRecyclerFocus()
 
-        // ✅ LÓGICA DE READEQUAÇÃO DINÂMICA AJUSTADA
+        // ✅ LÓGICA DE READEQUAÇÃO DINÂMICA REVISADA COM LAYOUTPARAMS EXPLÍCITOS
         val mainLayout = findViewById<LinearLayout>(R.id.mainLayout)
         val divider = findViewById<View>(R.id.categoryDivider)
 
@@ -101,9 +101,10 @@ class VodActivity : AppCompatActivity() {
             mainLayout?.orientation = LinearLayout.HORIZONTAL
             divider?.visibility = View.VISIBLE
             
-            val params = rvCategories.layoutParams
+            val params = rvCategories.layoutParams as LinearLayout.LayoutParams
             params.width = (250 * resources.displayMetrics.density).toInt()
             params.height = ViewGroup.LayoutParams.MATCH_PARENT
+            params.weight = 0f
             rvCategories.layoutParams = params
             
             rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
@@ -113,12 +114,19 @@ class VodActivity : AppCompatActivity() {
             mainLayout?.orientation = LinearLayout.VERTICAL
             divider?.visibility = View.GONE
             
-            val params = rvCategories.layoutParams
+            // Força as categorias para o topo com largura total
+            val params = rvCategories.layoutParams as LinearLayout.LayoutParams
             params.width = ViewGroup.LayoutParams.MATCH_PARENT
             params.height = ViewGroup.LayoutParams.WRAP_CONTENT
+            params.weight = 0f
             rvCategories.layoutParams = params
             
-            // ✅ Mudança para Horizontal para criar a "barra de abas"
+            // Garante que o Grid de filmes ocupe o espaço restante
+            val movieParams = rvMovies.layoutParams as LinearLayout.LayoutParams
+            movieParams.height = 0
+            movieParams.weight = 1f
+            rvMovies.layoutParams = movieParams
+            
             rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.HORIZONTAL, false)
             rvMovies.layoutManager = GridLayoutManager(this, 3) 
         }
@@ -332,7 +340,6 @@ class VodActivity : AppCompatActivity() {
             h.tvName.setTextColor(getColor(if (isSel) R.color.red_primary else R.color.gray_text))
             h.tvName.setBackgroundColor(if (isSel) 0xFF252525.toInt() else 0x00000000)
             
-            // ✅ Adição de clique para atualizar posição selecionada
             h.itemView.setOnClickListener {
                 val oldPos = selectedPos
                 selectedPos = h.adapterPosition

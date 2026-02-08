@@ -32,6 +32,7 @@ import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 import com.vltv.play.CastMember 
 import com.vltv.play.CastAdapter 
+import com.vltv.play.data.AppDatabase
 import kotlinx.coroutines.CoroutineScope 
 import kotlinx.coroutines.Dispatchers 
 import kotlinx.coroutines.launch 
@@ -77,6 +78,8 @@ class DetailsActivity : AppCompatActivity() {
     private var tvYear: TextView? = null 
     private var btnSettings: Button? = null 
     private lateinit var episodesAdapter: EpisodesAdapter 
+    
+    // Estados do Download
     private enum class DownloadState { BAIXAR, BAIXANDO, BAIXADO } 
     private var downloadState: DownloadState = DownloadState.BAIXAR 
 
@@ -143,7 +146,10 @@ class DetailsActivity : AppCompatActivity() {
         recyclerEpisodes = findViewById(R.id.recyclerEpisodes) 
         tvYear = findViewById(R.id.tvYear) 
         btnSettings = findViewById(R.id.btnSettings) 
+        
+        // Na TV, geralmente não baixamos, mas se quiser pode manter
         if (isTelevisionDevice()) btnDownloadArea.visibility = View.GONE 
+        
         btnPlay.isFocusable = true 
         btnResume.isFocusable = true 
         btnFavorite.isFocusable = true 
@@ -235,7 +241,6 @@ class DetailsActivity : AppCompatActivity() {
 
     private fun buscarLogoTMDB(id: Int, type: String, key: String) { 
         val imagesUrl = "https://api.themoviedb.org/3/$type/$id/images?api_key=$key&include_image_language=pt,en,null" 
-        // ✅ CORREÇÃO APLICADA: URL corrigida para imagesUrl
         client.newCall(Request.Builder().url(imagesUrl).build()).enqueue(object : Callback { 
             override fun onResponse(call: Call, response: Response) { 
                 val body = response.body?.string() ?: return 
@@ -400,22 +405,50 @@ class DetailsActivity : AppCompatActivity() {
         startActivity(intent) 
     } 
 
+    // ✅ Verifica no Banco de Dados se já está baixando
     private fun restaurarEstadoDownload() { 
-        val estado = getSharedPreferences("vltv_downloads", Context.MODE_PRIVATE).getString("download_state_$streamId", "BAIXAR") 
-        try { 
-            downloadState = DownloadState.valueOf(estado ?: "BAIXAR") 
-        } catch(e: Exception) { 
-            downloadState = DownloadState.BAIXAR 
-        } 
-        atualizarUI_download() 
+        CoroutineScope(Dispatchers.IO).launch {
+            val db = AppDatabase.getDatabase(applicationContext).streamDao()
+            val download = db.getDownloadByStreamId(streamId, if (isSeries) "series" else "movie")
+            
+            withContext(Dispatchers.Main) {
+                if (download != null) {
+                    if (download.status == "COMPLETED") {
+                        downloadState = DownloadState.BAIXADO
+                    } else if (download.status == "DOWNLOADING") {
+                        downloadState = DownloadState.BAIXANDO
+                    }
+                } else {
+                    downloadState = DownloadState.BAIXAR
+                }
+                atualizarUI_download()
+            }
+        }
     } 
 
+    // ✅ FUNÇÃO REAL: Inicia o download seguro
     private fun iniciarDownload() { 
-        downloadState = DownloadState.BAIXANDO; atualizarUI_download() 
-        Handler(Looper.getMainLooper()).postDelayed({ 
-            downloadState = DownloadState.BAIXADO; atualizarUI_download() 
-            getSharedPreferences("vltv_downloads", Context.MODE_PRIVATE).edit().putString("download_state_$streamId", "BAIXADO").apply() 
-        }, 3000) 
+        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+        val user = prefs.getString("username", "") ?: ""
+        val pass = prefs.getString("password", "") ?: ""
+        val server = "http://tvblack.shop" 
+        val extension = "mp4" // ou container_extension do banco se tiver
+
+        val url = "$server/movie/$user/$pass/$streamId.$extension"
+
+        DownloadHelper.iniciarDownload(
+            context = this,
+            url = url,
+            streamId = streamId,
+            nomePrincipal = name,
+            nomeEpisodio = null, // Filme não tem episódio
+            imagemUrl = icon,
+            isSeries = false
+        )
+        
+        // Atualiza a tela para mostrar "Baixando..."
+        downloadState = DownloadState.BAIXANDO
+        atualizarUI_download()
     } 
 
     private fun atualizarUI_download() { 
@@ -433,7 +466,11 @@ class DetailsActivity : AppCompatActivity() {
     } 
 
     private fun handleDownloadClick() { 
-        if (downloadState == DownloadState.BAIXAR) iniciarDownload() 
+        when (downloadState) {
+            DownloadState.BAIXAR -> iniciarDownload()
+            DownloadState.BAIXANDO -> Toast.makeText(this, "Já está baixando...", Toast.LENGTH_SHORT).show()
+            DownloadState.BAIXADO -> Toast.makeText(this, "Filme já baixado!", Toast.LENGTH_SHORT).show()
+        }
     } 
 
     private fun mostrarConfiguracoes() { 

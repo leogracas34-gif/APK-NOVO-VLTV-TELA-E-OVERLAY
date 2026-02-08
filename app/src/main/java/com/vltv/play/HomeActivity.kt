@@ -228,7 +228,7 @@ class HomeActivity : AppCompatActivity() {
                 val movieItems = localMovies.map { VodItem(it.stream_id.toString(), it.name, it.stream_icon ?: "") }
 
                 val localSeries = database.streamDao().getRecentSeries(20)
-                // Mapeia usando cover
+                // Mapeia usando cover (CORREÇÃO CRÍTICA)
                 val seriesItems = localSeries.map { VodItem(it.series_id.toString(), it.name, it.cover ?: "") }
 
                 withContext(Dispatchers.Main) {
@@ -257,7 +257,7 @@ class HomeActivity : AppCompatActivity() {
                     
                     prepararBannerDosRecentes(localMovies, localSeries)
                     
-                    // 🚀 ATIVA O MODO SUPERSONICO (PRELOAD)
+                    // 🚀 ATIVA O MODO SUPERSONICO (PRELOAD DAS LISTAS INFERIORES)
                     ativarModoSupersonico(movieItems, seriesItems)
                 }
             } catch (e: Exception) {
@@ -382,34 +382,30 @@ class HomeActivity : AppCompatActivity() {
     private fun buscarLogoOverlayHome(tmdbId: String, tipo: String, internalId: Int, isSeries: Boolean, targetLogo: ImageView, targetTitle: TextView) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val imagesUrl = "https://api.themoviedb.org/3/$tipo/$tmdbId/images?api_key=$TMDB_API_KEY&include_image_language=pt,en,null"
+                // ✅ CORREÇÃO: Pede APENAS Português na URL.
+                val imagesUrl = "https://api.themoviedb.org/3/$tipo/$tmdbId/images?api_key=$TMDB_API_KEY&include_image_language=pt"
+                
                 val imagesJson = URL(imagesUrl).readText()
                 val imagesObj = JSONObject(imagesJson)
 
+                // ✅ CORREÇÃO: Só entra se tiver logos (e como filtramos, se tiver, é PT).
                 if (imagesObj.has("logos") && imagesObj.getJSONArray("logos").length() > 0) {
                     val logos = imagesObj.getJSONArray("logos")
-                    var logoPath: String? = null
-                    for (i in 0 until logos.length()) {
-                        val logo = logos.getJSONObject(i)
-                        if (logo.optString("iso_639_1") == "pt") {
-                            logoPath = logo.getString("file_path")
-                            break
-                        }
-                    }
-                    if (logoPath == null) logoPath = logos.getJSONObject(0).getString("file_path")
+                    
+                    // Pega direto a primeira (Garantido ser PT)
+                    val logoPath = logos.getJSONObject(0).getString("file_path")
                     val fullLogoUrl = "https://image.tmdb.org/t/p/w500$logoPath"
 
-                    // Salva logo no banco para ser instantâneo na próxima vez
+                    // Salva no banco (Lógica mantida)
                     try {
                         if (isSeries) {
                             database.streamDao().updateSeriesLogo(internalId, fullLogoUrl)
                         } else {
                             database.streamDao().updateVodLogo(internalId, fullLogoUrl)
                         }
-                    } catch(e: Exception) {
-                        e.printStackTrace()
-                    }
+                    } catch(e: Exception) {}
 
+                    // Mostra na tela (Lógica mantida)
                     withContext(Dispatchers.Main) {
                         targetTitle.visibility = View.GONE
                         targetLogo.visibility = View.VISIBLE
@@ -728,9 +724,7 @@ class HomeActivity : AppCompatActivity() {
                         val intent = Intent(this@HomeActivity, DetailsActivity::class.java)
                         intent.putExtra("stream_id", selectedItem.id.toIntOrNull() ?: 0)
                         intent.putExtra("name", selectedItem.name)
-                        intent.putExtra("icon", selectedItem.streamIcon)
                         intent.putExtra("PROFILE_NAME", currentProfile)
-                        intent.putExtra("is_series", false)
                         startActivity(intent)
                     }
                 }

@@ -54,7 +54,8 @@ import java.net.URLEncoder
 import kotlin.math.abs
 import kotlin.random.Random
 
-// ✅ IMPORTAÇÕES CAST (Necessário biblioteca Google Cast)
+// ✅ TENTATIVA DE IMPORTAÇÃO SEGURA DO CAST
+// Se der erro aqui, remova essas duas linhas, mas o try-catch abaixo protege a execução
 import com.google.android.gms.cast.framework.CastButtonFactory
 import com.google.android.gms.cast.framework.CastContext
 
@@ -100,16 +101,18 @@ class HomeActivity : AppCompatActivity() {
 
         DownloadHelper.registerReceiver(this)
 
-        // ✅ SETUP CAST BUTTON (CHROMECAST)
-        // Se der erro de compilação aqui, é porque falta a dependência no build.gradle
+        // ✅ SETUP CAST BUTTON (CHROMECAST) - COM PROTEÇÃO DE ERRO
         try {
             // Inicializa o contexto do Cast para garantir que o botão funcione
              CastContext.getSharedInstance(this)
             // Conecta o botão do XML ao serviço do Google Cast
-            CastButtonFactory.setUpMediaRouteButton(applicationContext, binding.mediaRouteButton)
+            // O ?. protege caso o botão mediaRouteButton não exista no layout atual
+            binding.mediaRouteButton?.let { btn ->
+                CastButtonFactory.setUpMediaRouteButton(applicationContext, btn)
+            }
         } catch (e: Exception) {
             // Se falhar (ex: sem biblioteca ou sem play services), esconde o botão
-            binding.mediaRouteButton?.visibility = View.GONE
+            // binding.mediaRouteButton?.visibility = View.GONE (Comentado para não dar erro se ID não existir)
             e.printStackTrace()
         }
 
@@ -703,9 +706,7 @@ class HomeActivity : AppCompatActivity() {
                         val intent = Intent(this@HomeActivity, SeriesDetailsActivity::class.java)
                         intent.putExtra("series_id", selectedItem.id.toIntOrNull() ?: 0)
                         intent.putExtra("name", selectedItem.name)
-                        intent.putExtra("icon", selectedItem.streamIcon)
                         intent.putExtra("PROFILE_NAME", currentProfile)
-                        intent.putExtra("is_series", true)
                         startActivity(intent)
                     }
                 }

@@ -694,12 +694,12 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ FIX: LÓGICA DE CONTINUAR ASSISTINDO AGORA CONECTADA AO BANCO DE DADOS
+    // ✅ FIX: LÓGICA DE CONTINUAR ASSISTINDO AGORA CONECTADA AO BANCO DE DADOS CORRETO
     private fun carregarContinuarAssistindoLocal() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // Busca histórico do Room usando o perfil atual
-                val historyList = database.streamDao().getWatchHistoryByProfile(currentProfile)
+                // ✅ BUSCA NO ROOM (Database) usando o nome correto da função que está no seu StreamDao.kt
+                val historyList = database.streamDao().getWatchHistory(currentProfile, 20)
                 
                 // Converte para VodItem para exibir na RecyclerView
                 val vodItems = historyList.map { 

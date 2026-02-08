@@ -4,18 +4,19 @@
         android:id="@+id/nav_home"
         android:icon="@drawable/ic_home"
         android:title="Início" />
+
     <item
         android:id="@+id/nav_search"
         android:icon="@drawable/ic_nav_search"
         android:title="Buscar" />
-    
+
     <item
         android:id="@+id/nav_downloads"
         android:icon="@drawable/ic_downloads_disney"
-        android:title="Downloads" />
+        android:title="Meus Downloads" />
 
     <item
         android:id="@+id/nav_profile"
         android:icon="@drawable/ic_person"
-        android:title="Perfil" />
+        android:title="Meu Perfil" />
 </menu>

@@ -2,6 +2,7 @@ package com.vltv.play
 
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.View
@@ -13,21 +14,17 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import com.vltv.play.databinding.ActivityLoginBinding
-import com.vltv.play.data.AppDatabase
-import com.vltv.play.data.VodEntity
-import com.vltv.play.data.SeriesEntity
 import kotlinx.coroutines.*
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import org.json.JSONArray
-import java.net.URL
+import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
 class LoginActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityLoginBinding
 
-    // SEUS 6 SERVIDORES XTREAM (MANTIDOS)
+    // SEUS 6 SERVIDORES XTREAM
     private val SERVERS = listOf(
         "http://tvblack.shop",
         "http://redeinternadestiny.top",
@@ -38,15 +35,15 @@ class LoginActivity : AppCompatActivity() {
     )
 
     private val client = OkHttpClient.Builder()
-        .connectTimeout(5, TimeUnit.SECONDS)
-        .readTimeout(10, TimeUnit.SECONDS)
-        .retryOnConnectionFailure(false)
+        .connectTimeout(5, TimeUnit.SECONDS) // Timeout curto para testar rápido
+        .readTimeout(5, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(false) // Não perde tempo tentando reconectar em servidor morto
         .build()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // MODO IMERSIVO
+        // MODO IMERSIVO (Tela Cheia)
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
@@ -54,30 +51,50 @@ class LoginActivity : AppCompatActivity() {
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // VERIFICA LOGIN SALVO
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val savedUser = prefs.getString("username", null)
         val savedPass = prefs.getString("password", null)
         val savedDns = prefs.getString("dns", null)
 
-        // Se já tem login, tenta abrir direto. 
-        // A Home vai lidar se precisar carregar mais coisas.
         if (!savedUser.isNullOrBlank() && !savedPass.isNullOrBlank() && !savedDns.isNullOrBlank()) {
+            // Se já tem tudo, pula direto. A Home que se vire para validar se expirou.
             abrirHomeDireto()
             return
         }
 
-        setupTouchAndDpad()
+        setupUI()
+    }
+
+    private fun setupUI() {
+        // Configuração de Foco e Teclado (TV e Celular)
+        binding.etUsername.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_NEXT) {
+                binding.etPassword.requestFocus()
+                true
+            } else false
+        }
+
+        binding.etPassword.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_DONE || actionId == EditorInfo.IME_ACTION_GO) {
+                binding.btnLogin.performClick()
+                true
+            } else false
+        }
 
         binding.btnLogin.setOnClickListener {
             val user = binding.etUsername.text.toString().trim()
             val pass = binding.etPassword.text.toString().trim()
 
             if (user.isEmpty() || pass.isEmpty()) {
-                Toast.makeText(this, "Preencha todos os campos", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Preencha usuário e senha!", Toast.LENGTH_SHORT).show()
             } else {
                 iniciarLoginTurbo(user, pass)
             }
         }
+        
+        // Foco inicial
+        binding.etUsername.requestFocus()
     }
 
     private fun iniciarLoginTurbo(user: String, pass: String) {
@@ -86,19 +103,25 @@ class LoginActivity : AppCompatActivity() {
         binding.etUsername.isEnabled = false
         binding.etPassword.isEnabled = false
 
+        // 🚀 LÓGICA "RACE" (CORRIDA): O primeiro que responder ganha, os outros são cancelados.
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // 1. CORRIDA DE DNS (Acha o servidor mais rápido)
-                val tarefas = SERVERS.map { url ->
-                    async { testarConexaoIndividual(url, user, pass) }
+                // Cria uma lista de tarefas (Jobs) para cada servidor
+                val deferreds = SERVERS.map { url ->
+                    async {
+                        testarConexaoIndividual(url, user, pass)
+                    }
                 }
 
+                // Aguarda o PRIMEIRO resultado válido
+                // (Isso é muito mais rápido que esperar todos falharem)
                 var dnsVencedor: String? = null
-                val inicio = System.currentTimeMillis()
                 
-                while (System.currentTimeMillis() - inicio < 10000) { 
-                    val concluidos = tarefas.filter { it.isCompleted }
-                    for (job in concluidos) {
+                // Loop de verificação rápida
+                val startTime = System.currentTimeMillis()
+                while (System.currentTimeMillis() - startTime < 10000) { // Tenta por 10 segundos no máximo
+                    val completed = deferreds.filter { it.isCompleted }
+                    for (job in completed) {
                         val result = job.getCompleted()
                         if (result != null) {
                             dnsVencedor = result
@@ -106,104 +129,33 @@ class LoginActivity : AppCompatActivity() {
                         }
                     }
                     if (dnsVencedor != null) break
-                    delay(100)
+                    delay(100) // Verifica a cada 100ms
                 }
-                tarefas.forEach { if (it.isActive) it.cancel() }
 
-                if (dnsVencedor != null) {
-                    salvarCredenciais(dnsVencedor!!, user, pass)
-                    
-                    // 2. PRÉ-CARREGAMENTO (O Segredo para a Home não "pular")
-                    // Baixa apenas os primeiros itens para a Home abrir bonita
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(this@LoginActivity, "Preparando seu ambiente...", Toast.LENGTH_SHORT).show()
-                    }
-                    preCarregarConteudoInicial(dnsVencedor!!, user, pass)
-                    
-                    withContext(Dispatchers.Main) {
+                // Cancela os outros que ainda estão rodando para economizar bateria
+                deferreds.forEach { if (it.isActive) it.cancel() }
+
+                withContext(Dispatchers.Main) {
+                    if (dnsVencedor != null) {
+                        salvarCredenciais(dnsVencedor!!, user, pass)
                         abrirHomeDireto()
-                    }
-                } else {
-                    withContext(Dispatchers.Main) {
-                        mostrarErro("Falha ao conectar. Verifique seus dados.")
+                    } else {
+                        mostrarErro("Nenhum servidor respondeu. Verifique sua internet ou credenciais.")
                     }
                 }
 
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    mostrarErro("Erro: ${e.message}")
+                    mostrarErro("Erro de conexão: ${e.message}")
                 }
             }
         }
     }
 
-    // Baixa apenas 60 Filmes e 60 Séries para garantir que a Home abra cheia
-    private suspend fun preCarregarConteudoInicial(dns: String, user: String, pass: String) {
-        try {
-            val db = AppDatabase.getDatabase(this)
-            
-            // --- FILMES (Pega só os primeiros 60) ---
-            try {
-                val vodUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_vod_streams"
-                val response = URL(vodUrl).readText()
-                val jsonArray = JSONArray(response)
-                val batch = mutableListOf<VodEntity>()
-                
-                // ✅ CORREÇÃO AQUI: jsonArray.length() com parênteses
-                val limit = if (jsonArray.length() > 60) 60 else jsonArray.length()
-                
-                for (i in 0 until limit) {
-                    val obj = jsonArray.getJSONObject(i)
-                    batch.add(VodEntity(
-                        stream_id = obj.optInt("stream_id"),
-                        name = obj.optString("name"),
-                        title = obj.optString("name"),
-                        stream_icon = obj.optString("stream_icon"),
-                        container_extension = obj.optString("container_extension"),
-                        rating = obj.optString("rating"),
-                        category_id = obj.optString("category_id"),
-                        added = obj.optLong("added")
-                    ))
-                }
-                if (batch.isNotEmpty()) {
-                    db.streamDao().insertVodStreams(batch)
-                }
-            } catch (e: Exception) { e.printStackTrace() }
-
-            // --- SÉRIES (Pega só as primeiras 60) ---
-            try {
-                val seriesUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_series"
-                val response = URL(seriesUrl).readText()
-                val jsonArray = JSONArray(response)
-                val batch = mutableListOf<SeriesEntity>()
-                
-                // ✅ CORREÇÃO AQUI: jsonArray.length() com parênteses
-                val limit = if (jsonArray.length() > 60) 60 else jsonArray.length()
-                
-                for (i in 0 until limit) {
-                    val obj = jsonArray.getJSONObject(i)
-                    batch.add(SeriesEntity(
-                        series_id = obj.optInt("series_id"),
-                        name = obj.optString("name"),
-                        cover = obj.optString("cover"),
-                        rating = obj.optString("rating"),
-                        category_id = obj.optString("category_id"),
-                        last_modified = obj.optLong("last_modified")
-                    ))
-                }
-                if (batch.isNotEmpty()) {
-                    db.streamDao().insertSeriesStreams(batch)
-                }
-            } catch (e: Exception) { e.printStackTrace() }
-
-        } catch (e: Exception) {
-            // Se der erro no pré-carregamento, abre a Home igual (ela tenta baixar depois)
-            e.printStackTrace()
-        }
-    }
-
+    // Testa um único servidor e retorna a URL se funcionar, ou NULL se falhar
     private fun testarConexaoIndividual(baseUrl: String, user: String, pass: String): String? {
         val urlLimpa = if (baseUrl.endsWith("/")) baseUrl.dropLast(1) else baseUrl
+        // Usa a API simples de autenticação do Xtream
         val apiLogin = "$urlLimpa/player_api.php?username=$user&password=$pass"
 
         return try {
@@ -211,12 +163,13 @@ class LoginActivity : AppCompatActivity() {
             client.newCall(request).execute().use { response ->
                 if (response.isSuccessful) {
                     val body = response.body?.string() ?: ""
-                    if (body.contains("\"auth\":1") || (body.contains("user_info") && body.contains("server_info"))) {
-                        return urlLimpa
+                    // Verifica se o JSON tem dados de usuário (prova de login sucesso)
+                    if (body.contains("user_info") && body.contains("server_info")) {
+                        return urlLimpa // SUCESSO! Retorna esse DNS
                     }
                 }
-                null
             }
+            null
         } catch (e: Exception) {
             null
         }
@@ -230,14 +183,14 @@ class LoginActivity : AppCompatActivity() {
             putString("password", pass)
             apply()
         }
-        XtreamApi.setBaseUrl(if (dns.endsWith("/")) dns else "$dns/")
     }
 
     private fun abrirHomeDireto() {
         val intent = Intent(this, HomeActivity::class.java)
+        // Limpa a pilha para o usuário não voltar pro login com o botão voltar
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         startActivity(intent)
-        finish()
+        finish() // Mata o LoginActivity
     }
 
     private fun mostrarErro(msg: String) {
@@ -246,46 +199,5 @@ class LoginActivity : AppCompatActivity() {
         binding.etUsername.isEnabled = true
         binding.etPassword.isEnabled = true
         Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
-    }
-
-    private fun setupTouchAndDpad() {
-        val premiumFocusListener = View.OnFocusChangeListener { v, hasFocus ->
-            if (hasFocus) {
-                v.animate().scaleX(1.05f).scaleY(1.05f).setDuration(200).start()
-                v.isSelected = true
-            } else {
-                v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start()
-                v.isSelected = false
-            }
-        }
-
-        binding.etUsername.onFocusChangeListener = premiumFocusListener
-        binding.etPassword.onFocusChangeListener = premiumFocusListener
-        binding.btnLogin.onFocusChangeListener = premiumFocusListener
-        
-        binding.btnLogin.isFocusable = true
-        binding.btnLogin.isFocusableInTouchMode = true
-        
-        binding.etUsername.setOnKeyListener { _, keyCode, event ->
-            if (keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN) {
-                binding.etPassword.requestFocus()
-                true
-            } else false
-        }
-        binding.etPassword.setOnKeyListener { _, keyCode, event ->
-            if (keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN) {
-                binding.btnLogin.performClick()
-                true
-            } else false
-        }
-        binding.etUsername.requestFocus()
-    }
-
-    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_BACK) {
-            finish()
-            return true
-        }
-        return super.onKeyDown(keyCode, event)
     }
 }

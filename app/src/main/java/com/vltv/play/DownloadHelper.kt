@@ -5,7 +5,9 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.database.Cursor
 import android.net.Uri
+import android.os.Environment
 import android.util.Log
 import android.widget.Toast
 import androidx.core.content.ContextCompat
@@ -62,7 +64,7 @@ object DownloadHelper {
 
                 val uri = Uri.parse(url)
                 val request = DownloadManager.Request(uri)
-                    .setTitle(if (isSeries) "$nomePrincipal - $nomeEpisodio" else nomePrincipal)
+                    .setTitle(if (isSeries && nomeEpisodio != null) "$nomePrincipal - $nomeEpisodio" else nomePrincipal)
                     .setDescription("Baixando conteúdo seguro...")
                     .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE) // Mostra progresso
                     .setVisibleInDownloadsUi(false) // Esconde do app "Downloads" do Android
@@ -70,6 +72,7 @@ object DownloadHelper {
                     .setAllowedOverRoaming(false)
                 
                 // 🔒 SALVA NA PASTA OCULTA DO APP (Ninguém vê na galeria)
+                // Usando destinationInExternalFilesDir para garantir que fique na pasta do app
                 request.setDestinationInExternalFilesDir(context, PASTA_OCULTA, nomeArquivoFisico)
 
                 val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
@@ -83,7 +86,10 @@ object DownloadHelper {
                 }
 
                 // 3. Salva no BANCO DE DADOS (Substituindo o SharedPreferences)
-                val caminhoCompleto = File(context.getExternalFilesDir(PASTA_OCULTA), nomeArquivoFisico).absolutePath
+                // Constrói o caminho completo para salvar no banco
+                val diretorio = context.getExternalFilesDir(PASTA_OCULTA)
+                val arquivo = File(diretorio, nomeArquivoFisico)
+                val caminhoCompleto = arquivo.absolutePath
                 
                 val novoDownload = DownloadEntity(
                     android_download_id = downloadId,
@@ -93,7 +99,9 @@ object DownloadHelper {
                     image_url = imagemUrl,
                     file_path = caminhoCompleto,
                     type = tipo,
-                    status = STATE_BAIXANDO
+                    status = STATE_BAIXANDO,
+                    progress = 0,
+                    total_size = "0MB" // Inicialmente 0
                 )
 
                 AppDatabase.getDatabase(context).streamDao().insertDownload(novoDownload)
@@ -166,6 +174,7 @@ object DownloadHelper {
                     }
                     
                     // Atualiza a tabela do banco
+                    // OBS: O método updateDownloadProgress precisa existir no StreamDao
                     db.updateDownloadProgress(id, statusFinal, progress)
                     
                     // Se falhou, podemos deletar o registro ou marcar como erro
@@ -183,10 +192,11 @@ object DownloadHelper {
     fun registerReceiver(context: Context) {
         try {
             // Compatível com Android 12+ (Flag Exported/Not Exported)
+            val filter = IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
             ContextCompat.registerReceiver(
                 context, 
                 receiver, 
-                IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
+                filter,
                 ContextCompat.RECEIVER_NOT_EXPORTED
             )
             Log.d(TAG, "Receiver registrado com sucesso")

@@ -149,8 +149,8 @@ class LoginActivity : AppCompatActivity() {
                 val jsonArray = JSONArray(response)
                 val batch = mutableListOf<VodEntity>()
                 
-                // Limita a 60 itens (muito rápido de processar)
-                val limit = if (jsonArray.length() > 60) 60 else jsonArray.length
+                // ✅ CORREÇÃO AQUI: jsonArray.length() com parênteses
+                val limit = if (jsonArray.length() > 60) 60 else jsonArray.length()
                 
                 for (i in 0 until limit) {
                     val obj = jsonArray.getJSONObject(i)
@@ -177,7 +177,8 @@ class LoginActivity : AppCompatActivity() {
                 val jsonArray = JSONArray(response)
                 val batch = mutableListOf<SeriesEntity>()
                 
-                val limit = if (jsonArray.length() > 60) 60 else jsonArray.length
+                // ✅ CORREÇÃO AQUI: jsonArray.length() com parênteses
+                val limit = if (jsonArray.length() > 60) 60 else jsonArray.length()
                 
                 for (i in 0 until limit) {
                     val obj = jsonArray.getJSONObject(i)

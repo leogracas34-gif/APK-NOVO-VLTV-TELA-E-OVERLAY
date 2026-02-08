@@ -60,14 +60,12 @@
 
     <ImageButton
         android:id="@+id/btnAspect"
-        android:layout_width="48dp" 
-        android:layout_height="48dp"
-        android:background="?attr/selectableItemBackgroundBorderless"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:background="@android:color/transparent"
         android:src="@drawable/ic_aspect_ratio"
         android:focusable="false"
         android:focusableInTouchMode="false"
-        android:clickable="true"
-        android:visibility="visible"
         app:tint="#FFFFFF"
         app:layout_constraintTop_toTopOf="@id/playerView"
         app:layout_constraintEnd_toEndOf="@id/playerView"
@@ -82,6 +80,7 @@
         android:padding="12dp"
         android:background="#CC000000"
         android:visibility="gone"
+        android:descendantFocusability="afterDescendants"
         app:layout_constraintBottom_toBottomOf="@id/playerView"
         app:layout_constraintEnd_toEndOf="@id/playerView"
         android:layout_margin="24dp">
@@ -103,7 +102,13 @@
             android:text="Ir para o próximo"
             android:textAllCaps="false"
             android:textColor="#FFFFFF"
-            android:backgroundTint="#D32F2F"/>
+            android:backgroundTint="#D32F2F"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:nextFocusUp="@id/btnPlayNextEpisode"
+            android:nextFocusDown="@id/btnPlayNextEpisode"
+            android:nextFocusLeft="@id/btnPlayNextEpisode"
+            android:nextFocusRight="@id/btnPlayNextEpisode"/>
     </LinearLayout>
 
     <ProgressBar

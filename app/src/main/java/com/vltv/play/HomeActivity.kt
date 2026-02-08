@@ -170,35 +170,21 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ CONFIGURAÇÃO DO CARROSSEL (CORRIGIDO: SEM ZOOM, COM CLIP TO PADDING)
+    // ✅ CONFIGURAÇÃO DO CARROSSEL (Visual Disney 3D + Profundidade + Loop Infinito)
     private fun setupViewPagerBanner() {
         bannerAdapter = BannerAdapter(emptyList())
+        binding.bannerViewPager?.adapter = bannerAdapter
+        // Mantém 3 páginas na memória para não recarregar
+        binding.bannerViewPager?.offscreenPageLimit = 3
         
-        binding.bannerViewPager?.apply {
-            adapter = bannerAdapter
-            offscreenPageLimit = 3
-            
-            // 🔥 CORREÇÃO DE LAYOUT: Permite ver as laterais sem distorção
-            clipToPadding = false
-            clipChildren = false
-            getChildAt(0).overScrollMode = RecyclerView.OVER_SCROLL_NEVER
-        }
-
         val compositePageTransformer = CompositePageTransformer()
-        // Margem de 20dp para separar os itens levemente
-        compositePageTransformer.addTransformer(MarginPageTransformer(20))
-        
-        // 🔥 EFEITO DE PROFUNDIDADE (SOMENTE OPACIDADE, SEM ESCALA)
+        // Margem de 40dp entre os itens
+        compositePageTransformer.addTransformer(MarginPageTransformer(40))
+        // Efeito de escala (Zoom no centro)
         compositePageTransformer.addTransformer { page, position ->
             val r = 1 - abs(position)
-            
-            // Tamanho FIXO (Acaba com a tremedeira)
-            page.scaleY = 1.0f 
-            
-            // Profundidade visual: Centro = 100% visível, Laterais = 50% visível
-            page.alpha = 0.5f + (r * 0.5f)
+            page.scaleY = 0.85f + r * 0.15f 
         }
-        
         binding.bannerViewPager?.setPageTransformer(compositePageTransformer)
 
         binding.bannerViewPager?.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {

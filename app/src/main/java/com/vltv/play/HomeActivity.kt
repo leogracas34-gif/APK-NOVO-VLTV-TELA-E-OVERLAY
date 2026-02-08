@@ -228,7 +228,7 @@ class HomeActivity : AppCompatActivity() {
                 val movieItems = localMovies.map { VodItem(it.stream_id.toString(), it.name, it.stream_icon ?: "") }
 
                 val localSeries = database.streamDao().getRecentSeries(20)
-                // Mapeia usando cover
+                // Mapeia usando cover (CORREÇÃO CRÍTICA)
                 val seriesItems = localSeries.map { VodItem(it.series_id.toString(), it.name, it.cover ?: "") }
 
                 withContext(Dispatchers.Main) {
@@ -547,7 +547,6 @@ class HomeActivity : AppCompatActivity() {
                    Configuration.UI_MODE_TYPE_TELEVISION
         }
 
-        // --- Configuração dos cliques dos cards de Categoria ---
         val cards = listOf(binding.cardLiveTv, binding.cardMovies, binding.cardSeries, binding.cardKids)
         
         cards.forEach { card ->
@@ -592,7 +591,6 @@ class HomeActivity : AppCompatActivity() {
             }
         }
         
-        // --- Lógica de Navegação TV (D-PAD) ---
         if (isTelevisionDevice()) {
             binding.cardLiveTv.setOnKeyListener { _, keyCode, event ->
                 if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && event.action == KeyEvent.ACTION_DOWN) {
@@ -659,7 +657,6 @@ class HomeActivity : AppCompatActivity() {
             .show()
     }
 
-    // ✅ FUNÇÃO RECUPERADA (Trending TMDB caso banco vazio)
     private fun carregarBannerAlternado() {
         val prefs = getSharedPreferences("vltv_home_prefs", Context.MODE_PRIVATE)
         val ultimoTipo = prefs.getString("ultimo_tipo_banner", "tv") ?: "tv"
@@ -728,7 +725,9 @@ class HomeActivity : AppCompatActivity() {
                         val intent = Intent(this@HomeActivity, DetailsActivity::class.java)
                         intent.putExtra("stream_id", selectedItem.id.toIntOrNull() ?: 0)
                         intent.putExtra("name", selectedItem.name)
+                        intent.putExtra("icon", selectedItem.streamIcon)
                         intent.putExtra("PROFILE_NAME", currentProfile)
+                        intent.putExtra("is_series", false)
                         startActivity(intent)
                     }
                 }
@@ -763,10 +762,8 @@ class HomeActivity : AppCompatActivity() {
     private fun carregarContinuarAssistindoLocal() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // Busca o histórico do Room Database (tem o campo is_series)
                 val historyList = database.streamDao().getWatchHistory(currentProfile, 20)
                 
-                // Mapeia para VodItem (visual)
                 val vodItems = historyList.map { 
                     VodItem(
                         id = it.stream_id.toString(), 
@@ -775,14 +772,12 @@ class HomeActivity : AppCompatActivity() {
                     ) 
                 }
 
-                // Mapa auxiliar para saber o tipo no clique
                 val seriesMap = historyList.associate { it.stream_id.toString() to it.is_series }
 
                 withContext(Dispatchers.Main) {
                     val tvTitle = binding.root.findViewById<TextView>(R.id.tvContinueWatching)
                     
                     if (vodItems.isNotEmpty()) {
-                        // ✅ SE TEM ITENS: MOSTRA A LISTA E O TÍTULO
                         tvTitle?.visibility = View.VISIBLE
                         binding.rvContinueWatching.visibility = View.VISIBLE
                         
@@ -806,7 +801,6 @@ class HomeActivity : AppCompatActivity() {
                             startActivity(intent)
                         }
                     } else {
-                        // ❌ SE NÃO TEM NADA: ESCONDE O TÍTULO E A LISTA
                         tvTitle?.visibility = View.GONE
                         binding.rvContinueWatching.visibility = View.GONE
                     }
@@ -831,14 +825,12 @@ class HomeActivity : AppCompatActivity() {
         }
 
         override fun onBindViewHolder(holder: BannerViewHolder, position: Int) {
-            // 🔥 TRUQUE DO INFINITO: Usa o resto da divisão para repetir os itens
             if (items.isEmpty()) return
             val realPosition = position % items.size
             val item = items[realPosition]
             holder.bind(item)
         }
 
-        // 🔥 Retorna um número gigante para permitir scroll "infinito"
         override fun getItemCount(): Int = if (items.isEmpty()) 0 else Integer.MAX_VALUE
 
         inner class BannerViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -855,21 +847,17 @@ class HomeActivity : AppCompatActivity() {
                 var logoSalva: String? = null
 
                 if (item is VodEntity) {
-                    // Mapeamento correto: stream_icon para filmes
                     title = item.name; icon = item.stream_icon ?: ""; id = item.stream_id; isSeries = false; logoSalva = item.logo_url
                 } else if (item is SeriesEntity) {
-                    // Mapeamento correto: cover para séries
                     title = item.name; icon = item.cover ?: ""; id = item.series_id; isSeries = true; logoSalva = item.logo_url
                 }
 
                 val cleanTitle = limparNomeParaTMDB(title)
                 
-                // Configuração inicial (Texto visível)
                 tvTitle.text = cleanTitle
                 tvTitle.visibility = View.VISIBLE
                 imgLogo.visibility = View.GONE
 
-                // ✅ SE JÁ TEM LOGO NO DATABASE, MOSTRA AGORA (ZERO DELAY)
                 if (!logoSalva.isNullOrEmpty()) {
                     tvTitle.visibility = View.GONE
                     imgLogo.visibility = View.VISIBLE
@@ -878,10 +866,8 @@ class HomeActivity : AppCompatActivity() {
                     } catch (e: Exception) {}
                 }
 
-                // ✅ CARREGA A IMAGEM DO PAINEL (DATABASE) AGORA!
                 buscarImagemBackgroundTMDB(cleanTitle, isSeries, icon, id, imgBanner, imgLogo, tvTitle)
 
-                // Clique no botão Assistir
                 btnPlay.setOnClickListener {
                      val intent = if (isSeries) Intent(this@HomeActivity, SeriesDetailsActivity::class.java).apply { putExtra("series_id", id) }
                                   else Intent(this@HomeActivity, DetailsActivity::class.java).apply { putExtra("stream_id", id) }
@@ -892,9 +878,70 @@ class HomeActivity : AppCompatActivity() {
                      startActivity(intent)
                 }
                 
-                // Clique no Banner inteiro também abre
                 itemView.setOnClickListener { btnPlay.performClick() }
             }
         }
+    }
+}
+
+// ==========================================
+// ✅ CLASSES DE APOIO (ADICIONADAS AO FINAL PARA NÃO DAR ERRO)
+// ==========================================
+
+data class VodItem(
+    val id: String,
+    val name: String,
+    val streamIcon: String
+)
+
+class HomeRowAdapter(
+    private val items: List<VodItem>,
+    private val onClick: (VodItem) -> Unit
+) : RecyclerView.Adapter<HomeRowAdapter.ViewHolder>() {
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+        val view = LayoutInflater.from(parent.context).inflate(R.layout.item_vod, parent, false)
+        return ViewHolder(view)
+    }
+
+    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+        val item = items[position]
+        holder.tvName.text = item.name
+        holder.tvName.visibility = View.GONE
+        holder.imgLogo.visibility = View.GONE
+
+        if (item.streamIcon.isNotEmpty()) {
+            Glide.with(holder.itemView.context)
+                .load(item.streamIcon)
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .format(DecodeFormat.PREFER_RGB_565)
+                .override(180, 270)
+                .placeholder(R.drawable.bg_gradient_black)
+                .centerCrop()
+                .into(holder.imgPoster)
+        }
+
+        holder.itemView.setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                v.animate().scaleX(1.1f).scaleY(1.1f).duration = 150
+                v.setBackgroundResource(R.drawable.bg_focus_neon)
+                holder.tvName.visibility = View.VISIBLE
+                holder.tvName.isSelected = true
+            } else {
+                v.animate().scaleX(1.0f).scaleY(1.0f).duration = 150
+                v.background = null
+                holder.tvName.visibility = View.GONE
+                holder.tvName.isSelected = false
+            }
+        }
+        holder.itemView.setOnClickListener { onClick(item) }
+    }
+
+    override fun getItemCount(): Int = items.size
+
+    class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val imgPoster: ImageView = view.findViewById(R.id.imgPoster)
+        val tvName: TextView = view.findViewById(R.id.tvName)
+        val imgLogo: ImageView = view.findViewById(R.id.imgLogo)
     }
 }

@@ -14,10 +14,14 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import com.vltv.play.databinding.ActivityLoginBinding
+import com.vltv.play.data.AppDatabase
+import com.vltv.play.data.VodEntity
+import com.vltv.play.data.SeriesEntity
 import kotlinx.coroutines.*
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import org.json.JSONObject
+import org.json.JSONArray
+import java.net.URL
 import java.util.concurrent.TimeUnit
 
 class LoginActivity : AppCompatActivity() {
@@ -35,15 +39,15 @@ class LoginActivity : AppCompatActivity() {
     )
 
     private val client = OkHttpClient.Builder()
-        .connectTimeout(5, TimeUnit.SECONDS) // Timeout curto para testar rápido
-        .readTimeout(5, TimeUnit.SECONDS)
-        .retryOnConnectionFailure(false) // Não perde tempo tentando reconectar em servidor morto
+        .connectTimeout(5, TimeUnit.SECONDS)
+        .readTimeout(10, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(false)
         .build()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // MODO IMERSIVO (Tela Cheia)
+        // MODO IMERSIVO
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
@@ -51,15 +55,15 @@ class LoginActivity : AppCompatActivity() {
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // VERIFICA LOGIN SALVO
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val savedUser = prefs.getString("username", null)
         val savedPass = prefs.getString("password", null)
         val savedDns = prefs.getString("dns", null)
 
+        // Se já tem login salvo
         if (!savedUser.isNullOrBlank() && !savedPass.isNullOrBlank() && !savedDns.isNullOrBlank()) {
-            // Se já tem tudo, pula direto. A Home que se vire para validar se expirou.
-            abrirHomeDireto()
+            // Verifica se o banco está vazio. Se estiver, faz o pré-carregamento mesmo no login automático.
+            verificarEIniciar(savedDns!!, savedUser!!, savedPass!!)
             return
         }
 
@@ -67,7 +71,6 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun setupUI() {
-        // Configuração de Foco e Teclado (TV e Celular)
         binding.etUsername.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_NEXT) {
                 binding.etPassword.requestFocus()
@@ -93,8 +96,27 @@ class LoginActivity : AppCompatActivity() {
             }
         }
         
-        // Foco inicial
         binding.etUsername.requestFocus()
+    }
+
+    // Verifica se precisa carregar dados antes de abrir a Home (Auto-Login)
+    private fun verificarEIniciar(dns: String, user: String, pass: String) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val db = AppDatabase.getDatabase(applicationContext)
+            val temFilmes = db.streamDao().getVodCount() > 0
+            
+            if (temFilmes) {
+                withContext(Dispatchers.Main) { abrirHomeDireto() }
+            } else {
+                // Se o banco tá vazio (ex: limpou dados), faz o pré-carregamento
+                withContext(Dispatchers.Main) { 
+                    binding.progressBar.visibility = View.VISIBLE
+                    Toast.makeText(this@LoginActivity, "Atualizando conteúdo...", Toast.LENGTH_SHORT).show()
+                }
+                preCarregarConteudoInicial(dns, user, pass)
+                withContext(Dispatchers.Main) { abrirHomeDireto() }
+            }
+        }
     }
 
     private fun iniciarLoginTurbo(user: String, pass: String) {
@@ -103,23 +125,15 @@ class LoginActivity : AppCompatActivity() {
         binding.etUsername.isEnabled = false
         binding.etPassword.isEnabled = false
 
-        // 🚀 LÓGICA "RACE" (CORRIDA): O primeiro que responder ganha, os outros são cancelados.
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // Cria uma lista de tarefas (Jobs) para cada servidor
-                val deferreds = SERVERS.map { url ->
-                    async {
-                        testarConexaoIndividual(url, user, pass)
-                    }
-                }
+                // 1. CORRIDA DE DNS
+                val deferreds = SERVERS.map { url -> async { testarConexaoIndividual(url, user, pass) } }
 
-                // Aguarda o PRIMEIRO resultado válido
-                // (Isso é muito mais rápido que esperar todos falharem)
                 var dnsVencedor: String? = null
-                
-                // Loop de verificação rápida
                 val startTime = System.currentTimeMillis()
-                while (System.currentTimeMillis() - startTime < 10000) { // Tenta por 10 segundos no máximo
+                
+                while (System.currentTimeMillis() - startTime < 10000) {
                     val completed = deferreds.filter { it.isCompleted }
                     for (job in completed) {
                         val result = job.getCompleted()
@@ -129,33 +143,104 @@ class LoginActivity : AppCompatActivity() {
                         }
                     }
                     if (dnsVencedor != null) break
-                    delay(100) // Verifica a cada 100ms
+                    delay(100)
                 }
 
-                // Cancela os outros que ainda estão rodando para economizar bateria
                 deferreds.forEach { if (it.isActive) it.cancel() }
 
-                withContext(Dispatchers.Main) {
-                    if (dnsVencedor != null) {
-                        salvarCredenciais(dnsVencedor!!, user, pass)
+                if (dnsVencedor != null) {
+                    salvarCredenciais(dnsVencedor!!, user, pass)
+                    
+                    // 2. PRÉ-CARREGAMENTO (A Mágica acontece aqui)
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@LoginActivity, "Preparando seu ambiente...", Toast.LENGTH_LONG).show()
+                    }
+                    
+                    // Baixa os primeiros itens ANTES de abrir a Home
+                    preCarregarConteudoInicial(dnsVencedor!!, user, pass)
+                    
+                    withContext(Dispatchers.Main) {
                         abrirHomeDireto()
-                    } else {
-                        mostrarErro("Nenhum servidor respondeu. Verifique sua internet ou credenciais.")
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        mostrarErro("Falha na conexão. Verifique seus dados.")
                     }
                 }
 
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    mostrarErro("Erro de conexão: ${e.message}")
+                    mostrarErro("Erro: ${e.message}")
                 }
             }
         }
     }
 
-    // Testa um único servidor e retorna a URL se funcionar, ou NULL se falhar
+    // 🔥 PRE-CARREGAMENTO: Baixa 60 itens de cada para a Home abrir cheia
+    private suspend fun preCarregarConteudoInicial(dns: String, user: String, pass: String) {
+        try {
+            val db = AppDatabase.getDatabase(this)
+            
+            // --- FILMES (Pega os primeiros 60) ---
+            try {
+                val vodUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_vod_streams"
+                val response = URL(vodUrl).readText()
+                val jsonArray = JSONArray(response)
+                val batch = mutableListOf<VodEntity>()
+                
+                // Limita a 60 para ser rápido (apenas para o Banner e primeiras listas)
+                val limit = if (jsonArray.length() > 60) 60 else jsonArray.length()
+                
+                for (i in 0 until limit) {
+                    val obj = jsonArray.getJSONObject(i)
+                    batch.add(VodEntity(
+                        stream_id = obj.optInt("stream_id"),
+                        name = obj.optString("name"),
+                        title = obj.optString("name"),
+                        stream_icon = obj.optString("stream_icon"),
+                        container_extension = obj.optString("container_extension"),
+                        rating = obj.optString("rating"),
+                        category_id = obj.optString("category_id"),
+                        added = obj.optLong("added")
+                    ))
+                }
+                if (batch.isNotEmpty()) {
+                    db.streamDao().insertVodStreams(batch)
+                }
+            } catch (e: Exception) { e.printStackTrace() }
+
+            // --- SÉRIES (Pega as primeiras 60) ---
+            try {
+                val seriesUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_series"
+                val response = URL(seriesUrl).readText()
+                val jsonArray = JSONArray(response)
+                val batch = mutableListOf<SeriesEntity>()
+                
+                val limit = if (jsonArray.length() > 60) 60 else jsonArray.length()
+                
+                for (i in 0 until limit) {
+                    val obj = jsonArray.getJSONObject(i)
+                    batch.add(SeriesEntity(
+                        series_id = obj.optInt("series_id"),
+                        name = obj.optString("name"),
+                        cover = obj.optString("cover"),
+                        rating = obj.optString("rating"),
+                        category_id = obj.optString("category_id"),
+                        last_modified = obj.optLong("last_modified")
+                    ))
+                }
+                if (batch.isNotEmpty()) {
+                    db.streamDao().insertSeriesStreams(batch)
+                }
+            } catch (e: Exception) { e.printStackTrace() }
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     private fun testarConexaoIndividual(baseUrl: String, user: String, pass: String): String? {
         val urlLimpa = if (baseUrl.endsWith("/")) baseUrl.dropLast(1) else baseUrl
-        // Usa a API simples de autenticação do Xtream
         val apiLogin = "$urlLimpa/player_api.php?username=$user&password=$pass"
 
         return try {
@@ -163,13 +248,12 @@ class LoginActivity : AppCompatActivity() {
             client.newCall(request).execute().use { response ->
                 if (response.isSuccessful) {
                     val body = response.body?.string() ?: ""
-                    // Verifica se o JSON tem dados de usuário (prova de login sucesso)
                     if (body.contains("user_info") && body.contains("server_info")) {
-                        return urlLimpa // SUCESSO! Retorna esse DNS
+                        return urlLimpa
                     }
                 }
+                null
             }
-            null
         } catch (e: Exception) {
             null
         }
@@ -187,10 +271,9 @@ class LoginActivity : AppCompatActivity() {
 
     private fun abrirHomeDireto() {
         val intent = Intent(this, HomeActivity::class.java)
-        // Limpa a pilha para o usuário não voltar pro login com o botão voltar
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         startActivity(intent)
-        finish() // Mata o LoginActivity
+        finish()
     }
 
     private fun mostrarErro(msg: String) {

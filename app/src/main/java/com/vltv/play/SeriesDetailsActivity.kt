@@ -370,19 +370,36 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private fun setupDownloadButtons() {
         btnDownloadEpisodeArea.setOnClickListener {
             val ep = currentEpisode ?: return@setOnClickListener
+            // ✅ CORREÇÃO: Lógica segura de download
             when (downloadState) {
                 DownloadState.BAIXAR -> {
                     val eid = ep.id.toIntOrNull() ?: 0
                     if (eid == 0) return@setOnClickListener
+                    
                     val url = montarUrlEpisodio(ep)
-                    val safeTitle = seriesName.replace("[^a-zA-Z0-9 _.-]".toRegex(), "_").ifBlank { "serie" }
-                    val fileName = "${safeTitle}_T${currentSeason}E${ep.episode_num}_${eid}.mp4"
-                    DownloadHelper.enqueueDownload(this, url, fileName, logicalId = "series_$eid", type = "series")
-                    Toast.makeText(this, "Baixando...", Toast.LENGTH_SHORT).show()
+                    val nomeEp = "T${currentSeason}E${ep.episode_num}"
+                    
+                    // Chama o novo helper seguro
+                    DownloadHelper.iniciarDownload(
+                        context = this,
+                        url = url,
+                        streamId = eid,
+                        nomePrincipal = seriesName,
+                        nomeEpisodio = nomeEp,
+                        imagemUrl = seriesIcon,
+                        isSeries = true
+                    )
+                    
+                    Toast.makeText(this, "Adicionado aos Downloads!", Toast.LENGTH_SHORT).show()
                     setDownloadState(DownloadState.BAIXANDO, ep)
                 }
-                DownloadState.BAIXANDO -> startActivity(Intent(this, DownloadsActivity::class.java))
-                DownloadState.BAIXADO -> startActivity(Intent(this, DownloadsActivity::class.java))
+                DownloadState.BAIXANDO -> {
+                    // Aqui futuramente abriremos a Activity de Downloads
+                     Toast.makeText(this, "Já está baixando...", Toast.LENGTH_SHORT).show()
+                }
+                DownloadState.BAIXADO -> {
+                     Toast.makeText(this, "Download concluído!", Toast.LENGTH_SHORT).show()
+                }
             }
         }
 
@@ -899,20 +916,26 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private fun baixarTemporadaAtual(lista: List<EpisodeStream>) {
         for (ep in lista) {
             val eid = ep.id.toIntOrNull() ?: continue
-            DownloadHelper.enqueueDownload(this, montarUrlEpisodio(ep), "${seriesName}_T${currentSeason}E${ep.episode_num}.mp4", logicalId = "series_$eid", type = "series")
+            val url = montarUrlEpisodio(ep)
+            val nomeEp = "T${currentSeason}E${ep.episode_num}"
+            
+            // ✅ CORREÇÃO: Usa o helper novo
+            DownloadHelper.iniciarDownload(
+                context = this,
+                url = url,
+                streamId = eid,
+                nomePrincipal = seriesName,
+                nomeEpisodio = nomeEp,
+                imagemUrl = seriesIcon,
+                isSeries = true
+            )
         }
-        Toast.makeText(this, "Baixando episódios...", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, "Baixando episódios em segundo plano...", Toast.LENGTH_LONG).show()
     }
 
+    // ✅ CORREÇÃO: Simplificado para não depender de SharedPreferences
     private fun getProgressText(): String {
-        val ep = currentEpisode ?: return "Baixar"
-        val eid = ep.id.toIntOrNull() ?: 0
-        val progress = DownloadHelper.getDownloadProgress(this, "series_$eid")
-        return when (downloadState) {
-            DownloadState.BAIXANDO -> "Baixando ${progress}%"
-            DownloadState.BAIXADO -> "Baixado"
-            else -> "Baixar"
-        }
+        return "Baixando..." 
     }
 
     private fun setDownloadState(state: DownloadState, ep: EpisodeStream?) {

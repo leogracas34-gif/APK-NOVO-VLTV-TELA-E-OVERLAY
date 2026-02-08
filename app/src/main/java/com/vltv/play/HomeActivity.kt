@@ -218,7 +218,7 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ CARREGA DADOS DO DATABASE IMEDIATAMENTE + ATIVA MODO SUPERSONICO
+    // ✅ CARREGA DADOS DO DATABASE IMEDIATAMENTE
     private fun carregarDadosLocaisImediato() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
@@ -755,7 +755,7 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ FIX CORRETO: LÓGICA CONTINUAR ASSISTINDO COM MAPA DE SÉRIES
+    // ✅ FIX CORRETO: LÓGICA CONTINUAR ASSISTINDO COM VISIBILIDADE DINÂMICA DO TÍTULO
     private fun carregarContinuarAssistindoLocal() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
@@ -775,8 +775,13 @@ class HomeActivity : AppCompatActivity() {
                 val seriesMap = historyList.associate { it.stream_id.toString() to it.is_series }
 
                 withContext(Dispatchers.Main) {
+                    val tvTitle = binding.root.findViewById<TextView>(R.id.tvContinueWatching)
+                    
                     if (vodItems.isNotEmpty()) {
+                        // ✅ SE TEM ITENS: MOSTRA A LISTA E O TÍTULO
+                        tvTitle?.visibility = View.VISIBLE
                         binding.rvContinueWatching.visibility = View.VISIBLE
+                        
                         binding.rvContinueWatching.adapter = HomeRowAdapter(vodItems) { selected ->
                             
                             val isSeries = seriesMap[selected.id] ?: false
@@ -797,6 +802,8 @@ class HomeActivity : AppCompatActivity() {
                             startActivity(intent)
                         }
                     } else {
+                        // ❌ SE NÃO TEM NADA: ESCONDE O TÍTULO E A LISTA
+                        tvTitle?.visibility = View.GONE
                         binding.rvContinueWatching.visibility = View.GONE
                     }
                 }

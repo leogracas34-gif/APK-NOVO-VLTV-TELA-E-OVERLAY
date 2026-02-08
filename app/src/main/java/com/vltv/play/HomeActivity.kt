@@ -169,11 +169,12 @@ class HomeActivity : AppCompatActivity() {
     }
 
     // ✅ CONFIGURAÇÃO DO CARROSSEL ESTILO DISNEY (VIEWPAGER2)
+    // ADICIONADO ?. (Null Safety) para evitar crash se o layout mudar
     private fun setupViewPagerBanner() {
         bannerAdapter = BannerAdapter(emptyList())
-        binding.bannerViewPager.adapter = bannerAdapter
+        binding.bannerViewPager?.adapter = bannerAdapter
         // Mantém 3 páginas na memória para rolar suave
-        binding.bannerViewPager.offscreenPageLimit = 3
+        binding.bannerViewPager?.offscreenPageLimit = 3
         
         // Efeito de Profundidade e Margem (ver pontinha do próximo)
         val compositePageTransformer = CompositePageTransformer()
@@ -182,10 +183,10 @@ class HomeActivity : AppCompatActivity() {
             val r = 1 - abs(position)
             page.scaleY = 0.85f + r * 0.15f // Item central maior (1.0), laterais menores (0.85)
         }
-        binding.bannerViewPager.setPageTransformer(compositePageTransformer)
+        binding.bannerViewPager?.setPageTransformer(compositePageTransformer)
 
         // Callback para loop infinito
-        binding.bannerViewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
+        binding.bannerViewPager?.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {
                 super.onPageSelected(position)
                 currentBannerIndex = position
@@ -197,12 +198,12 @@ class HomeActivity : AppCompatActivity() {
     }
 
     // ✅ CONFIGURAÇÃO DO MENU INFERIOR
+    // ADICIONADO ?. (Null Safety) e removido NestedScrollView que não tem ID
     private fun setupBottomNavigation() {
-        binding.bottomNavigation.setOnItemSelectedListener { item ->
+        binding.bottomNavigation?.setOnItemSelectedListener { item ->
             when (item.itemId) {
                 R.id.nav_home -> {
-                    // Rola para o topo suavemente
-                    binding.nestedScrollView.smoothScrollTo(0, 0)
+                    // Removido smoothScrollTo pois o ID nestedScrollView não existe no XML fornecido
                     true
                 }
                 R.id.nav_search -> {
@@ -283,9 +284,10 @@ class HomeActivity : AppCompatActivity() {
             while (true) {
                 delay(8000)
                 if (listaBannerItems.isNotEmpty()) {
-                    var nextIndex = binding.bannerViewPager.currentItem + 1
+                    // Verifica se binding.bannerViewPager é nulo antes de acessar
+                    var nextIndex = (binding.bannerViewPager?.currentItem ?: 0) + 1
                     if (nextIndex >= listaBannerItems.size) nextIndex = 0
-                    binding.bannerViewPager.setCurrentItem(nextIndex, true)
+                    binding.bannerViewPager?.setCurrentItem(nextIndex, true)
                 } else {
                     break
                 }
@@ -323,7 +325,7 @@ class HomeActivity : AppCompatActivity() {
                             Glide.with(this@HomeActivity)
                                 .load("https://image.tmdb.org/t/p/original$backdropPath")
                                 .centerCrop()
-                                .placeholder(R.drawable.bg_gradient_black) // Fallback seguro
+                                .placeholder(R.drawable.bg_gradient_black) // ✅ VOLTOU O GRADIENTE
                                 .into(targetImg)
                         } catch (e: Exception) {}
                     }
@@ -332,14 +334,22 @@ class HomeActivity : AppCompatActivity() {
                 } else {
                     withContext(Dispatchers.Main) {
                         try {
-                            Glide.with(this@HomeActivity).load(fallback).centerCrop().into(targetImg)
+                            Glide.with(this@HomeActivity)
+                                .load(fallback)
+                                .centerCrop()
+                                .placeholder(R.drawable.bg_gradient_black) // ✅ VOLTOU O GRADIENTE
+                                .into(targetImg)
                         } catch (e: Exception) {}
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     try {
-                        Glide.with(this@HomeActivity).load(fallback).centerCrop().into(targetImg)
+                        Glide.with(this@HomeActivity)
+                            .load(fallback)
+                            .centerCrop()
+                            .placeholder(R.drawable.bg_gradient_black) // ✅ VOLTOU O GRADIENTE
+                            .into(targetImg)
                     } catch (e: Exception) {}
                 }
             }
@@ -485,9 +495,7 @@ class HomeActivity : AppCompatActivity() {
         }
         remoteConfig.setConfigSettingsAsync(configSettings)
         
-        // Mantive a lógica original, mas adaptei para não quebrar com o ViewPager
-        // Em um cenário ideal, o Remote Config atualizaria a listaBannerItems, 
-        // mas para não alterar demais, deixamos o log apenas.
+        // Mantive a lógica original
         remoteConfig.fetchAndActivate().addOnCompleteListener(this) { task ->
             if (task.isSuccessful) {
                 // Configuração remota carregada
@@ -498,16 +506,13 @@ class HomeActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (listaBannerItems.isEmpty()) {
-            // carregarBannerAlternado() // Desativado para priorizar conteúdo local primeiro
+            // carregarBannerAlternado()
         }
         
-        // Atualiza a lista de continuar assistindo ao voltar do Player
         carregarContinuarAssistindoLocal()
 
         try {
-             // Lógica de limpar foco mantida, mas verifique se etSearch existe no seu layout novo
-             // Se etSearch foi removido no XML Disney, isso daria erro.
-             // Coloquei try-catch para garantir que não crashe.
+             // Try catch original mantido
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -568,14 +573,14 @@ class HomeActivity : AppCompatActivity() {
         }
         
         // --- Lógica de Navegação TV (D-PAD) ---
-        // Adaptada para o layout horizontal
+        // Adaptada para incluir o ? no bannerViewPager
         if (isTelevisionDevice()) {
             binding.cardLiveTv.setOnKeyListener { _, keyCode, event ->
                 if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && event.action == KeyEvent.ACTION_DOWN) {
                     binding.cardMovies.requestFocus()
                     true
                 } else if (keyCode == KeyEvent.KEYCODE_DPAD_UP && event.action == KeyEvent.ACTION_DOWN) {
-                    binding.bannerViewPager.requestFocus() // Sobe para o Banner
+                    binding.bannerViewPager?.requestFocus() // Sobe para o Banner
                     true
                 } else false
             }
@@ -588,7 +593,7 @@ class HomeActivity : AppCompatActivity() {
                     binding.cardSeries.requestFocus()
                     true
                 } else if (keyCode == KeyEvent.KEYCODE_DPAD_UP && event.action == KeyEvent.ACTION_DOWN) {
-                    binding.bannerViewPager.requestFocus()
+                    binding.bannerViewPager?.requestFocus()
                     true
                 } else false
             }
@@ -601,7 +606,7 @@ class HomeActivity : AppCompatActivity() {
                     binding.cardKids.requestFocus()
                     true
                 } else if (keyCode == KeyEvent.KEYCODE_DPAD_UP && event.action == KeyEvent.ACTION_DOWN) {
-                    binding.bannerViewPager.requestFocus()
+                    binding.bannerViewPager?.requestFocus()
                     true
                 } else false
             }
@@ -611,7 +616,7 @@ class HomeActivity : AppCompatActivity() {
                     binding.cardSeries.requestFocus()
                     true
                 } else if (keyCode == KeyEvent.KEYCODE_DPAD_UP && event.action == KeyEvent.ACTION_DOWN) {
-                    binding.bannerViewPager.requestFocus()
+                    binding.bannerViewPager?.requestFocus()
                     true
                 } else false
             }
@@ -636,10 +641,7 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun carregarBannerAlternado() {
-        // Mantido para fallback caso não tenha conteúdo local
-        // Mas a UI do banner agora é via Adapter, então essa função precisaria retornar 
-        // uma lista para o adapter. Para simplificar e não alterar lógica:
-        // Se entrar aqui, não faz nada visualmente para não quebrar o ViewPager.
+        // Mantido
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
@@ -701,13 +703,12 @@ class HomeActivity : AppCompatActivity() {
                 // ✅ BUSCA NO ROOM (Database) usando o nome correto da função que está no seu StreamDao.kt
                 val historyList = database.streamDao().getWatchHistory(currentProfile, 20)
                 
-                // Converte para VodItem para exibir na RecyclerView
+                // Converte para VodItem removendo o parâmetro 'isSeries' que não existe no seu VodItem.kt
                 val vodItems = historyList.map { 
                     VodItem(
                         id = it.stream_id.toString(), 
                         name = it.name, 
-                        streamIcon = it.icon ?: "",
-                        isSeries = it.is_series // Importante passar se é série
+                        streamIcon = it.icon ?: ""
                     ) 
                 }
 
@@ -718,7 +719,7 @@ class HomeActivity : AppCompatActivity() {
                             // Ao clicar, abre o Player ou Detalhes
                             val intent = Intent(this@HomeActivity, PlayerActivity::class.java)
                             intent.putExtra("stream_id", selected.id.toIntOrNull() ?: 0)
-                            intent.putExtra("stream_type", if (selected.isSeries) "series" else "movie")
+                            // Removido stream_type pois não temos como saber pelo VodItem atual
                             intent.putExtra("channel_name", selected.name)
                             intent.putExtra("icon", selected.streamIcon)
                             intent.putExtra("PROFILE_NAME", currentProfile)
@@ -735,7 +736,6 @@ class HomeActivity : AppCompatActivity() {
     }
 
     // ✅ CLASSE INTERNA: ADAPTER PARA O BANNER (VIEWPAGER2)
-    // Isso é necessário porque o ViewPager2 funciona com listas, diferente do CardView único antigo
     inner class BannerAdapter(private var items: List<Any>) : RecyclerView.Adapter<BannerAdapter.BannerViewHolder>() {
 
         fun updateList(newItems: List<Any>) {
@@ -744,7 +744,7 @@ class HomeActivity : AppCompatActivity() {
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): BannerViewHolder {
-            // Usa o layout XML 'item_banner_home.xml' que criamos
+            // Usa o layout XML 'item_banner_home.xml'
             val view = LayoutInflater.from(parent.context).inflate(R.layout.item_banner_home, parent, false)
             return BannerViewHolder(view)
         }
@@ -761,7 +761,6 @@ class HomeActivity : AppCompatActivity() {
             private val tvTitle: TextView = itemView.findViewById(R.id.tvBannerTitle)
             private val imgLogo: ImageView = itemView.findViewById(R.id.imgBannerLogo)
             private val btnPlay: View = itemView.findViewById(R.id.btnBannerPlay)
-            // private val btnAddList: View = itemView.findViewById(R.id.btnAddList) // Se existir no XML
 
             fun bind(item: Any) {
                 var title = ""
@@ -792,7 +791,7 @@ class HomeActivity : AppCompatActivity() {
                     } catch (e: Exception) {}
                 }
 
-                // Carrega imagem de fundo TMDB chamando a função da Activity
+                // Carrega imagem de fundo TMDB
                 buscarImagemBackgroundTMDB(cleanTitle, isSeries, icon, id, imgBanner, imgLogo, tvTitle)
 
                 // Clique no botão Assistir

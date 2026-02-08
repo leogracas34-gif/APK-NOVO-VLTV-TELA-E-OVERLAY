@@ -54,12 +54,11 @@ import java.net.URLEncoder
 import kotlin.math.abs
 import kotlin.random.Random
 
-// ✅ TENTATIVA DE IMPORTAÇÃO SEGURA DO CAST
-// Se der erro aqui, remova essas duas linhas, mas o try-catch abaixo protege a execução
+// ✅ IMPORTAÇÕES CAST
 import com.google.android.gms.cast.framework.CastButtonFactory
 import com.google.android.gms.cast.framework.CastContext
 
-// ✅ FIREBASE ATIVADO
+// ✅ FIREBASE
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.remoteconfig.ktx.remoteConfig
 import com.google.firebase.remoteconfig.ktx.remoteConfigSettings
@@ -69,17 +68,17 @@ class HomeActivity : AppCompatActivity() {
     private lateinit var binding: ActivityHomeBinding
     private val TMDB_API_KEY = "9b73f5dd15b8165b1b57419be2f29128"
     
-    // ✅ VARIÁVEL DE PERFIL INTEGRADA
+    // ✅ VARIÁVEL DE PERFIL
     private var currentProfile: String = "Padrao"
 
     // ✅ INSTÂNCIA DO BANCO DE DADOS ROOM
     private val database by lazy { AppDatabase.getDatabase(this) }
 
-    // --- VARIÁVEIS DO BANNER (ADAPTADO PARA VIEWPAGER2) ---
+    // --- VARIÁVEIS DO BANNER ---
     private var listaBannerItems: List<Any> = emptyList()
     private var bannerJob: Job? = null
     private var currentBannerIndex = 0
-    private lateinit var bannerAdapter: BannerAdapter // Adapter novo para o carrossel
+    private lateinit var bannerAdapter: BannerAdapter 
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -101,26 +100,21 @@ class HomeActivity : AppCompatActivity() {
 
         DownloadHelper.registerReceiver(this)
 
-        // ✅ SETUP CAST BUTTON (CHROMECAST) - COM PROTEÇÃO DE ERRO
+        // ✅ SETUP CAST BUTTON (PROTEGIDO)
         try {
-            // Inicializa o contexto do Cast para garantir que o botão funcione
              CastContext.getSharedInstance(this)
-            // Conecta o botão do XML ao serviço do Google Cast
-            // O ?. protege caso o botão mediaRouteButton não exista no layout atual
             binding.mediaRouteButton?.let { btn ->
                 CastButtonFactory.setUpMediaRouteButton(applicationContext, btn)
             }
         } catch (e: Exception) {
-            // Se falhar (ex: sem biblioteca ou sem play services), esconde o botão
-            // binding.mediaRouteButton?.visibility = View.GONE (Comentado para não dar erro se ID não existir)
             e.printStackTrace()
         }
 
-        // ✅ INICIALIZA O NOVO LAYOUT DISNEY
+        // ✅ INICIALIZA O LAYOUT
         setupViewPagerBanner()
         setupBottomNavigation()
 
-        setupClicks() // Mantido, mas adaptado para a nova navegação
+        setupClicks() 
         setupFirebaseRemoteConfig()
         
         carregarDadosLocaisImediato()
@@ -131,7 +125,6 @@ class HomeActivity : AppCompatActivity() {
         val isKidsMode = intent.getBooleanExtra("IS_KIDS_MODE", false)
         if (isKidsMode) {
             currentProfile = "Kids"
-            // Delay pequeno para garantir que a UI carregou
             Handler(Looper.getMainLooper()).postDelayed({
                 try {
                     binding.cardKids.performClick()
@@ -141,7 +134,6 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // 🔥 FIX CORRETO: DETECTA CELULAR vs TV (MELHORADO PARA TELAS GRANDES DE CELULAR)
     private fun configurarOrientacaoAutomatica() {
         if (isTVDevice()) {
             requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
@@ -150,82 +142,62 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // 🔥 DETECÇÃO PRECISA: TV REAL vs CELULAR COM TELA GRANDE
     private fun isTVDevice(): Boolean {
         return try {
-            // ✅ PRIORIDADE 1: FEATURES DE TV (MAIS CONFIÁVEL)
             packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK) ||
             packageManager.hasSystemFeature(PackageManager.FEATURE_TELEVISION) ||
             packageManager.hasSystemFeature("android.hardware.type.television") ||
-            
-            // ✅ PRIORIDADE 2: UI MODE TELEVISION
             (resources.configuration.uiMode and Configuration.UI_MODE_TYPE_MASK) == 
             Configuration.UI_MODE_TYPE_TELEVISION ||
-            
-            // ✅ PRIORIDADE 3: DENSIDADE + TAMANHO (MELHORADO)
             isRealTVSize()
-            
         } catch (e: Exception) {
             false
         }
     }
 
-    // 🔥 NOVO: DETECTA TV REAL (CORRIGE PROBLEMA DE CELULARES GRANDES)
     private fun isRealTVSize(): Boolean {
         return try {
             val displayMetrics = resources.displayMetrics
             val widthDp = displayMetrics.widthPixels / displayMetrics.density
             val heightDp = displayMetrics.heightPixels / displayMetrics.density
-            
-            // ✅ TVs reais: > 600dp LARGURA em landscape + baixa densidade
             val isLargeWidth = widthDp > 600
-            val isLowDensity = displayMetrics.densityDpi < DisplayMetrics.DENSITY_XHIGH // < 320dpi
+            val isLowDensity = displayMetrics.densityDpi < DisplayMetrics.DENSITY_XHIGH
             val isTVSize = isLargeWidth && isLowDensity
-            
             isTVSize
         } catch (e: Exception) {
             false
         }
     }
 
-    // ✅ CONFIGURAÇÃO DO CARROSSEL ESTILO DISNEY (VIEWPAGER2)
-    // ADICIONADO ?. (Null Safety) para evitar crash se o layout mudar
+    // ✅ CONFIGURAÇÃO DO CARROSSEL (Visual Disney 3D)
     private fun setupViewPagerBanner() {
         bannerAdapter = BannerAdapter(emptyList())
         binding.bannerViewPager?.adapter = bannerAdapter
-        // Mantém 3 páginas na memória para rolar suave
         binding.bannerViewPager?.offscreenPageLimit = 3
         
-        // Efeito de Profundidade e Margem (ver pontinha do próximo)
         val compositePageTransformer = CompositePageTransformer()
-        compositePageTransformer.addTransformer(MarginPageTransformer(40))
+        // Aumentei margem e escala para dar mais profundidade
+        compositePageTransformer.addTransformer(MarginPageTransformer(50))
         compositePageTransformer.addTransformer { page, position ->
             val r = 1 - abs(position)
-            page.scaleY = 0.85f + r * 0.15f // Item central maior (1.0), laterais menores (0.85)
+            page.scaleY = 0.80f + r * 0.20f 
         }
         binding.bannerViewPager?.setPageTransformer(compositePageTransformer)
 
-        // Callback para loop infinito
         binding.bannerViewPager?.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {
                 super.onPageSelected(position)
                 currentBannerIndex = position
-                // Reinicia o timer do auto-scroll ao tocar
                 bannerJob?.cancel()
                 iniciarCicloBanner()
             }
         })
     }
 
-    // ✅ CONFIGURAÇÃO DO MENU INFERIOR
-    // ADICIONADO ?. (Null Safety) e removido NestedScrollView que não tem ID
     private fun setupBottomNavigation() {
         binding.bottomNavigation?.setOnItemSelectedListener { item ->
             when (item.itemId) {
-                R.id.nav_home -> {
-                    // Removido smoothScrollTo pois o ID nestedScrollView não existe no XML fornecido
-                    true
-                }
+                R.id.nav_home -> true
                 R.id.nav_search -> {
                     val intent = Intent(this, SearchActivity::class.java)
                     intent.putExtra("PROFILE_NAME", currentProfile)
@@ -284,16 +256,14 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // --- BANNER OTIMIZADO PARA VIEWPAGER ---
     private fun prepararBannerDosRecentes(filmes: List<VodEntity>, series: List<SeriesEntity>) {
-        val mixLançamentos = (filmes + series).shuffled().take(10) // Pega 10 misturados
+        val mixLançamentos = (filmes + series).shuffled().take(10)
         
         if (mixLançamentos.isNotEmpty()) {
             listaBannerItems = mixLançamentos
-            bannerAdapter.updateList(listaBannerItems) // Atualiza o Adapter
+            bannerAdapter.updateList(listaBannerItems)
             iniciarCicloBanner()
         } else {
-            // Se não tiver local, tenta buscar do TMDB (Trendings)
             carregarBannerAlternado() 
         }
     }
@@ -304,7 +274,6 @@ class HomeActivity : AppCompatActivity() {
             while (true) {
                 delay(8000)
                 if (listaBannerItems.isNotEmpty()) {
-                    // Verifica se binding.bannerViewPager é nulo antes de acessar
                     var nextIndex = (binding.bannerViewPager?.currentItem ?: 0) + 1
                     if (nextIndex >= listaBannerItems.size) nextIndex = 0
                     binding.bannerViewPager?.setCurrentItem(nextIndex, true)
@@ -315,23 +284,33 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // 🧹 VASSOURA MELHORADA (PT-BR IPTV)
     private fun limparNomeParaTMDB(nome: String): String {
         return nome.replace(Regex("(?i)\\b(4K|FULL HD|HD|SD|720P|1080P|2160P|DUBLADO|LEGENDADO|DUAL|AUDIO|LATINO|PT-BR|PTBR|WEB-DL|BLURAY|MKV|MP4|AVI|REPACK|H264|H265|HEVC|WEB|S\\d+E\\d+|SEASON|TEMPORADA)\\b"), "")
                    .replace(Regex("\\(\\d{4}\\)|\\[.*?\\]|\\{.*?\\}|\\(.*\\d{4}.*\\)"), "")
                    .replace(Regex("\\s+"), " ")
                    .trim()
-                   .take(50) // Limita tamanho para UI
+                   .take(50)
     }
 
-    // --- FUNÇÕES DE BUSCA TMDB ADAPTADAS PARA O ADAPTER ---
-    // Agora aceitam as Views de destino como parâmetro, pois estão dentro do ViewHolder
+    // ✅ LÓGICA DATABASE: Carrega instantaneamente do banco, depois tenta TMDB
     private fun buscarImagemBackgroundTMDB(nome: String, isSeries: Boolean, fallback: String, internalId: Int, targetImg: ImageView, targetLogo: ImageView, targetTitle: TextView) {
+        
+        // 🚀 PASSO 1: Exibir IMEDIATAMENTE a imagem que já temos (do Banco de Dados)
+        try {
+            Glide.with(this@HomeActivity)
+                .load(fallback)
+                .centerCrop()
+                .placeholder(R.drawable.bg_gradient_black)
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .into(targetImg)
+        } catch (e: Exception) {}
+
         val tipo = if (isSeries) "tv" else "movie"
         val nomeLimpo = limparNomeParaTMDB(nome)
         val query = URLEncoder.encode(nomeLimpo, "UTF-8")
         val url = "https://api.themoviedb.org/3/search/$tipo?api_key=$TMDB_API_KEY&query=$query&language=pt-BR&region=BR"
 
+        // 🚀 PASSO 2: Buscar no TMDB em background (sem travar a UI)
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val response = URL(url).readText()
@@ -345,34 +324,14 @@ class HomeActivity : AppCompatActivity() {
                             Glide.with(this@HomeActivity)
                                 .load("https://image.tmdb.org/t/p/original$backdropPath")
                                 .centerCrop()
-                                .placeholder(R.drawable.bg_gradient_black) // ✅ VOLTOU O GRADIENTE
+                                .placeholder(targetImg.drawable) // Usa o que já veio do DB como transição
                                 .into(targetImg)
                         } catch (e: Exception) {}
                     }
                     
                     buscarLogoOverlayHome(tmdbId, tipo, internalId, isSeries, targetLogo, targetTitle)
-                } else {
-                    withContext(Dispatchers.Main) {
-                        try {
-                            Glide.with(this@HomeActivity)
-                                .load(fallback)
-                                .centerCrop()
-                                .placeholder(R.drawable.bg_gradient_black) // ✅ VOLTOU O GRADIENTE
-                                .into(targetImg)
-                        } catch (e: Exception) {}
-                    }
                 }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    try {
-                        Glide.with(this@HomeActivity)
-                            .load(fallback)
-                            .centerCrop()
-                            .placeholder(R.drawable.bg_gradient_black) // ✅ VOLTOU O GRADIENTE
-                            .into(targetImg)
-                    } catch (e: Exception) {}
-                }
-            }
+            } catch (e: Exception) {}
         }
     }
 
@@ -394,10 +353,8 @@ class HomeActivity : AppCompatActivity() {
                         }
                     }
                     if (logoPath == null) logoPath = logos.getJSONObject(0).getString("file_path")
-                    
                     val fullLogoUrl = "https://image.tmdb.org/t/p/w500$logoPath"
 
-                    // ✅ SALVA NO BANCO PARA PRÓXIMA VEZ (INSTANTÂNEO)
                     try {
                         if (isSeries) {
                             database.streamDao().updateSeriesLogo(internalId, fullLogoUrl)
@@ -409,7 +366,6 @@ class HomeActivity : AppCompatActivity() {
                     }
 
                     withContext(Dispatchers.Main) {
-                        // ✅ SUBSTITUI TEXTO PELO LOGO NO ADAPTER
                         targetTitle.visibility = View.GONE
                         targetLogo.visibility = View.VISIBLE
                         try {
@@ -426,7 +382,7 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ MANTIDA TODA A LÓGICA DE SINCRONIZAÇÃO ORIGINAL
+    // ✅ SINCRONIZAÇÃO ORIGINAL (MANTIDA)
     private fun sincronizarConteudoSilenciosamente() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val dns = prefs.getString("dns", "") ?: ""
@@ -526,7 +482,7 @@ class HomeActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (listaBannerItems.isEmpty()) {
-            // carregarBannerAlternado()
+            carregarBannerAlternado()
         }
         
         carregarContinuarAssistindoLocal()
@@ -593,14 +549,13 @@ class HomeActivity : AppCompatActivity() {
         }
         
         // --- Lógica de Navegação TV (D-PAD) ---
-        // Adaptada para incluir o ? no bannerViewPager
         if (isTelevisionDevice()) {
             binding.cardLiveTv.setOnKeyListener { _, keyCode, event ->
                 if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && event.action == KeyEvent.ACTION_DOWN) {
                     binding.cardMovies.requestFocus()
                     true
                 } else if (keyCode == KeyEvent.KEYCODE_DPAD_UP && event.action == KeyEvent.ACTION_DOWN) {
-                    binding.bannerViewPager?.requestFocus() // Sobe para o Banner
+                    binding.bannerViewPager?.requestFocus() 
                     true
                 } else false
             }
@@ -660,8 +615,58 @@ class HomeActivity : AppCompatActivity() {
             .show()
     }
 
+    // ✅ FUNÇÃO RECUPERADA (Trending TMDB caso banco vazio)
     private fun carregarBannerAlternado() {
-        // Mantido
+        val prefs = getSharedPreferences("vltv_home_prefs", Context.MODE_PRIVATE)
+        val ultimoTipo = prefs.getString("ultimo_tipo_banner", "tv") ?: "tv"
+        val tipoAtual = if (ultimoTipo == "tv") "movie" else "tv"
+        prefs.edit().putString("ultimo_tipo_banner", tipoAtual).apply()
+
+        val urlString = "https://api.themoviedb.org/3/trending/$tipoAtual/day?api_key=$TMDB_API_KEY&language=pt-BR&region=BR"
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val jsonTxt = URL(urlString).readText()
+                val json = JSONObject(jsonTxt)
+                val results = json.getJSONArray("results")
+
+                if (results.length() > 0) {
+                    val randomIndex = Random.nextInt(results.length())
+                    val item = results.getJSONObject(randomIndex)
+
+                    val tituloOriginal = if (item.has("title")) item.getString("title")
+                    else if (item.has("name")) item.getString("name")
+                    else "Destaque"
+
+                    val overview = if (item.has("overview")) item.getString("overview") else ""
+                    val backdropPath = item.getString("backdrop_path")
+                    val prefixo = if (tipoAtual == "movie") "Filme em Alta: " else "Série em Alta: "
+                    val tmdbId = item.getString("id")
+
+                    if (backdropPath != "null" && backdropPath.isNotBlank()) {
+                        val imageUrl = "https://image.tmdb.org/t/p/original$backdropPath"
+                        withContext(Dispatchers.Main) {
+                            // Atualiza os textos se existirem no layout do banner
+                            try {
+                                val tvTitle = findViewById<TextView>(R.id.tvBannerTitle)
+                                val imgBanner = findViewById<ImageView>(R.id.imgBanner)
+                                
+                                if (tvTitle != null) tvTitle.text = "$prefixo${limparNomeParaTMDB(tituloOriginal)}"
+                                
+                                Glide.with(this@HomeActivity)
+                                    .load(imageUrl)
+                                    .centerCrop()
+                                    .into(imgBanner)
+                            } catch (e: Exception) {}
+                        }
+                        // Busca Logo overlay
+                        buscarLogoOverlayHome(tmdbId, tipoAtual, 0, tipoAtual == "tv", findViewById(R.id.imgBannerLogo), findViewById(R.id.tvBannerTitle))
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
@@ -732,15 +737,27 @@ class HomeActivity : AppCompatActivity() {
                     ) 
                 }
 
+                // Mapa auxiliar
+                val seriesMap = historyList.associate { it.stream_id.toString() to it.is_series }
+
                 withContext(Dispatchers.Main) {
                     if (vodItems.isNotEmpty()) {
                         binding.rvContinueWatching.visibility = View.VISIBLE
                         binding.rvContinueWatching.adapter = HomeRowAdapter(vodItems) { selected ->
-                            // Ao clicar, abre o Player ou Detalhes
-                            val intent = Intent(this@HomeActivity, PlayerActivity::class.java)
-                            intent.putExtra("stream_id", selected.id.toIntOrNull() ?: 0)
-                            // Removido stream_type pois não temos como saber pelo VodItem atual
-                            intent.putExtra("channel_name", selected.name)
+                            // Verifica no mapa
+                            val isSeries = seriesMap[selected.id] ?: false
+                            
+                            val intent = if (isSeries) {
+                                Intent(this@HomeActivity, SeriesDetailsActivity::class.java).apply {
+                                    putExtra("series_id", selected.id.toIntOrNull() ?: 0)
+                                }
+                            } else {
+                                Intent(this@HomeActivity, DetailsActivity::class.java).apply {
+                                    putExtra("stream_id", selected.id.toIntOrNull() ?: 0)
+                                }
+                            }
+                            
+                            intent.putExtra("name", selected.name)
                             intent.putExtra("icon", selected.streamIcon)
                             intent.putExtra("PROFILE_NAME", currentProfile)
                             startActivity(intent)

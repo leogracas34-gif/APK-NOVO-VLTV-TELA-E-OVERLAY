@@ -81,4 +81,7 @@ dependencies {
     // Coroutines (Performance em segundo plano)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0") // Para escopo de coroutine na UI
+
+    // ADICIONE ESSA LINHA PARA O BOTÃO CAST FUNCIONAR:
+    implementation("com.google.android.gms:play-services-cast-framework:21.4.0")
 }

@@ -37,6 +37,8 @@ import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
 import java.util.ArrayList
+
+// ✅ IMPORTS NECESSÁRIOS PARA O VOLUME E O BANCO DE DADOS (Adicionados)
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.lifecycle.lifecycleScope
@@ -95,7 +97,7 @@ class PlayerActivity : AppCompatActivity() {
 
     private val USER_AGENT = "IPTVSmartersPro"
 
-    // ✅ INSTÂNCIA DO BANCO DE DADOS ROOM
+    // ✅ INSTÂNCIA DO BANCO DE DADOS ROOM (ADICIONADO PARA O CONTINUAR ASSISTINDO)
     private val database by lazy { AppDatabase.getDatabase(this) }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -311,6 +313,7 @@ class PlayerActivity : AppCompatActivity() {
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) {
+            // ✅ Garante que ao voltar para a Activity o modo imersivo seja reaplicado
             val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
             windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
@@ -333,12 +336,12 @@ class PlayerActivity : AppCompatActivity() {
             }
             player?.release()
             
-            // ✅ AJUSTE DE AUDIO ATTRIBUTES NO OFFLINE
+            // ✅ CORREÇÃO DE VOLUME (OFFLINE)
             val audioAttributes = AudioAttributes.Builder()
                 .setUsage(C.USAGE_MEDIA)
                 .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
                 .build()
-
+                
             player = ExoPlayer.Builder(this)
                 .setAudioAttributes(audioAttributes, true)
                 .build()
@@ -393,7 +396,6 @@ class PlayerActivity : AppCompatActivity() {
             ext = currentExt
         )
 
-        player?.stop()
         player?.release()
 
         val dataSourceFactory = DefaultHttpDataSource.Factory()
@@ -404,21 +406,32 @@ class PlayerActivity : AppCompatActivity() {
 
         val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
 
-        // ✅ CONFIGURAÇÃO DE ÁUDIO PARA PRIORIZAR VOLUME NA TV
+        val isLive = streamType == "live"
+        val minBufferMs = 2000
+        val maxBufferMs = if (isLive) 5000 else 15000
+        val playBufferMs = 1000
+        val playRebufferMs = 2000
+
+        val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                minBufferMs,
+                maxBufferMs,
+                playBufferMs,
+                playRebufferMs
+            )
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .build()
+        
+        // ✅ CORREÇÃO DE VOLUME: Áudio configurado como "MOVIE" para ganho máximo na TV
         val audioAttributes = AudioAttributes.Builder()
             .setUsage(C.USAGE_MEDIA)
             .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
             .build()
 
-        val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
-            .setBufferDurationsMs(2000, 15000, 1000, 2000)
-            .setPrioritizeTimeOverSizeThresholds(true)
-            .build()
-
         player = ExoPlayer.Builder(this)
             .setMediaSourceFactory(mediaSourceFactory)
             .setLoadControl(loadControl)
-            .setAudioAttributes(audioAttributes, true) // ✅ Ativa o foco de áudio e ganho
+            .setAudioAttributes(audioAttributes, true) // ✅ Aplica o ganho de áudio
             .build()
 
         playerView.player = player
@@ -469,7 +482,7 @@ class PlayerActivity : AppCompatActivity() {
     private fun abrirProximoEpisodio() {
         if (nextStreamId == 0) return
 
-        // ✅ PARA O ÁUDIO FANTASMA ANTES DE TROCAR
+        // ✅ CORREÇÃO ÁUDIO FANTASMA: Para o player antes de trocar de tela
         player?.stop()
         player?.release()
         player = null
@@ -504,6 +517,7 @@ class PlayerActivity : AppCompatActivity() {
         intent.putExtra("stream_ext", "mp4")
         intent.putExtra("stream_type", "series")
         intent.putExtra("channel_name", novoTitulo)
+        // ✅ REPASSA O PERFIL PARA O PRÓXIMO EPISÓDIO
         intent.putExtra("PROFILE_NAME", currentProfile)
         
         if (episodeList.isNotEmpty()) {
@@ -513,6 +527,7 @@ class PlayerActivity : AppCompatActivity() {
         finish()
     }
 
+    // ✅ CHAVE POR PERFIL
     private fun getMovieKey(id: Int) = "${currentProfile}_movie_resume_$id"
 
     private fun saveMovieResume(id: Int, positionMs: Long, durationMs: Long) {
@@ -528,18 +543,28 @@ class PlayerActivity : AppCompatActivity() {
             .putLong("${getMovieKey(id)}_dur", durationMs)
             .apply()
             
+        // ✅ SALVA TAMBÉM NO FIREBASE PARA A HOME ATUALIZAR
         salvarNoFirebase(id, positionMs, durationMs)
+
+        // ✅ SALVA TAMBÉM LOCALMENTE PARA A HOME LER SEM FIREBASE
         salvarNoHistoricoLocal(id.toString())
 
-        // ✅ SALVA NO BANCO LOCAL (ROOM) PARA O CONTINUAR ASSISTINDO
+        // ✅ GRAVA NO BANCO DE DADOS (ROOM) PARA O CONTINUAR ASSISTINDO FUNCIONAR
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 database.streamDao().saveWatchHistory(WatchHistoryEntity(
-                    stream_id = id, profile_name = currentProfile, name = tvChannelName.text.toString(),
-                    icon = intent.getStringExtra("icon") ?: "", last_position = positionMs,
-                    duration = durationMs, is_series = false, timestamp = System.currentTimeMillis()
+                    stream_id = id,
+                    profile_name = currentProfile,
+                    name = tvChannelName.text.toString(),
+                    icon = intent.getStringExtra("icon") ?: "",
+                    last_position = positionMs,
+                    duration = durationMs,
+                    is_series = false,
+                    timestamp = System.currentTimeMillis()
                 ))
-            } catch (e: Exception) {}
+            } catch (e: Exception) {
+                // Erro silencioso
+            }
         }
     }
 
@@ -551,6 +576,7 @@ class PlayerActivity : AppCompatActivity() {
             .apply()
     }
 
+    // ✅ CHAVE POR PERFIL
     private fun getSeriesKey(episodeStreamId: Int) = "${currentProfile}_series_resume_$episodeStreamId"
 
     private fun saveSeriesResume(id: Int, positionMs: Long, durationMs: Long) {
@@ -566,18 +592,28 @@ class PlayerActivity : AppCompatActivity() {
             .putLong("${getSeriesKey(id)}_dur", durationMs)
             .apply()
 
+        // ✅ SALVA TAMBÉM NO FIREBASE PARA A HOME ATUALIZAR
         salvarNoFirebase(id, positionMs, durationMs)
+
+        // ✅ SALVA TAMBÉM LOCALMENTE PARA A HOME LER SEM FIREBASE
         salvarNoHistoricoLocal(id.toString())
 
-        // ✅ SALVA NO BANCO LOCAL (ROOM) PARA O CONTINUAR ASSISTINDO
+        // ✅ GRAVA NO BANCO DE DADOS (ROOM) PARA O CONTINUAR ASSISTINDO FUNCIONAR
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 database.streamDao().saveWatchHistory(WatchHistoryEntity(
-                    stream_id = id, profile_name = currentProfile, name = tvChannelName.text.toString(),
-                    icon = intent.getStringExtra("icon") ?: "", last_position = positionMs,
-                    duration = durationMs, is_series = true, timestamp = System.currentTimeMillis()
+                    stream_id = id,
+                    profile_name = currentProfile,
+                    name = tvChannelName.text.toString(),
+                    icon = intent.getStringExtra("icon") ?: "",
+                    last_position = positionMs,
+                    duration = durationMs,
+                    is_series = true,
+                    timestamp = System.currentTimeMillis()
                 ))
-            } catch (e: Exception) {}
+            } catch (e: Exception) {
+                // Erro silencioso
+            }
         }
     }
 
@@ -589,19 +625,27 @@ class PlayerActivity : AppCompatActivity() {
             .apply()
     }
 
+    // ✅ NOVA FUNÇÃO: SALVA O HISTÓRICO NO CELULAR (PARA A HOME LOCAL)
     private fun salvarNoHistoricoLocal(id: String) {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val keyIds = "${currentProfile}_local_history_ids"
+        
+        // Pega a lista atual de IDs salvos
         val ids = prefs.getStringSet(keyIds, mutableSetOf())?.toMutableSet() ?: mutableSetOf()
+        
+        // Adiciona o novo ID à lista
         ids.add(id)
+        
         prefs.edit().apply {
             putStringSet(keyIds, ids)
+            // Salva o Nome e o Ícone para a Home desenhar o card
             putString("${currentProfile}_history_name_$id", tvChannelName.text.toString())
             putString("${currentProfile}_history_icon_$id", intent.getStringExtra("icon") ?: "")
             apply()
         }
     }
 
+    // ✅ NOVA FUNÇÃO: SALVA O PROGRESSO NO FIREBASE (CONTINUAR ASSISTINDO)
     private fun salvarNoFirebase(id: Int, positionMs: Long, durationMs: Long) {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val userEmail = prefs.getString("username", "") ?: ""
@@ -609,35 +653,65 @@ class PlayerActivity : AppCompatActivity() {
 
         val db = FirebaseFirestore.getInstance()
         val data = hashMapOf(
-            "id" to id.toString(), "name" to tvChannelName.text.toString(),
+            "id" to id.toString(),
+            "name" to tvChannelName.text.toString(),
             "streamIcon" to (intent.getStringExtra("icon") ?: ""),
-            "positionMs" to positionMs, "durationMs" to durationMs,
+            "positionMs" to positionMs,
+            "durationMs" to durationMs,
             "timestamp" to com.google.firebase.Timestamp.now()
         )
 
-        db.collection("users").document(userEmail).collection("profiles").document(currentProfile)
-            .collection("history").document(id.toString()).set(data, SetOptions.merge())
+        db.collection("users")
+            .document(userEmail)
+            .collection("profiles")
+            .document(currentProfile)
+            .collection("history")
+            .document(id.toString())
+            .set(data, SetOptions.merge())
+            .addOnFailureListener { e -> Log.e("FIREBASE_PLAYER", "Erro: ${e.message}") }
     }
 
     private fun decodeBase64(text: String?): String {
         return try {
-            if (text.isNullOrEmpty()) "" else String(Base64.decode(text, Base64.DEFAULT), Charsets.UTF_8)
-        } catch (e: Exception) { text ?: "" }
+            if (text.isNullOrEmpty()) "" else String(
+                Base64.decode(text, Base64.DEFAULT),
+                Charsets.UTF_8
+            )
+        } catch (e: Exception) {
+            text ?: ""
+        }
     }
 
     private fun carregarEpg() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val user = prefs.getString("username", "") ?: ""
         val pass = prefs.getString("password", "") ?: ""
-        if (user.isBlank() || pass.isBlank()) return
 
-        XtreamApi.service.getShortEpg(user, pass, streamId.toString(), 2).enqueue(object : Callback<EpgWrapper> {
+        if (user.isBlank() || pass.isBlank()) {
+            tvNowPlaying.text = "Sem informação de programação"
+            return
+        }
+
+        XtreamApi.service.getShortEpg(
+            user = user,
+            pass = pass,
+            streamId = streamId.toString(),
+            limit = 2
+        ).enqueue(object : Callback<EpgWrapper> {
             override fun onResponse(call: Call<EpgWrapper>, response: Response<EpgWrapper>) {
-                val epg = response.body()?.epg_listings?.firstOrNull() ?: return
+                if (!response.isSuccessful || response.body()?.epg_listings.isNullOrEmpty()) {
+                    tvNowPlaying.text = "Sem informação de programação"
+                    return
+                }
+                val epg = response.body()!!.epg_listings!!.firstOrNull() ?: return
                 val titulo = decodeBase64(epg.title)
-                tvNowPlaying.text = "$titulo (${epg.start} - ${epg.stop ?: epg.end})"
+                val inicio = epg.start ?: ""
+                val fim = epg.stop ?: epg.end.orEmpty()
+                tvNowPlaying.text = if (inicio.isNotBlank()) "$titulo ($inicio - $fim)" else titulo
             }
-            override fun onFailure(call: Call<EpgWrapper>, t: Throwable) {}
+            override fun onFailure(call: Call<EpgWrapper>, t: Throwable) {
+                tvNowPlaying.text = "Falha ao carregar programação"
+            }
         })
     }
 
@@ -649,32 +723,47 @@ class PlayerActivity : AppCompatActivity() {
         if (action == KeyEvent.ACTION_DOWN) {
             when (keyCode) {
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+                    // ✅ FOCO TV: Se o botão de próximo estiver visível, o OK clica nele
                     if (nextEpisodeContainer.visibility == View.VISIBLE) {
-                        btnPlayNextEpisode.performClick(); return true
+                        btnPlayNextEpisode.performClick()
+                        return true
                     }
+                    
                     if (playerView.isControllerFullyVisible) {
                         if (p.isPlaying) p.pause() else p.play()
-                    } else { playerView.showController() }
+                    } else {
+                        playerView.showController()
+                    }
                     return true 
                 }
+
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
+                    // ✅ FOCO TV: Se o botão de próximo estiver visível, o foco vai pra ele ao apertar pra baixo
                     if (nextEpisodeContainer.visibility == View.VISIBLE) {
-                        btnPlayNextEpisode.requestFocus(); return true
+                        btnPlayNextEpisode.requestFocus()
+                        return true
                     }
-                    playerView.showController()
-                    playerView.findViewById<View>(androidx.media3.ui.R.id.exo_progress)?.requestFocus()
+                    
+                    if (!playerView.isControllerFullyVisible) {
+                        playerView.showController()
+                    }
+                    val seekBar = playerView.findViewById<View>(androidx.media3.ui.R.id.exo_progress)
+                    seekBar?.requestFocus()
                     return true
                 }
+
                 KeyEvent.KEYCODE_DPAD_RIGHT -> {
                     if (streamType != "live") {
                         p.seekTo((p.currentPosition + 10_000L).coerceAtMost(p.duration))
-                        playerView.showController(); return true
+                        playerView.showController()
+                        return true
                     }
                 }
                 KeyEvent.KEYCODE_DPAD_LEFT -> {
                     if (streamType != "live") {
                         p.seekTo((p.currentPosition - 10_000L).coerceAtLeast(0L))
-                        playerView.showController(); return true
+                        playerView.showController()
+                        return true
                     }
                 }
             }
@@ -683,7 +772,10 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_BACK) { finish(); return true }
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            finish()
+            return true
+        }
         return super.onKeyDown(keyCode, event)
     }
 
@@ -691,15 +783,25 @@ class PlayerActivity : AppCompatActivity() {
         super.onPause()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && !isInPictureInPictureMode) {
             val p = player ?: return
-            if (streamType == "movie") saveMovieResume(streamId, p.currentPosition, p.duration)
-            else if (streamType == "series") saveSeriesResume(streamId, p.currentPosition, p.duration)
+            if (streamType == "movie") {
+                saveMovieResume(streamId, p.currentPosition, p.duration)
+            } else if (streamType == "series") {
+                saveSeriesResume(streamId, p.currentPosition, p.duration)
+            }
         }
     }
 
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacks(nextChecker)
-        player?.stop()
+        val p = player
+        if (p != null) {
+            if (streamType == "movie") {
+                saveMovieResume(streamId, p.currentPosition, p.duration)
+            } else if (streamType == "series") {
+                saveSeriesResume(streamId, p.currentPosition, p.duration)
+            }
+        }
         player?.release()
         player = null
     }
@@ -711,9 +813,13 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
-        // ✅ PARA O ÁUDIO FANTASMA AO SAIR DA TELA
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && !isInPictureInPictureMode) {
+            // ✅ CORREÇÃO ÁUDIO FANTASMA: Usa stop() em vez de pause()
             player?.stop()
+            player?.release()
+            player = null
+        }
+        if (isFinishing) {
             player?.release()
             player = null
         }

@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.View
+import android.view.inputmethod.EditorInfo
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
@@ -12,9 +13,6 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import com.vltv.play.databinding.ActivityLoginBinding
-import com.vltv.play.data.AppDatabase
-import com.vltv.play.data.VodEntity
-import com.vltv.play.data.SeriesEntity
 import kotlinx.coroutines.*
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -35,28 +33,31 @@ class LoginActivity : AppCompatActivity() {
     )
 
     private val client = OkHttpClient.Builder()
-        .connectTimeout(5, TimeUnit.SECONDS)
-        .readTimeout(10, TimeUnit.SECONDS) // Aumentado um pouco para DNS lentos
-        .retryOnConnectionFailure(true)
+        .connectTimeout(5, TimeUnit.SECONDS) // Timeout curto para testar rápido
+        .readTimeout(5, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(false) // Não perde tempo reconectando se falhar
         .build()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityLoginBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-
+        
+        // MODO IMERSIVO
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
+        
+        binding = ActivityLoginBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
+        // VERIFICA SE JÁ TEM LOGIN COMPLETO SALVO
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val savedUser = prefs.getString("username", null)
         val savedPass = prefs.getString("password", null)
-        val savedDns = prefs.getString("dns", "") ?: ""
+        val savedDns = prefs.getString("dns", null)
 
-        // Se já tem login, inicia o motor de pré-carga e entra
-        if (!savedUser.isNullOrBlank() && !savedPass.isNullOrBlank()) {
-            iniciarMotorEEntrar(savedDns, savedUser, savedPass)
+        // Se tem usuário, senha e DNS, entra direto (sem testar internet, a Home resolve isso)
+        if (!savedUser.isNullOrBlank() && !savedPass.isNullOrBlank() && !savedDns.isNullOrBlank()) {
+            abrirHomeDireto()
             return
         }
 
@@ -69,85 +70,86 @@ class LoginActivity : AppCompatActivity() {
             if (user.isEmpty() || pass.isEmpty()) {
                 Toast.makeText(this, "Preencha todos os campos", Toast.LENGTH_SHORT).show()
             } else {
-                realizarLoginMultiServidor(user, pass)
+                iniciarLoginTurbo(user, pass)
             }
         }
     }
 
-    private fun realizarLoginMultiServidor(user: String, pass: String) {
+    private fun iniciarLoginTurbo(user: String, pass: String) {
         binding.progressBar.visibility = View.VISIBLE
         binding.btnLogin.isEnabled = false
+        binding.etUsername.isEnabled = false
+        binding.etPassword.isEnabled = false
 
+        // 🚀 LÓGICA "CORRIDA DE DNS": Dispara todos, o primeiro que responder ganha.
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // ✅ CORRIDA DE DNS: Dispara todos e pega o primeiro sucesso
-                val dnsVencedor = withContext(Dispatchers.IO) {
-                    SERVERS.map { server ->
-                        async { testarServidor(server, user, pass) }
-                    }.awaitAll().firstOrNull { it != null }
+                // Cria uma tarefa para cada servidor
+                val tarefas = SERVERS.map { url ->
+                    async { testarConexaoIndividual(url, user, pass) }
                 }
+
+                // Monitora quem termina primeiro com sucesso
+                var dnsVencedor: String? = null
+                val inicio = System.currentTimeMillis()
+                
+                // Tenta por no máximo 10 segundos
+                while (System.currentTimeMillis() - inicio < 10000) { 
+                    val concluidos = tarefas.filter { it.isCompleted }
+                    for (job in concluidos) {
+                        val resultado = job.getCompleted()
+                        if (resultado != null) {
+                            dnsVencedor = resultado
+                            break
+                        }
+                    }
+                    if (dnsVencedor != null) break
+                    delay(100) // Verifica a cada 100ms
+                }
+
+                // Cancela os outros para liberar memória e internet
+                tarefas.forEach { if (it.isActive) it.cancel() }
 
                 withContext(Dispatchers.Main) {
                     if (dnsVencedor != null) {
-                        salvarDadosLogin(dnsVencedor, user, pass)
-                        iniciarMotorEEntrar(dnsVencedor, user, pass)
+                        salvarCredenciais(dnsVencedor!!, user, pass)
+                        abrirHomeDireto()
                     } else {
-                        binding.progressBar.visibility = View.GONE
-                        binding.btnLogin.isEnabled = true
-                        Toast.makeText(this@LoginActivity, "Falha na conexão. Verifique seus dados.", Toast.LENGTH_LONG).show()
+                        mostrarErro("Falha ao conectar. Verifique seus dados ou internet.")
                     }
                 }
+
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    binding.progressBar.visibility = View.GONE
-                    binding.btnLogin.isEnabled = true
-                    Toast.makeText(this@LoginActivity, "Erro: ${e.message}", Toast.LENGTH_SHORT).show()
+                    mostrarErro("Erro: ${e.message}")
                 }
             }
         }
     }
 
-    private suspend fun testarServidor(server: String, user: String, pass: String): String? {
-        val base = if (server.endsWith("/")) server.dropLast(1) else server
-        val urlString = "$base/player_api.php?username=$user&password=$pass"
+    // Testa um servidor por vez (chamado em paralelo pelo async)
+    private fun testarConexaoIndividual(baseUrl: String, user: String, pass: String): String? {
+        val urlLimpa = if (baseUrl.endsWith("/")) baseUrl.dropLast(1) else baseUrl
+        val apiLogin = "$urlLimpa/player_api.php?username=$user&password=$pass"
 
         return try {
-            val request = Request.Builder().url(urlString).build()
+            val request = Request.Builder().url(apiLogin).build()
             client.newCall(request).execute().use { response ->
                 if (response.isSuccessful) {
                     val body = response.body?.string() ?: ""
-                    // Verifica se a resposta contém o sucesso da autenticação Xtream
-                    if (body.contains("\"auth\":1") || body.contains("user_info")) base else null
-                } else null
+                    // Se o servidor confirmou que é um usuário válido
+                    if (body.contains("\"auth\":1") || (body.contains("user_info") && body.contains("server_info"))) {
+                        return urlLimpa // SUCESSO!
+                    }
+                }
+                null
             }
         } catch (e: Exception) {
             null
         }
     }
 
-    private fun iniciarMotorEEntrar(dns: String, user: String, pass: String) {
-        // Configura a URL base para o Retrofit/XtreamApi
-        XtreamApi.setBaseUrl(if (dns.endsWith("/")) dns else "$dns/")
-        
-        // 🚀 PRÉ-CARGA TURBO: Baixa enquanto o Android abre a outra tela
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val responseVod = XtreamApi.service.getAllVodStreams(user, pass).execute()
-                if (responseVod.isSuccessful && responseVod.body() != null) {
-                    val entities = responseVod.body()!!.take(500).map { // Pega os primeiros 500 para não travar
-                        VodEntity(it.stream_id, it.name, it.name, it.stream_icon, it.container_extension, it.rating, "0", System.currentTimeMillis()) 
-                    }
-                    AppDatabase.getDatabase(this@LoginActivity).streamDao().insertVodStreams(entities)
-                }
-            } catch (e: Exception) { e.printStackTrace() }
-        }
-
-        val intent = Intent(this, HomeActivity::class.java)
-        startActivity(intent)
-        finish()
-    }
-
-    private fun salvarDadosLogin(dns: String, user: String, pass: String) {
+    private fun salvarCredenciais(dns: String, user: String, pass: String) {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         prefs.edit().apply {
             putString("dns", dns)
@@ -155,6 +157,26 @@ class LoginActivity : AppCompatActivity() {
             putString("password", pass)
             apply()
         }
+        
+        // Configura o Retrofit para as próximas telas
+        XtreamApi.setBaseUrl(if (dns.endsWith("/")) dns else "$dns/")
+    }
+
+    private fun abrirHomeDireto() {
+        // 🔥 AQUI ESTÁ A MÁGICA: Apenas abre a Home.
+        // O download pesado foi removido daqui e será feito pela Home em lotes de 50.
+        val intent = Intent(this, HomeActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        startActivity(intent)
+        finish()
+    }
+
+    private fun mostrarErro(msg: String) {
+        binding.progressBar.visibility = View.GONE
+        binding.btnLogin.isEnabled = true
+        binding.etUsername.isEnabled = true
+        binding.etPassword.isEnabled = true
+        Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
     }
 
     private fun setupTouchAndDpad() {

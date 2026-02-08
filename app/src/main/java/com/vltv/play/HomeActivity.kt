@@ -207,6 +207,11 @@ class HomeActivity : AppCompatActivity() {
                     startActivity(intent)
                     false 
                 }
+                // ✅ BOTÃO DOWNLOADS (Igual Disney+)
+                R.id.nav_downloads -> {
+                    startActivity(Intent(this, DownloadsActivity::class.java))
+                    false
+                }
                 R.id.nav_profile -> {
                     val intent = Intent(this, SettingsActivity::class.java)
                     intent.putExtra("PROFILE_NAME", currentProfile)

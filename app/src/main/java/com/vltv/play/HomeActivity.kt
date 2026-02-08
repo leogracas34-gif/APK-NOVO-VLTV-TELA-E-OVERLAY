@@ -54,6 +54,10 @@ import java.net.URLEncoder
 import kotlin.math.abs
 import kotlin.random.Random
 
+// ✅ IMPORTAÇÕES CAST (Necessário biblioteca Google Cast)
+import com.google.android.gms.cast.framework.CastButtonFactory
+import com.google.android.gms.cast.framework.CastContext
+
 // ✅ FIREBASE ATIVADO
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.remoteconfig.ktx.remoteConfig
@@ -95,6 +99,19 @@ class HomeActivity : AppCompatActivity() {
         windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
 
         DownloadHelper.registerReceiver(this)
+
+        // ✅ SETUP CAST BUTTON (CHROMECAST)
+        // Se der erro de compilação aqui, é porque falta a dependência no build.gradle
+        try {
+            // Inicializa o contexto do Cast para garantir que o botão funcione
+             CastContext.getSharedInstance(this)
+            // Conecta o botão do XML ao serviço do Google Cast
+            CastButtonFactory.setUpMediaRouteButton(applicationContext, binding.mediaRouteButton)
+        } catch (e: Exception) {
+            // Se falhar (ex: sem biblioteca ou sem play services), esconde o botão
+            binding.mediaRouteButton?.visibility = View.GONE
+            e.printStackTrace()
+        }
 
         // ✅ INICIALIZA O NOVO LAYOUT DISNEY
         setupViewPagerBanner()
@@ -686,7 +703,9 @@ class HomeActivity : AppCompatActivity() {
                         val intent = Intent(this@HomeActivity, SeriesDetailsActivity::class.java)
                         intent.putExtra("series_id", selectedItem.id.toIntOrNull() ?: 0)
                         intent.putExtra("name", selectedItem.name)
+                        intent.putExtra("icon", selectedItem.streamIcon)
                         intent.putExtra("PROFILE_NAME", currentProfile)
+                        intent.putExtra("is_series", true)
                         startActivity(intent)
                     }
                 }

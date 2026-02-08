@@ -423,7 +423,7 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ SINCRONIZAÇÃO ORIGINAL
+    // ✅ SINCRONIZAÇÃO OTIMIZADA: Salva em Lotes (Chunking) para evitar tela preta
     private fun sincronizarConteudoSilenciosamente() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val dns = prefs.getString("dns", "") ?: ""
@@ -434,17 +434,19 @@ class HomeActivity : AppCompatActivity() {
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
+                // --- 1. FILMES (Salva a cada 50) ---
                 val vodUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_vod_streams"
                 val vodResponse = URL(vodUrl).readText()
                 val vodArray = org.json.JSONArray(vodResponse)
-                val vodEntities = mutableListOf<VodEntity>()
+                val vodBatch = mutableListOf<VodEntity>()
                 val palavrasProibidas = listOf("XXX", "PORN", "ADULTO", "SEXO", "EROTICO", "🔞", "PORNÔ")
+                var firstVodBatchLoaded = false
 
                 for (i in 0 until vodArray.length()) {
                     val obj = vodArray.getJSONObject(i)
                     val nome = obj.optString("name")
                     if (!palavrasProibidas.any { nome.uppercase().contains(it) }) {
-                        vodEntities.add(VodEntity(
+                        vodBatch.add(VodEntity(
                             stream_id = obj.optInt("stream_id"),
                             name = nome,
                             title = obj.optString("name"),
@@ -455,19 +457,38 @@ class HomeActivity : AppCompatActivity() {
                             added = obj.optLong("added")
                         ))
                     }
+                    
+                    // ⚡ TRUQUE: A cada 50 filmes, salva e atualiza a tela
+                    if (vodBatch.size >= 50) {
+                        database.streamDao().insertVodStreams(vodBatch)
+                        vodBatch.clear()
+                        
+                        // Só chama a atualização de tela no PRIMEIRO lote para ser instantâneo
+                        if (!firstVodBatchLoaded) {
+                            withContext(Dispatchers.Main) { carregarDadosLocaisImediato() }
+                            firstVodBatchLoaded = true
+                        }
+                    }
                 }
-                database.streamDao().insertVodStreams(vodEntities)
+                // Salva o restante
+                if (vodBatch.isNotEmpty()) {
+                    database.streamDao().insertVodStreams(vodBatch)
+                }
+                // Atualiza tela ao final dos filmes
+                withContext(Dispatchers.Main) { carregarDadosLocaisImediato() }
 
+                // --- 2. SÉRIES (Salva a cada 50) ---
                 val seriesUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_series"
                 val seriesResponse = URL(seriesUrl).readText()
                 val seriesArray = org.json.JSONArray(seriesResponse)
-                val seriesEntities = mutableListOf<SeriesEntity>()
+                val seriesBatch = mutableListOf<SeriesEntity>()
+                var firstSeriesBatchLoaded = false
 
                 for (i in 0 until seriesArray.length()) {
                     val obj = seriesArray.getJSONObject(i)
                     val nome = obj.optString("name")
                     if (!palavrasProibidas.any { nome.uppercase().contains(it) }) {
-                        seriesEntities.add(SeriesEntity(
+                        seriesBatch.add(SeriesEntity(
                             series_id = obj.optInt("series_id"),
                             name = nome,
                             cover = obj.optString("cover"),
@@ -476,25 +497,48 @@ class HomeActivity : AppCompatActivity() {
                             last_modified = obj.optLong("last_modified")
                         ))
                     }
-                }
-                database.streamDao().insertSeriesStreams(seriesEntities)
 
+                    // ⚡ TRUQUE: A cada 50 séries, salva
+                    if (seriesBatch.size >= 50) {
+                        database.streamDao().insertSeriesStreams(seriesBatch)
+                        seriesBatch.clear()
+                        
+                        // Atualiza a tela rápido se for o primeiro lote
+                        if (!firstSeriesBatchLoaded) {
+                            withContext(Dispatchers.Main) { carregarDadosLocaisImediato() }
+                            firstSeriesBatchLoaded = true
+                        }
+                    }
+                }
+                if (seriesBatch.isNotEmpty()) {
+                    database.streamDao().insertSeriesStreams(seriesBatch)
+                }
+                withContext(Dispatchers.Main) { carregarDadosLocaisImediato() }
+
+                // --- 3. LIVE (Canais) ---
                 val liveUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_live_streams"
                 val liveResponse = URL(liveUrl).readText()
                 val liveArray = org.json.JSONArray(liveResponse)
-                val liveEntities = mutableListOf<LiveStreamEntity>()
+                val liveBatch = mutableListOf<LiveStreamEntity>()
 
                 for (i in 0 until liveArray.length()) {
                     val obj = liveArray.getJSONObject(i)
-                    liveEntities.add(LiveStreamEntity(
+                    liveBatch.add(LiveStreamEntity(
                         stream_id = obj.optInt("stream_id"),
                         name = obj.optString("name"),
                         stream_icon = obj.optString("stream_icon"),
                         epg_channel_id = obj.optString("epg_channel_id"),
                         category_id = obj.optString("category_id")
                     ))
+                    
+                    if (liveBatch.size >= 100) {
+                        database.streamDao().insertLiveStreams(liveBatch)
+                        liveBatch.clear()
+                    }
                 }
-                database.streamDao().insertLiveStreams(liveEntities)
+                if (liveBatch.isNotEmpty()) {
+                    database.streamDao().insertLiveStreams(liveBatch)
+                }
 
                 withContext(Dispatchers.Main) {
                     carregarDadosLocaisImediato()
@@ -724,7 +768,9 @@ class HomeActivity : AppCompatActivity() {
                         val intent = Intent(this@HomeActivity, DetailsActivity::class.java)
                         intent.putExtra("stream_id", selectedItem.id.toIntOrNull() ?: 0)
                         intent.putExtra("name", selectedItem.name)
+                        intent.putExtra("icon", selectedItem.streamIcon)
                         intent.putExtra("PROFILE_NAME", currentProfile)
+                        intent.putExtra("is_series", false)
                         startActivity(intent)
                     }
                 }

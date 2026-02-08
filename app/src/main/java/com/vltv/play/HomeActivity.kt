@@ -170,7 +170,7 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ CONFIGURAÇÃO DO CARROSSEL (Visual Disney 3D + Profundidade)
+    // ✅ CONFIGURAÇÃO DO CARROSSEL (Visual Disney 3D + Profundidade + Loop Infinito)
     private fun setupViewPagerBanner() {
         bannerAdapter = BannerAdapter(emptyList())
         binding.bannerViewPager?.adapter = bannerAdapter
@@ -218,17 +218,17 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ CARREGA DADOS DO DATABASE IMEDIATAMENTE
+    // ✅ CARREGA DADOS DO DATABASE IMEDIATAMENTE + ATIVA MODO SUPERSONICO
     private fun carregarDadosLocaisImediato() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 // Pega do banco local (Room)
                 val localMovies = database.streamDao().getRecentVods(20)
-                // Mapeia usando stream_icon (igual ao VodActivity)
+                // Mapeia usando stream_icon
                 val movieItems = localMovies.map { VodItem(it.stream_id.toString(), it.name, it.stream_icon ?: "") }
 
                 val localSeries = database.streamDao().getRecentSeries(20)
-                // Mapeia usando cover (igual ao SeriesActivity)
+                // Mapeia usando cover
                 val seriesItems = localSeries.map { VodItem(it.series_id.toString(), it.name, it.cover ?: "") }
 
                 withContext(Dispatchers.Main) {
@@ -257,7 +257,7 @@ class HomeActivity : AppCompatActivity() {
                     
                     prepararBannerDosRecentes(localMovies, localSeries)
                     
-                    // 🚀 ATIVA O MODO SUPERSONICO (PRELOAD)
+                    // 🚀 ATIVA O MODO SUPERSONICO (PRELOAD DAS LISTAS INFERIORES)
                     ativarModoSupersonico(movieItems, seriesItems)
                 }
             } catch (e: Exception) {
@@ -293,6 +293,12 @@ class HomeActivity : AppCompatActivity() {
         if (mixLançamentos.isNotEmpty()) {
             listaBannerItems = mixLançamentos
             bannerAdapter.updateList(listaBannerItems)
+            
+            // 🔥 POSICIONA NO MEIO PARA PERMITIR SCROLL ESQUERDA/DIREITA INFINITO
+            val middle = Integer.MAX_VALUE / 2
+            val startPos = middle - (middle % listaBannerItems.size)
+            binding.bannerViewPager?.setCurrentItem(startPos, false)
+            
             iniciarCicloBanner()
         } else {
             // Se o banco estiver vazio, tenta o online
@@ -304,10 +310,10 @@ class HomeActivity : AppCompatActivity() {
         bannerJob?.cancel()
         bannerJob = lifecycleScope.launch {
             while (true) {
-                delay(8000)
+                delay(8000) // 8 segundos por banner
                 if (listaBannerItems.isNotEmpty()) {
-                    var nextIndex = (binding.bannerViewPager?.currentItem ?: 0) + 1
-                    if (nextIndex >= listaBannerItems.size) nextIndex = 0
+                    // 🔥 Só avança para a próxima posição (sempre para frente no infinito)
+                    val nextIndex = (binding.bannerViewPager?.currentItem ?: 0) + 1
                     binding.bannerViewPager?.setCurrentItem(nextIndex, true)
                 } else {
                     break
@@ -421,7 +427,7 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ SINCRONIZAÇÃO ORIGINAL (MANTIDA INTACTA)
+    // ✅ SINCRONIZAÇÃO ORIGINAL
     private fun sincronizarConteudoSilenciosamente() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val dns = prefs.getString("dns", "") ?: ""
@@ -685,8 +691,6 @@ class HomeActivity : AppCompatActivity() {
                         val imageUrl = "https://image.tmdb.org/t/p/original$backdropPath"
                         withContext(Dispatchers.Main) {
                             try {
-                                // Atualiza views se existirem, de forma segura
-                                // Se os IDs não existirem no layout atual, não faz nada
                                 Glide.with(this@HomeActivity)
                                     .load(imageUrl)
                                     .centerCrop()
@@ -813,7 +817,7 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ CLASSE INTERNA: ADAPTER DO BANNER (COM LÓGICA INSTANTÂNEA)
+    // ✅ CLASSE INTERNA: ADAPTER DO BANNER (COM LOOP INFINITO)
     inner class BannerAdapter(private var items: List<Any>) : RecyclerView.Adapter<BannerAdapter.BannerViewHolder>() {
 
         fun updateList(newItems: List<Any>) {
@@ -827,11 +831,15 @@ class HomeActivity : AppCompatActivity() {
         }
 
         override fun onBindViewHolder(holder: BannerViewHolder, position: Int) {
-            val item = items[position]
+            // 🔥 TRUQUE DO INFINITO: Usa o resto da divisão para repetir os itens
+            if (items.isEmpty()) return
+            val realPosition = position % items.size
+            val item = items[realPosition]
             holder.bind(item)
         }
 
-        override fun getItemCount(): Int = items.size
+        // 🔥 Retorna um número gigante para permitir scroll "infinito"
+        override fun getItemCount(): Int = if (items.isEmpty()) 0 else Integer.MAX_VALUE
 
         inner class BannerViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
             private val imgBanner: ImageView = itemView.findViewById(R.id.imgBanner)

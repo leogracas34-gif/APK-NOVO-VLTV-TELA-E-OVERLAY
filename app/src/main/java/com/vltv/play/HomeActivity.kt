@@ -218,7 +218,7 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ CARREGA DADOS DO DATABASE IMEDIATAMENTE
+    // ✅ CARREGA DADOS DO DATABASE IMEDIATAMENTE + ATIVA MODO SUPERSONICO
     private fun carregarDadosLocaisImediato() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
@@ -256,9 +256,32 @@ class HomeActivity : AppCompatActivity() {
                     }
                     
                     prepararBannerDosRecentes(localMovies, localSeries)
+                    
+                    // 🚀 ATIVA O MODO SUPERSONICO (PRELOAD)
+                    ativarModoSupersonico(movieItems, seriesItems)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+            }
+        }
+    }
+
+    // 🚀 MODO VELOCIDADE DA LUZ: Baixa as imagens das listas inferiores silenciosamente
+    private fun ativarModoSupersonico(filmes: List<VodItem>, series: List<VodItem>) {
+        CoroutineScope(Dispatchers.IO).launch {
+            // Pega os primeiros 15 filmes e 15 séries para deixar na memória RAM
+            val preloadList = filmes.take(15) + series.take(15)
+            
+            for (item in preloadList) {
+                try {
+                    // O Glide baixa a imagem do DATABASE para a memória antes de você ver
+                    if (!item.streamIcon.isNullOrEmpty()) {
+                        Glide.with(applicationContext)
+                            .load(item.streamIcon) 
+                            .diskCacheStrategy(DiskCacheStrategy.ALL)
+                            .preload(180, 270) 
+                    }
+                } catch (e: Exception) { }
             }
         }
     }

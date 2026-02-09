@@ -446,19 +446,23 @@ class HomeActivity : AppCompatActivity() {
                         ))
                     }
                     
+                    // ⚡ TRUQUE: A cada 50 filmes, salva e atualiza a tela
                     if (vodBatch.size >= 50) {
                         database.streamDao().insertVodStreams(vodBatch)
                         vodBatch.clear()
                         
+                        // Só chama a atualização de tela no PRIMEIRO lote para ser instantâneo
                         if (!firstVodBatchLoaded) {
                             withContext(Dispatchers.Main) { carregarDadosLocaisImediato() }
                             firstVodBatchLoaded = true
                         }
                     }
                 }
+                // Salva o restante
                 if (vodBatch.isNotEmpty()) {
                     database.streamDao().insertVodStreams(vodBatch)
                 }
+                // Atualiza tela ao final dos filmes
                 withContext(Dispatchers.Main) { carregarDadosLocaisImediato() }
 
                 // --- 2. SÉRIES (Salva a cada 50) ---
@@ -482,10 +486,12 @@ class HomeActivity : AppCompatActivity() {
                         ))
                     }
 
+                    // ⚡ TRUQUE: A cada 50 séries, salva
                     if (seriesBatch.size >= 50) {
                         database.streamDao().insertSeriesStreams(seriesBatch)
                         seriesBatch.clear()
                         
+                        // Atualiza a tela rápido se for o primeiro lote
                         if (!firstSeriesBatchLoaded) {
                             withContext(Dispatchers.Main) { carregarDadosLocaisImediato() }
                             firstSeriesBatchLoaded = true
@@ -714,7 +720,14 @@ class HomeActivity : AppCompatActivity() {
                     val randomIndex = Random.nextInt(results.length())
                     val item = results.getJSONObject(randomIndex)
 
+                    val tituloOriginal = if (item.has("title")) item.getString("title")
+                    else if (item.has("name")) item.getString("name")
+                    else "Destaque"
+
+                    val overview = if (item.has("overview")) item.getString("overview") else ""
                     val backdropPath = item.getString("backdrop_path")
+                    val prefixo = if (tipoAtual == "movie") "Filme em Alta: " else "Série em Alta: "
+                    val tmdbId = item.getString("id")
 
                     if (backdropPath != "null" && backdropPath.isNotBlank()) {
                         val imageUrl = "https://image.tmdb.org/t/p/original$backdropPath"

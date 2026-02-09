@@ -32,6 +32,7 @@ import okhttp3.*
 import org.json.JSONObject
 import java.io.IOException
 import java.net.URLEncoder
+import java.util.ArrayList
 import java.util.concurrent.TimeUnit
 import com.vltv.play.CastMember
 import com.vltv.play.CastAdapter
@@ -47,7 +48,8 @@ data class EpisodeData(
     val season: Int,
     val episode: Int,
     val title: String,
-    val thumb: String
+    val thumb: String,
+    val videoKey: String? = null // Adicionado para extras
 )
 
 class DetailsActivity : AppCompatActivity() {
@@ -219,7 +221,7 @@ class DetailsActivity : AppCompatActivity() {
         
         if (isSeries) carregarEpisodios() else {
             tvEpisodesTitle.visibility = View.GONE
-            recyclerEpisodes.visibility = View.GONE
+            // recyclerEpisodes será usado para Extras se não for série
         }
         verificarResume()
         restaurarEstadoDownload()
@@ -275,7 +277,6 @@ class DetailsActivity : AppCompatActivity() {
                             if (sinopse.isNotEmpty()) tvPlot.text = sinopse
                             if (date.length >= 4) tvYear?.text = date.substring(0, 4)
                             
-                            // ✅ PREENCHE A ABA DETALHES (RESUMÃO)
                             tvDetailFullTitle?.text = tOficial
                             tvDetailFullPlot?.text = sinopse
                             tvDetailReleaseDate?.text = date
@@ -328,7 +329,7 @@ class DetailsActivity : AppCompatActivity() {
     }
 
     private fun buscarDetalhesCompletos(id: Int, type: String, key: String) {
-        val detailsUrl = "https://api.themoviedb.org/3/$type/$id?api_key=$key&append_to_response=credits&language=pt-BR"
+        val detailsUrl = "https://api.themoviedb.org/3/$type/$id?api_key=$key&append_to_response=credits,recommendations,videos&language=pt-BR"
         client.newCall(Request.Builder().url(detailsUrl).build()).enqueue(object : Callback {
             override fun onResponse(call: Call, response: Response) {
                 val body = response.body?.string() ?: return
@@ -348,7 +349,7 @@ class DetailsActivity : AppCompatActivity() {
                         for (i in 0 until limit) castNamesList.add(castArray.getJSONObject(i).getString("name"))
                     }
 
-                    // DURAÇÃO (Calcula h e min)
+                    // DURAÇÃO
                     val runtime = d.optInt("runtime", 0)
                     val durText = if (runtime > 0) "${runtime / 60}h ${runtime % 60}min" else "N/A"
 
@@ -364,18 +365,41 @@ class DetailsActivity : AppCompatActivity() {
                         }
                     }
 
+                    // ✅ SUGESTÕES (Disney Style)
+                    val similarArr = d.optJSONObject("recommendations")?.optJSONArray("results")
+                    val suggestions = mutableListOf<JSONObject>()
+                    if (similarArr != null) {
+                        for (i in 0 until similarArr.length()) suggestions.add(similarArr.getJSONObject(i))
+                    }
+
+                    // ✅ EXTRAS (Disney Style)
+                    val videosArr = d.optJSONObject("videos")?.optJSONArray("results")
+                    val extrasList = mutableListOf<EpisodeData>()
+                    if (videosArr != null) {
+                        for (i in 0 until videosArr.length()) {
+                            val v = videosArr.getJSONObject(i)
+                            extrasList.add(EpisodeData(i, 0, i+1, v.getString("name"), "https://img.youtube.com/vi/${v.getString("key")}/0.jpg", v.getString("key")))
+                        }
+                    }
+
                     runOnUiThread {
                         val g = genresList.joinToString(", ")
                         val e = castNamesList.joinToString("\n")
                         tvGenre.text = "Gênero: $g"
                         tvCast.text = "Elenco: ${castNamesList.take(5).joinToString(", ")}"
                         
-                        // ✅ ATUALIZA OS CAMPOS DA ABA DETALHES
                         tvDetailGenre?.text = g
                         tvDetailDuration?.text = durText
                         tvDetailDirector?.text = directorName
-                        findViewById<TextView>(R.id.tvCast)?.text = e // Usa o ID tvCast dentro da aba se necessário
+                        findViewById<TextView>(R.id.tvCast)?.text = e
                         
+                        // Configura as sugestões e extras
+                        recyclerSuggestions.adapter = SuggestionsAdapter(suggestions)
+                        if (!isSeries) {
+                            episodes = extrasList
+                            episodesAdapter.submitList(extrasList)
+                        }
+
                         getSharedPreferences("vltv_text_cache", Context.MODE_PRIVATE).edit()
                             .putString("genre_$streamId", g).putString("cast_$streamId", e).apply()
                     }
@@ -387,21 +411,29 @@ class DetailsActivity : AppCompatActivity() {
 
     private fun setupEpisodesRecycler() {
         episodesAdapter = EpisodesAdapter { episode ->
-            val intent = Intent(this, PlayerActivity::class.java)
-            intent.putExtra("stream_id", episode.streamId).putExtra("stream_type", "series")
-            intent.putExtra("channel_name", "${name} - S${episode.season}:E${episode.episode}")
-            intent.putExtra("icon", episode.thumb)
-            intent.putExtra("PROFILE_NAME", currentProfile)
-            startActivity(intent)
+            if (episode.videoKey != null) {
+                // Abre trailer do YouTube ou player externo para extras
+                val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("vnd.youtube:${episode.videoKey}"))
+                startActivity(intent)
+            } else {
+                val intent = Intent(this, PlayerActivity::class.java)
+                intent.putExtra("stream_id", episode.streamId).putExtra("stream_type", "series")
+                intent.putExtra("channel_name", "${name} - S${episode.season}:E${episode.episode}")
+                intent.putExtra("icon", episode.thumb)
+                intent.putExtra("PROFILE_NAME", currentProfile)
+                startActivity(intent)
+            }
         }
         recyclerEpisodes.apply {
             layoutManager = if (isTelevisionDevice()) GridLayoutManager(this@DetailsActivity, 6) else LinearLayoutManager(this@DetailsActivity, LinearLayoutManager.HORIZONTAL, false)
             adapter = episodesAdapter
             setHasFixedSize(true)
         }
+        recyclerSuggestions.layoutManager = GridLayoutManager(this, 3)
     }
 
     private fun carregarEpisodios() {
+        // Mock inicial ou carregamento via Xtream
         episodes = listOf(EpisodeData(101, 1, 1, "Episódio 1", icon ?: ""))
         episodesAdapter.submitList(episodes)
         tvEpisodesTitle.visibility = View.VISIBLE
@@ -445,7 +477,6 @@ class DetailsActivity : AppCompatActivity() {
             Toast.makeText(this, "Trailer disponível em breve", Toast.LENGTH_SHORT).show()
         }
 
-        // ✅ LÓGICA DAS ABAS (SUGESTÕES / EXTRAS / DETALHES)
         tabLayoutDetails.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
                 when (tab?.position) {
@@ -495,12 +526,17 @@ class DetailsActivity : AppCompatActivity() {
         }
     }
 
+    // ✅ LÓGICA DE FAVORITO INSTANTÂNEO (TV STYLE)
     private fun toggleFavorite() {
         val favs = getFavMovies(this)
         val isFav = favs.contains(streamId)
+        
+        // 1. Muda na tela IMEDIATAMENTE (Visual Instantâneo)
+        atualizarIconeFavorito(!isFav)
+
+        // 2. Processa os dados em background (Sem travar ou demorar)
         if (isFav) favs.remove(streamId) else favs.add(streamId)
         saveFavMovies(this, favs)
-        atualizarIconeFavorito(!isFav)
     }
 
     private fun verificarResume() {
@@ -604,11 +640,53 @@ class DetailsActivity : AppCompatActivity() {
             fun bind(e: EpisodeData) {
                 v.isFocusable = true
                 val tvTitleEp = v.findViewById<TextView>(R.id.tvEpisodeTitle)
-                tvTitleEp.text = "S${e.season}E${e.episode}: ${e.title}"
+                tvTitleEp.text = if (e.videoKey != null) "Extra: ${e.title}" else "S${e.season}E${e.episode}: ${e.title}"
                 Glide.with(v.context).load(e.thumb).centerCrop().into(v.findViewById(R.id.imgEpisodeThumb))
                 v.setOnClickListener { onEpisodeClick(e) }
             }
         }
+    }
+
+    // ✅ ADAPTER PARA SUGESTÕES (Disney Style)
+    inner class SuggestionsAdapter(val items: List<JSONObject>) : RecyclerView.Adapter<SuggestionsAdapter.ViewHolder>() {
+        inner class ViewHolder(v: View) : RecyclerView.ViewHolder(v) {
+            val img: ImageView = v.findViewById(android.R.id.icon)
+            val tv: TextView = v.findViewById(android.R.id.text1)
+        }
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+            val container = LinearLayout(parent.context).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = ViewGroup.MarginLayoutParams(130.toPx(), ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(10, 10, 10, 10) }
+                gravity = android.view.Gravity.CENTER_HORIZONTAL
+                isFocusable = true
+                isClickable = true
+            }
+            val card = androidx.cardview.widget.CardView(parent.context).apply {
+                layoutParams = LinearLayout.LayoutParams(130.toPx(), 190.toPx())
+                radius = 8f
+            }
+            val img = ImageView(parent.context).apply { id = android.R.id.icon; scaleType = ImageView.ScaleType.CENTER_CROP }
+            card.addView(img)
+            val tv = TextView(parent.context).apply { id = android.R.id.text1; setTextColor(android.graphics.Color.WHITE); textSize = 10sp; gravity = android.view.Gravity.CENTER; maxLines = 2 }
+            container.addView(card); container.addView(tv)
+            return ViewHolder(container)
+        }
+        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+            val item = items[position]
+            val path = item.optString("poster_path")
+            Glide.with(holder.itemView.context).load("https://image.tmdb.org/t/p/w342$path").into(holder.img)
+            holder.tv.text = item.optString("title")
+            holder.itemView.setOnClickListener {
+                val intent = Intent(holder.itemView.context, DetailsActivity::class.java)
+                intent.putExtra("stream_id", item.optInt("id"))
+                intent.putExtra("name", item.optString("title"))
+                intent.putExtra("icon", "https://image.tmdb.org/t/p/w342$path")
+                intent.putExtra("PROFILE_NAME", currentProfile)
+                holder.itemView.context.startActivity(intent)
+            }
+        }
+        override fun getItemCount() = items.size
+        private fun Int.toPx(): Int = (this * resources.displayMetrics.density).toInt()
     }
 
     companion object {

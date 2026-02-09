@@ -667,7 +667,7 @@ class DetailsActivity : AppCompatActivity() {
             }
             val img = ImageView(parent.context).apply { id = android.R.id.icon; scaleType = ImageView.ScaleType.CENTER_CROP }
             card.addView(img)
-            val tv = TextView(parent.context).apply { id = android.R.id.text1; setTextColor(android.graphics.Color.WHITE); textSize = 10sp; gravity = android.view.Gravity.CENTER; maxLines = 2 }
+            val tv = TextView(parent.context).apply { id = android.R.id.text1; setTextColor(android.graphics.Color.WHITE); textSize = 10f; gravity = android.view.Gravity.CENTER; maxLines = 2 }
             container.addView(card); container.addView(tv)
             return ViewHolder(container)
         }

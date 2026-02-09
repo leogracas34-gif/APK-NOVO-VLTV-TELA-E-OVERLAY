@@ -27,9 +27,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingBottom="40dp">
-
-            <View
+            android:paddingBottom="80dp"> <View
                 android:layout_width="match_parent"
                 android:layout_height="160dp" />
 
@@ -340,7 +338,6 @@
             <ImageView android:id="@+id/imgPoster" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
             <Button android:id="@+id/btnSettings" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
             <androidx.appcompat.widget.AppCompatButton android:id="@+id/btnResume" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
-            <LinearLayout android:id="@+id/btnDownloadArea" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
             <TextView android:id="@+id/tvEpisodesTitle" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
             <androidx.recyclerview.widget.RecyclerView android:id="@+id/recyclerCast" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
 
@@ -355,5 +352,16 @@
         android:background="@drawable/bg_circle_dark"
         android:src="@android:drawable/ic_menu_close_clear_cancel"
         app:tint="#FFFFFF" />
+
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/bottomNavigation"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:background="#000000"
+        app:itemIconTint="@color/white"
+        app:itemTextColor="@color/white"
+        app:labelVisibilityMode="labeled"
+        app:menu="@menu/bottom_nav_menu" />
 
 </FrameLayout>

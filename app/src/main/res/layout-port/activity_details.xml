@@ -8,14 +8,14 @@
     <ImageView
         android:id="@+id/imgBackground"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="400dp"
         android:scaleType="centerCrop"
-        android:alpha="0.6" />
+        android:alpha="0.8" />
 
     <View
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="@drawable/gradient_overlay" />
+        android:layout_height="400dp"
+        android:background="@drawable/bg_gradient_details" />
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
@@ -26,34 +26,37 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:gravity="center_horizontal"
-            android:padding="20dp">
+            android:paddingBottom="50dp">
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="220dp" />
 
             <ImageView
                 android:id="@+id/imgTitleLogo"
-                android:layout_width="220dp"
-                android:layout_height="120dp"
-                android:layout_marginTop="80dp"
+                android:layout_width="280dp"
+                android:layout_height="140dp"
+                android:layout_gravity="center_horizontal"
                 android:scaleType="fitCenter"
-                android:visibility="gone" />
+                android:layout_marginBottom="10dp" />
 
             <TextView
                 android:id="@+id/tvTitle"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="100dp"
                 android:gravity="center"
-                android:text="Carregando..."
                 android:textColor="#FFFFFF"
-                android:textSize="28sp"
-                android:textStyle="bold" />
+                android:textSize="26sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
 
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_gravity="center_horizontal"
                 android:orientation="horizontal"
-                android:gravity="center_vertical">
+                android:gravity="center_vertical"
+                android:layout_marginTop="8dp">
 
                 <TextView
                     android:id="@+id/tvRating"
@@ -62,7 +65,6 @@
                     android:background="#333333"
                     android:paddingHorizontal="6dp"
                     android:paddingVertical="2dp"
-                    android:text="12"
                     android:textColor="#FFFFFF"
                     android:textSize="12sp"
                     android:textStyle="bold" />
@@ -72,7 +74,6 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="10dp"
-                    android:text="2024"
                     android:textColor="#BBBBBB"
                     android:textSize="13sp" />
 
@@ -89,8 +90,8 @@
                 android:id="@+id/tvGenre"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
                 android:layout_marginTop="8dp"
-                android:text="Ação, Aventura"
                 android:textColor="#BBBBBB"
                 android:textSize="13sp" />
 
@@ -98,7 +99,8 @@
                 android:id="@+id/btnPlay"
                 android:layout_width="match_parent"
                 android:layout_height="55dp"
-                android:layout_marginTop="24dp"
+                android:layout_marginHorizontal="20dp"
+                android:layout_marginTop="20dp"
                 android:background="@drawable/bg_btn_white"
                 android:text="▶  ASSISTIR"
                 android:textColor="#000000"
@@ -108,7 +110,7 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
+                android:layout_marginTop="20dp"
                 android:orientation="horizontal"
                 android:gravity="center">
 
@@ -122,15 +124,15 @@
                     android:clickable="true"
                     android:focusable="true">
                     <ImageView
-                        android:layout_width="30dp"
-                        android:layout_height="30dp"
+                        android:layout_width="28dp"
+                        android:layout_height="28dp"
                         android:src="@drawable/ic_details_trailer" />
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="TRAILER"
                         android:textColor="#FFFFFF"
-                        android:textSize="11sp"
+                        android:textSize="10sp"
                         android:layout_marginTop="6dp" />
                 </LinearLayout>
 
@@ -145,10 +147,9 @@
                     android:focusable="true">
                     <ImageButton
                         android:id="@+id/btnFavorite"
-                        android:layout_width="30dp"
-                        android:layout_height="30dp"
+                        android:layout_width="28dp"
+                        android:layout_height="28dp"
                         android:background="@android:color/transparent"
-                        android:scaleType="fitCenter"
                         android:src="@drawable/ic_details_add"
                         app:tint="#FFFFFF" />
                     <TextView
@@ -156,7 +157,7 @@
                         android:layout_height="wrap_content"
                         android:text="MINHA LISTA"
                         android:textColor="#FFFFFF"
-                        android:textSize="11sp"
+                        android:textSize="10sp"
                         android:layout_marginTop="6dp" />
                 </LinearLayout>
 
@@ -171,8 +172,8 @@
                     android:focusable="true">
                     <ImageView
                         android:id="@+id/imgDownloadState"
-                        android:layout_width="30dp"
-                        android:layout_height="30dp"
+                        android:layout_width="28dp"
+                        android:layout_height="28dp"
                         android:src="@drawable/ic_details_download" />
                     <TextView
                         android:id="@+id/tvDownloadState"
@@ -180,70 +181,69 @@
                         android:layout_height="wrap_content"
                         android:text="BAIXAR"
                         android:textColor="#FFFFFF"
-                        android:textSize="11sp"
+                        android:textSize="10sp"
                         android:layout_marginTop="6dp" />
                 </LinearLayout>
-
             </LinearLayout>
 
             <TextView
                 android:id="@+id/tvPlot"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="30dp"
-                android:lineSpacingExtra="4dp"
-                android:text="..."
+                android:layout_marginHorizontal="20dp"
+                android:layout_marginTop="20dp"
                 android:textColor="#FFFFFF"
-                android:textSize="15sp" />
+                android:textSize="14sp" />
 
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/recyclerCast"
+            <com.google.android.material.tabs.TabLayout
+                android:id="@+id/tabLayoutDetails"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
-                android:orientation="horizontal" />
+                android:layout_marginTop="30dp"
+                android:background="#000000"
+                app:tabIndicator="@drawable/custom_tab_indicator"
+                app:tabIndicatorColor="#FFFFFF"
+                app:tabIndicatorGravity="bottom"
+                app:tabIndicatorHeight="3dp"
+                app:tabSelectedTextColor="#FFFFFF"
+                app:tabTextColor="#88FFFFFF"
+                app:tabTextAppearance="@android:style/TextAppearance.Small"
+                app:tabMode="fixed">
 
-            <ImageView
-                android:id="@+id/imgPoster"
-                android:layout_width="0dp"
-                android:layout_height="0dp"
-                android:visibility="gone" />
+                <com.google.android.material.tabs.TabItem
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="SUGESTÕES" />
+                <com.google.android.material.tabs.TabItem
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="EXTRAS" />
+                <com.google.android.material.tabs.TabItem
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="DETALHES" />
+            </com.google.android.material.tabs.TabLayout>
 
-            <TextView
-                android:id="@+id/tvCast"
-                android:layout_width="0dp"
-                android:layout_height="0dp"
-                android:visibility="gone" />
-
-            <Button
-                android:id="@+id/btnSettings"
-                android:layout_width="0dp"
-                android:layout_height="0dp"
-                android:visibility="gone" />
-
-            <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/btnResume"
-                android:layout_width="0dp"
-                android:layout_height="0dp"
-                android:visibility="gone" />
-
-            <LinearLayout
-                android:id="@+id/btnDownloadArea"
-                android:layout_width="0dp"
-                android:layout_height="0dp"
-                android:visibility="gone" />
-
-            <TextView
-                android:id="@+id/tvEpisodesTitle"
-                android:layout_width="0dp"
-                android:layout_height="0dp"
-                android:visibility="gone" />
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#33FFFFFF" />
 
             <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/recyclerEpisodes"
-                android:layout_width="0dp"
-                android:layout_height="0dp"
-                android:visibility="gone" />
+                android:id="@+id/recyclerSuggestions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:paddingHorizontal="10dp" />
+
+            <ImageView android:id="@+id/imgPoster" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
+            <TextView android:id="@+id/tvCast" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
+            <Button android:id="@+id/btnSettings" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
+            <androidx.appcompat.widget.AppCompatButton android:id="@+id/btnResume" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
+            <LinearLayout android:id="@+id/btnDownloadArea" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
+            <TextView android:id="@+id/tvEpisodesTitle" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
+            <androidx.recyclerview.widget.RecyclerView android:id="@+id/recyclerEpisodes" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
+            <androidx.recyclerview.widget.RecyclerView android:id="@+id/recyclerCast" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>

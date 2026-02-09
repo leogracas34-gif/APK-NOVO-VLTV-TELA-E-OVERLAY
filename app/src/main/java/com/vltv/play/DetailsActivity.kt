@@ -103,25 +103,31 @@ class DetailsActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_details)
-        configurarTelaTV()
-        
-        // ✅ PEGA O PERFIL VINDO DA HOME
-        currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
+        try {
+            setContentView(R.layout.activity_details)
+            configurarTelaTV()
+            
+            // ✅ PEGA O PERFIL VINDO DA HOME
+            currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
 
-        streamId = intent.getIntExtra("stream_id", 0)
-        name = intent.getStringExtra("name") ?: ""
-        icon = intent.getStringExtra("icon")
-        rating = intent.getStringExtra("rating") ?: "0.0"
-        isSeries = intent.getBooleanExtra("is_series", false)
-        
-        inicializarViews()
-        carregarConteudo()
-        setupEventos()
-        setupEpisodesRecycler()
-        tentarCarregarTextoCache()
-        tentarCarregarLogoCache()
-        sincronizarDadosTMDB()
+            streamId = intent.getIntExtra("stream_id", 0)
+            name = intent.getStringExtra("name") ?: ""
+            icon = intent.getStringExtra("icon")
+            rating = intent.getStringExtra("rating") ?: "0.0"
+            isSeries = intent.getBooleanExtra("is_series", false)
+            
+            inicializarViews()
+            carregarConteudo()
+            setupEventos()
+            setupEpisodesRecycler()
+            tentarCarregarTextoCache()
+            tentarCarregarLogoCache()
+            sincronizarDadosTMDB()
+        } catch (e: Exception) {
+            // MOSTRA O ERRO NA TELA ANTES DE FECHAR
+            Log.e("VLTV_DEBUG", "Erro no onCreate: ${e.message}")
+            Toast.makeText(this, "Erro Crítico: ${e.message}", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun configurarTelaTV() {
@@ -134,41 +140,46 @@ class DetailsActivity : AppCompatActivity() {
     }
 
     private fun inicializarViews() {
-        imgPoster = findViewById(R.id.imgPoster)
-        tvTitle = findViewById(R.id.tvTitle)
-        imgTitleLogo = findViewById(R.id.imgTitleLogo)
-        tvTitle.visibility = View.INVISIBLE
-        tvRating = findViewById(R.id.tvRating)
-        tvGenre = findViewById(R.id.tvGenre)
-        tvCast = findViewById(R.id.tvCast)
-        tvPlot = findViewById(R.id.tvPlot)
-        btnPlay = findViewById(R.id.btnPlay)
-        btnResume = findViewById(R.id.btnResume)
-        btnFavorite = findViewById(R.id.btnFavorite)
-        btnDownloadArea = findViewById(R.id.btnDownloadArea)
-        imgDownloadState = findViewById(R.id.imgDownloadState)
-        tvDownloadState = findViewById(R.id.tvDownloadState)
-        imgBackground = findViewById(R.id.imgBackground)
-        tvEpisodesTitle = findViewById(R.id.tvEpisodesTitle)
-        recyclerEpisodes = findViewById(R.id.recyclerEpisodes)
-        tvYear = findViewById(R.id.tvYear)
-        btnSettings = findViewById(R.id.btnSettings)
+        try {
+            imgPoster = findViewById(R.id.imgPoster)
+            tvTitle = findViewById(R.id.tvTitle)
+            imgTitleLogo = findViewById(R.id.imgTitleLogo)
+            tvTitle.visibility = View.INVISIBLE
+            tvRating = findViewById(R.id.tvRating)
+            tvGenre = findViewById(R.id.tvGenre)
+            tvCast = findViewById(R.id.tvCast)
+            tvPlot = findViewById(R.id.tvPlot)
+            btnPlay = findViewById(R.id.btnPlay)
+            btnResume = findViewById(R.id.btnResume)
+            btnFavorite = findViewById(R.id.btnFavorite)
+            btnDownloadArea = findViewById(R.id.btnDownloadArea)
+            imgDownloadState = findViewById(R.id.imgDownloadState)
+            tvDownloadState = findViewById(R.id.tvDownloadState)
+            imgBackground = findViewById(R.id.imgBackground)
+            tvEpisodesTitle = findViewById(R.id.tvEpisodesTitle)
+            recyclerEpisodes = findViewById(R.id.recyclerEpisodes)
+            tvYear = findViewById(R.id.tvYear)
+            btnSettings = findViewById(R.id.btnSettings)
 
-        // ✅ INICIALIZA OS NOVOS LAYOUTS DE CLIQUE DO CELULAR
-        btnDownloadAction = findViewById(R.id.btnDownloadAction)
-        btnFavoriteLayout = findViewById(R.id.btnFavoriteLayout)
-        btnTrailerAction = findViewById(R.id.btnTrailerAction)
-        
-        // Na TV, geralmente não baixamos, mas se quiser pode manter
-        if (isTelevisionDevice()) {
-            btnDownloadArea?.visibility = View.GONE
-            btnDownloadAction?.visibility = View.GONE
+            // ✅ INICIALIZA OS NOVOS LAYOUTS DE CLIQUE DO CELULAR
+            btnDownloadAction = findViewById(R.id.btnDownloadAction)
+            btnFavoriteLayout = findViewById(R.id.btnFavoriteLayout)
+            btnTrailerAction = findViewById(R.id.btnTrailerAction)
+            
+            // Na TV, geralmente não baixamos, mas se quiser pode manter
+            if (isTelevisionDevice()) {
+                btnDownloadArea?.visibility = View.GONE
+                btnDownloadAction?.visibility = View.GONE
+            }
+            
+            btnPlay.isFocusable = true
+            btnResume.isFocusable = true
+            btnFavorite.isFocusable = true
+            btnPlay.requestFocus()
+        } catch (e: Exception) {
+            Log.e("VLTV_DEBUG", "Erro ao inicializar views: ${e.message}")
+            throw e // Repassa o erro para o onCreate capturar e mostrar o Toast
         }
-        
-        btnPlay.isFocusable = true
-        btnResume.isFocusable = true
-        btnFavorite.isFocusable = true
-        btnPlay.requestFocus()
     }
 
     private fun carregarConteudo() {

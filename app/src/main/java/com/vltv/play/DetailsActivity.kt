@@ -63,6 +63,9 @@ class DetailsActivity : AppCompatActivity() {
     private var episodes: List<EpisodeData> = emptyList()
     private var hasResumePosition: Boolean = false
     
+    // ✅ ID do YouTube vindo do seu servidor (Campo: youtube_trailer)
+    private var serverYoutubeTrailer: String? = null
+    
     // ✅ PERFIL ATUAL
     private var currentProfile: String = "Padrao"
 
@@ -136,6 +139,13 @@ class DetailsActivity : AppCompatActivity() {
             icon = intent.getStringExtra("icon")
             rating = intent.getStringExtra("rating") ?: "0.0"
             isSeries = intent.getBooleanExtra("is_series", false)
+            
+            // ✅ CAPTURA O ID DO YOUTUBE VINDO DO SERVIDOR (Se existir)
+            serverYoutubeTrailer = intent.getStringExtra("youtube_trailer")
+            // Tratamento caso venha vazio ou null
+            if (serverYoutubeTrailer == "null" || serverYoutubeTrailer?.isEmpty() == true) {
+                serverYoutubeTrailer = null
+            }
             
             inicializarViews()
             carregarConteudo()
@@ -240,8 +250,18 @@ class DetailsActivity : AppCompatActivity() {
         val isFavInicial = getFavMovies(this).contains(streamId)
         atualizarIconeFavorito(isFavInicial)
         
-        if (isSeries) carregarEpisodios() else {
+        if (isSeries) {
+            carregarEpisodios() 
+        } else {
+            // ✅ Se for filme, a lista de episódios vira lista de EXTRAS
             tvEpisodesTitle.visibility = View.GONE
+            
+            // ✅ Se já tivermos o ID do servidor, já carrega o trailer imediatamente
+            if (serverYoutubeTrailer != null) {
+                val extrasList = listOf(EpisodeData(0, 0, 1, "Trailer Oficial", "https://img.youtube.com/vi/$serverYoutubeTrailer/0.jpg", serverYoutubeTrailer))
+                episodesAdapter.submitList(extrasList)
+                recyclerEpisodes.visibility = View.VISIBLE
+            }
         }
         verificarResume()
         restaurarEstadoDownload()
@@ -349,7 +369,8 @@ class DetailsActivity : AppCompatActivity() {
     }
 
     private fun buscarDetalhesCompletos(id: Int, type: String, key: String) {
-        val detailsUrl = "https://api.themoviedb.org/3/$type/$id?api_key=$key&append_to_response=credits,recommendations,videos&language=pt-BR"
+        // ✅ CORREÇÃO: Busca Similar (se recomendações falhar) e Vídeos em PT/EN
+        val detailsUrl = "https://api.themoviedb.org/3/$type/$id?api_key=$key&append_to_response=credits,recommendations,similar,videos&include_video_language=pt,en&language=pt-BR"
         client.newCall(Request.Builder().url(detailsUrl).build()).enqueue(object : Callback {
             override fun onResponse(call: Call, response: Response) {
                 val body = response.body?.string() ?: return
@@ -381,18 +402,32 @@ class DetailsActivity : AppCompatActivity() {
                         }
                     }
 
-                    val similarArr = d.optJSONObject("recommendations")?.optJSONArray("results")
+                    // ✅ SUGESTÕES INTELIGENTES (Fallback Similar)
+                    // Se não tiver recomendações, usa os similares
+                    var similarArr = d.optJSONObject("recommendations")?.optJSONArray("results")
+                    if (similarArr == null || similarArr.length() == 0) {
+                        similarArr = d.optJSONObject("similar")?.optJSONArray("results")
+                    }
+                    
                     val suggestions = mutableListOf<JSONObject>()
                     if (similarArr != null) {
                         for (i in 0 until similarArr.length()) suggestions.add(similarArr.getJSONObject(i))
                     }
 
-                    val videosArr = d.optJSONObject("videos")?.optJSONArray("results")
+                    // ✅ EXTRAS (Se não tiver ID do servidor, usa TMDB)
                     val extrasList = mutableListOf<EpisodeData>()
-                    if (videosArr != null) {
-                        for (i in 0 until videosArr.length()) {
-                            val v = videosArr.getJSONObject(i)
-                            extrasList.add(EpisodeData(i, 0, i+1, v.getString("name"), "https://img.youtube.com/vi/${v.getString("key")}/0.jpg", v.getString("key")))
+                    
+                    // Só busca no TMDB se o servidor não mandou
+                    if (serverYoutubeTrailer == null) {
+                        val videosArr = d.optJSONObject("videos")?.optJSONArray("results")
+                        if (videosArr != null) {
+                            for (i in 0 until videosArr.length()) {
+                                val v = videosArr.getJSONObject(i)
+                                // Só aceita YouTube
+                                if (v.optString("site") == "YouTube") {
+                                    extrasList.add(EpisodeData(i, 0, i+1, v.getString("name"), "https://img.youtube.com/vi/${v.getString("key")}/0.jpg", v.getString("key")))
+                                }
+                            }
                         }
                     }
 
@@ -407,10 +442,18 @@ class DetailsActivity : AppCompatActivity() {
                         tvDetailDirector?.text = directorName
                         findViewById<TextView>(R.id.tvCast)?.text = e
                         
-                        recyclerSuggestions.adapter = SuggestionsAdapter(suggestions)
-                        if (!isSeries) {
+                        // Configura as sugestões
+                        if (suggestions.isNotEmpty()) {
+                            recyclerSuggestions.adapter = SuggestionsAdapter(suggestions)
+                        } else {
+                            // Poderia mostrar uma mensagem de "sem sugestões", mas deixar vazio é mais clean
+                        }
+
+                        // Configura extras se não for série e se não tivermos usado o do servidor
+                        if (!isSeries && serverYoutubeTrailer == null && extrasList.isNotEmpty()) {
                             episodes = extrasList
                             episodesAdapter.submitList(extrasList)
+                            recyclerEpisodes.visibility = View.VISIBLE
                         }
 
                         getSharedPreferences("vltv_text_cache", Context.MODE_PRIVATE).edit()
@@ -425,6 +468,7 @@ class DetailsActivity : AppCompatActivity() {
     private fun setupEpisodesRecycler() {
         episodesAdapter = EpisodesAdapter { episode ->
             if (episode.videoKey != null) {
+                // Abre trailer do YouTube ou player externo para extras
                 val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("vnd.youtube:${episode.videoKey}"))
                 startActivity(intent)
             } else {
@@ -485,23 +529,30 @@ class DetailsActivity : AppCompatActivity() {
 
         btnDownloadAction?.setOnClickListener { handleDownloadClick() }
         btnTrailerAction?.setOnClickListener { 
-            Toast.makeText(this, "Trailer disponível em breve", Toast.LENGTH_SHORT).show()
+            // Se tiver trailer (server ou tmdb), o clique no item da lista abre.
+            // Aqui podemos forçar abrir o primeiro da lista se quiser, mas o padrão é o toast.
+            if (serverYoutubeTrailer != null) {
+                val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("vnd.youtube:$serverYoutubeTrailer"))
+                startActivity(intent)
+            } else {
+                Toast.makeText(this, "Trailer disponível na aba Extras", Toast.LENGTH_SHORT).show()
+            }
         }
 
         tabLayoutDetails.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
                 when (tab?.position) {
-                    0 -> { 
+                    0 -> { // SUGESTÕES
                         recyclerSuggestions.visibility = View.VISIBLE
                         recyclerEpisodes.visibility = View.GONE
                         layoutTabDetails?.visibility = View.GONE
                     }
-                    1 -> { 
+                    1 -> { // EXTRAS
                         recyclerSuggestions.visibility = View.GONE
                         recyclerEpisodes.visibility = View.VISIBLE
                         layoutTabDetails?.visibility = View.GONE
                     }
-                    2 -> { 
+                    2 -> { // DETALHES
                         recyclerSuggestions.visibility = View.GONE
                         recyclerEpisodes.visibility = View.GONE
                         layoutTabDetails?.visibility = View.VISIBLE
@@ -537,12 +588,15 @@ class DetailsActivity : AppCompatActivity() {
         }
     }
 
+    // ✅ LÓGICA DE FAVORITO INSTANTÂNEO (TV STYLE)
     private fun toggleFavorite() {
         val favs = getFavMovies(this)
         val isFav = favs.contains(streamId)
         
+        // 1. Muda na tela IMEDIATAMENTE (Visual Instantâneo)
         atualizarIconeFavorito(!isFav)
 
+        // 2. Processa os dados em background (Sem travar ou demorar)
         if (isFav) favs.remove(streamId) else favs.add(streamId)
         saveFavMovies(this, favs)
     }
@@ -615,6 +669,10 @@ class DetailsActivity : AppCompatActivity() {
         // Força a mudança visual IMEDIATAMENTE (Efeito Disney)
         downloadState = DownloadState.BAIXANDO
         atualizarUI_download()
+        
+        // ✅ SALVA O ESTADO DE DOWNLOAD PARA A HOME (NOTIFICAÇÃO NO RODAPÉ)
+        val currentCount = prefs.getInt("active_downloads_count", 0)
+        prefs.edit().putInt("active_downloads_count", currentCount + 1).apply()
     }
 
     // ✅ ATUALIZAÇÃO UI DISNEY: Troca Ícone pela Barra de Progresso

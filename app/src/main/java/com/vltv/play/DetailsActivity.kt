@@ -131,7 +131,7 @@ class DetailsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         try {
             setContentView(R.layout.activity_details)
-            configurarTelaTV()
+            configurarTelaTV() // ✅ Agora configura para NÃO esconder os botões
             
             currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
             streamId = intent.getIntExtra("stream_id", 0)
@@ -163,9 +163,17 @@ class DetailsActivity : AppCompatActivity() {
     private fun configurarTelaTV() {
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
+        
+        // 🚫 REMOVIDO: windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
+        // Isso garante que os botões de voltar/home fiquem VISÍVEIS
+        
         if (isTelevisionDevice()) {
             requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            // Na TV, podemos querer esconder, mas no celular você pediu para mostrar
+            windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars()) 
+        } else {
+            // Celular: Mostra as barras (Status e Navegação)
+            windowInsetsController?.show(WindowInsetsCompat.Type.systemBars())
         }
     }
 
@@ -504,6 +512,8 @@ class DetailsActivity : AppCompatActivity() {
         episodes = listOf(EpisodeData(101, 1, 1, "Episódio 1", icon ?: ""))
         episodesAdapter.submitList(episodes)
         tvEpisodesTitle.visibility = View.VISIBLE
+        // Só mostra se estiver na aba de episódios, que para séries geralmente é a padrão ou a segunda
+        // Mas vamos deixar visivel por padrão para séries pois é o conteúdo principal
         recyclerEpisodes.visibility = View.VISIBLE
     }
 

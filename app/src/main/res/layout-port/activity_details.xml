@@ -241,7 +241,9 @@
                 android:layout_marginHorizontal="20dp"
                 android:layout_marginTop="15dp"
                 android:textColor="#FFFFFF"
-                android:textSize="13sp" />
+                android:textSize="13sp"
+                android:maxLines="3"
+                android:ellipsize="end" />
 
             <com.google.android.material.tabs.TabLayout
                 android:id="@+id/tabLayoutDetails"
@@ -263,20 +265,46 @@
 
             <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#33FFFFFF" />
 
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/recyclerSuggestions"
+            <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp" />
+                android:paddingTop="10dp">
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/recyclerSuggestions"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:visibility="visible" />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/recyclerEpisodes"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone" />
+
+                <LinearLayout
+                    android:id="@+id/layoutTabDetails"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingHorizontal="20dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/tvCast"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="#BBBBBB"
+                        android:textSize="13sp" />
+                </LinearLayout>
+            </FrameLayout>
 
             <TextView android:id="@+id/tvTitle" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
             <ImageView android:id="@+id/imgPoster" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
-            <TextView android:id="@+id/tvCast" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
             <Button android:id="@+id/btnSettings" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
             <androidx.appcompat.widget.AppCompatButton android:id="@+id/btnResume" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
             <LinearLayout android:id="@+id/btnDownloadArea" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
             <TextView android:id="@+id/tvEpisodesTitle" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
-            <androidx.recyclerview.widget.RecyclerView android:id="@+id/recyclerEpisodes" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
             <androidx.recyclerview.widget.RecyclerView android:id="@+id/recyclerCast" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
 
         </LinearLayout>

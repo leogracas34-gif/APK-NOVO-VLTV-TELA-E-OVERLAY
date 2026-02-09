@@ -92,6 +92,15 @@ class DetailsActivity : AppCompatActivity() {
     private var tvTimeRemaining: TextView? = null
     private lateinit var tabLayoutDetails: TabLayout
     private lateinit var recyclerSuggestions: RecyclerView
+    
+    // ✅ IDS ESPECÍFICOS DA ABA DETALHES (RESUMÃO)
+    private var layoutTabDetails: LinearLayout? = null
+    private var tvDetailFullTitle: TextView? = null
+    private var tvDetailFullPlot: TextView? = null
+    private var tvDetailDuration: TextView? = null
+    private var tvDetailReleaseDate: TextView? = null
+    private var tvDetailGenre: TextView? = null
+    private var tvDetailDirector: TextView? = null
 
     // Estados do Download
     private enum class DownloadState { BAIXAR, BAIXANDO, BAIXADO }
@@ -168,13 +177,21 @@ class DetailsActivity : AppCompatActivity() {
             btnFavoriteLayout = findViewById(R.id.btnFavoriteLayout)
             btnTrailerAction = findViewById(R.id.btnTrailerAction)
             
-            // ✅ NOVOS ELEMENTOS DISNEY+
             btnRestartAction = findViewById(R.id.btnRestartAction)
             layoutProgress = findViewById(R.id.layoutProgress)
             progressBarMovie = findViewById(R.id.progressBarMovie)
             tvTimeRemaining = findViewById(R.id.tvTimeRemaining)
             tabLayoutDetails = findViewById(R.id.tabLayoutDetails)
             recyclerSuggestions = findViewById(R.id.recyclerSuggestions)
+            
+            // ✅ INICIALIZAÇÃO DOS CAMPOS DA ABA DETALHES
+            layoutTabDetails = findViewById(R.id.layoutTabDetails)
+            tvDetailFullTitle = findViewById(R.id.tvDetailFullTitle)
+            tvDetailFullPlot = findViewById(R.id.tvDetailFullPlot)
+            tvDetailDuration = findViewById(R.id.tvDetailDuration)
+            tvDetailReleaseDate = findViewById(R.id.tvDetailReleaseDate)
+            tvDetailGenre = findViewById(R.id.tvDetailGenre)
+            tvDetailDirector = findViewById(R.id.tvDetailDirector)
             
             if (isTelevisionDevice()) {
                 btnDownloadArea?.visibility = View.GONE
@@ -257,6 +274,12 @@ class DetailsActivity : AppCompatActivity() {
                             tvTitle.text = tOficial
                             if (sinopse.isNotEmpty()) tvPlot.text = sinopse
                             if (date.length >= 4) tvYear?.text = date.substring(0, 4)
+                            
+                            // ✅ PREENCHE A ABA DETALHES (RESUMÃO)
+                            tvDetailFullTitle?.text = tOficial
+                            tvDetailFullPlot?.text = sinopse
+                            tvDetailReleaseDate?.text = date
+                            
                             getSharedPreferences("vltv_text_cache", Context.MODE_PRIVATE).edit()
                                 .putString("title_$streamId", tOficial).putString("plot_$streamId", sinopse)
                                 .putString("year_$streamId", if (date.length >= 4) date.substring(0, 4) else "").apply()
@@ -311,20 +334,48 @@ class DetailsActivity : AppCompatActivity() {
                 val body = response.body?.string() ?: return
                 try {
                     val d = JSONObject(body)
+                    
+                    // GÊNEROS
                     val gs = d.optJSONArray("genres")
                     val genresList = mutableListOf<String>()
                     if (gs != null) for (i in 0 until gs.length()) genresList.add(gs.getJSONObject(i).getString("name"))
+                    
+                    // ELENCO
                     val castArray = d.optJSONObject("credits")?.optJSONArray("cast")
                     val castNamesList = mutableListOf<String>()
                     if (castArray != null) {
                         val limit = if (castArray.length() > 10) 10 else castArray.length()
                         for (i in 0 until limit) castNamesList.add(castArray.getJSONObject(i).getString("name"))
                     }
+
+                    // DURAÇÃO (Calcula h e min)
+                    val runtime = d.optInt("runtime", 0)
+                    val durText = if (runtime > 0) "${runtime / 60}h ${runtime % 60}min" else "N/A"
+
+                    // DIREÇÃO
+                    val crew = d.optJSONObject("credits")?.optJSONArray("crew")
+                    var directorName = "Desconhecido"
+                    if (crew != null) {
+                        for (i in 0 until crew.length()) {
+                            if (crew.getJSONObject(i).optString("job") == "Director") {
+                                directorName = crew.getJSONObject(i).getString("name")
+                                break
+                            }
+                        }
+                    }
+
                     runOnUiThread {
-                        val g = "Gênero: ${genresList.joinToString(", ")}"
-                        val e = "Elenco: ${castNamesList.joinToString(", ")}"
-                        tvGenre.text = g
-                        tvCast.text = e
+                        val g = genresList.joinToString(", ")
+                        val e = castNamesList.joinToString("\n")
+                        tvGenre.text = "Gênero: $g"
+                        tvCast.text = "Elenco: ${castNamesList.take(5).joinToString(", ")}"
+                        
+                        // ✅ ATUALIZA OS CAMPOS DA ABA DETALHES
+                        tvDetailGenre?.text = g
+                        tvDetailDuration?.text = durText
+                        tvDetailDirector?.text = directorName
+                        findViewById<TextView>(R.id.tvCast)?.text = e // Usa o ID tvCast dentro da aba se necessário
+                        
                         getSharedPreferences("vltv_text_cache", Context.MODE_PRIVATE).edit()
                             .putString("genre_$streamId", g).putString("cast_$streamId", e).apply()
                     }
@@ -380,7 +431,6 @@ class DetailsActivity : AppCompatActivity() {
         btnFavoriteLayout?.setOnClickListener { toggleFavorite() }
         btnPlay.setOnClickListener { abrirPlayer(true) }
         
-        // ✅ LÓGICA DO BOTÃO REINICIAR (VOLTA AO ZERO)
         btnRestartAction?.setOnClickListener { 
             AlertDialog.Builder(this)
                 .setTitle("Reiniciar Filme")
@@ -399,9 +449,21 @@ class DetailsActivity : AppCompatActivity() {
         tabLayoutDetails.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
                 when (tab?.position) {
-                    0 -> { recyclerSuggestions.visibility = View.VISIBLE; tvPlot.visibility = View.GONE }
-                    1 -> { Toast.makeText(this@DetailsActivity, "Sem extras disponíveis", Toast.LENGTH_SHORT).show() }
-                    2 -> { recyclerSuggestions.visibility = View.GONE; tvPlot.visibility = View.VISIBLE }
+                    0 -> { // SUGESTÕES
+                        recyclerSuggestions.visibility = View.VISIBLE
+                        recyclerEpisodes.visibility = View.GONE
+                        layoutTabDetails?.visibility = View.GONE
+                    }
+                    1 -> { // EXTRAS
+                        recyclerSuggestions.visibility = View.GONE
+                        recyclerEpisodes.visibility = View.VISIBLE
+                        layoutTabDetails?.visibility = View.GONE
+                    }
+                    2 -> { // DETALHES
+                        recyclerSuggestions.visibility = View.GONE
+                        recyclerEpisodes.visibility = View.GONE
+                        layoutTabDetails?.visibility = View.VISIBLE
+                    }
                 }
             }
             override fun onTabUnselected(tab: TabLayout.Tab?) {}
@@ -441,7 +503,6 @@ class DetailsActivity : AppCompatActivity() {
         atualizarIconeFavorito(!isFav)
     }
 
-    // ✅ LÓGICA DISNEY+: VERIFICA POSIÇÃO, MUDA BOTÃO E CALCULA "RESTAM X MIN"
     private fun verificarResume() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val keyPos = "${currentProfile}_movie_resume_${streamId}_pos"
@@ -451,22 +512,18 @@ class DetailsActivity : AppCompatActivity() {
         val totalDur = prefs.getLong(keyDur, 0L)
 
         if (pos > 30000L && totalDur > 0) {
-            // Existe progresso: muda para CONTINUAR e mostra o Reiniciar
             btnPlay.text = "▶  CONTINUAR"
             btnRestartAction?.visibility = View.VISIBLE
             layoutProgress?.visibility = View.VISIBLE
             
-            // Calcula progresso da barra
             val progressPercent = ((pos.toFloat() / totalDur.toFloat()) * 100).toInt()
             progressBarMovie?.progress = progressPercent
             
-            // Calcula tempo restante (Ex: Restam 1h5min)
             val restMs = totalDur - pos
             val hours = TimeUnit.MILLISECONDS.toHours(restMs)
             val minutes = TimeUnit.MILLISECONDS.toMinutes(restMs) % 60
             tvTimeRemaining?.text = "Restam ${hours}h${minutes}min"
         } else {
-            // Início do filme: mantém ASSISTIR e esconde o resto
             btnPlay.text = "▶  ASSISTIR"
             btnRestartAction?.visibility = View.GONE
             layoutProgress?.visibility = View.GONE
@@ -506,11 +563,7 @@ class DetailsActivity : AppCompatActivity() {
 
     private fun iniciarDownload() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
-        val user = prefs.getString("username", "") ?: ""
-        val pass = prefs.getString("password", "") ?: ""
-        val server = prefs.getString("dns", "") ?: ""
-        val url = "$server/movie/$user/$pass/$streamId.mp4"
-
+        val url = "${prefs.getString("dns", "")}/movie/${prefs.getString("username", "")}/${prefs.getString("password", "")}/$streamId.mp4"
         DownloadHelper.iniciarDownload(this, url, streamId, name, null, icon, false)
         downloadState = DownloadState.BAIXANDO
         atualizarUI_download()

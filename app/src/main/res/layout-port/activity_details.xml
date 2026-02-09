@@ -209,6 +209,18 @@
                 android:layout_height="0dp"
                 android:visibility="gone" />
 
+            <TextView
+                android:id="@+id/tvCast"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/btnSettings"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:visibility="gone" />
+
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnResume"
                 android:layout_width="0dp"

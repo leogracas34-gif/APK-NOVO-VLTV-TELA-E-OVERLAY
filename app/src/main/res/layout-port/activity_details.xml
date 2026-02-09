@@ -291,11 +291,48 @@
                     android:visibility="gone">
 
                     <TextView
-                        android:id="@+id/tvCast"
+                        android:id="@+id/tvDetailFullTitle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="#FFFFFF"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="8dp" />
+
+                    <TextView
+                        android:id="@+id/tvDetailFullPlot"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:textColor="#BBBBBB"
-                        android:textSize="13sp" />
+                        android:textSize="13sp"
+                        android:layout_marginBottom="16dp" />
+
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Duração:" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="12sp" />
+                    <TextView android:id="@+id/tvDetailDuration" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#BBBBBB" android:textSize="12sp" android:layout_marginBottom="8dp" />
+
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Data de lançamento:" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="12sp" />
+                    <TextView android:id="@+id/tvDetailReleaseDate" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#BBBBBB" android:textSize="12sp" android:layout_marginBottom="8dp" />
+
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Gênero:" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="12sp" />
+                    <TextView android:id="@+id/tvDetailGenre" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#BBBBBB" android:textSize="12sp" android:layout_marginBottom="16dp" />
+
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Disponível nos seguintes formatos:" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="12sp" />
+                    <com.google.android.flexbox.FlexboxLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:layout_marginBottom="16dp"
+                        app:flexWrap="wrap">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="IMAX ENHANCED" android:background="@drawable/bg_format_tag" android:textColor="#FFFFFF" android:textSize="10sp" android:textStyle="bold" android:layout_margin="2dp" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="4K ULTRA HD" android:background="@drawable/bg_format_tag" android:textColor="#FFFFFF" android:textSize="10sp" android:textStyle="bold" android:layout_margin="2dp" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="5.1" android:background="@drawable/bg_format_tag" android:textColor="#FFFFFF" android:textSize="10sp" android:textStyle="bold" android:layout_margin="2dp" />
+                    </com.google.android.flexbox.FlexboxLayout>
+
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Direção:" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="12sp" />
+                    <TextView android:id="@+id/tvDetailDirector" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#BBBBBB" android:textSize="12sp" android:layout_marginBottom="8dp" />
+
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Elenco:" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="12sp" />
+                    <TextView android:id="@+id/tvCast" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#BBBBBB" android:textSize="12sp" />
                 </LinearLayout>
             </FrameLayout>
 

@@ -76,9 +76,8 @@ class HomeActivity : AppCompatActivity() {
     private val database by lazy { AppDatabase.getDatabase(this) }
 
     // --- VARIÁVEIS DO BANNER ---
-    private var listaBannerItems: List<Any> = emptyList()
-    private var bannerJob: Job? = null
-    private var currentBannerIndex = 0
+    // Agora armazena a lista completa, mas exibe um por vez
+    private var listaCompletaParaSorteio: List<Any> = emptyList()
     private lateinit var bannerAdapter: BannerAdapter 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -112,7 +111,7 @@ class HomeActivity : AppCompatActivity() {
         }
 
         // ✅ INICIALIZA O LAYOUT
-        setupViewPagerBanner()
+        setupSingleBanner() // Mudamos para Single Banner
         setupBottomNavigation()
 
         setupClicks() 
@@ -170,30 +169,16 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ CONFIGURAÇÃO DO CARROSSEL ESTABILIZADO (SEM DISTORÇÃO)
-    private fun setupViewPagerBanner() {
+    // ✅ CONFIGURAÇÃO DO BANNER ESTÁTICO (Um item por vez, aleatório)
+    private fun setupSingleBanner() {
         bannerAdapter = BannerAdapter(emptyList())
         binding.bannerViewPager?.adapter = bannerAdapter
-        // Mantém 3 páginas na memória para não recarregar
-        binding.bannerViewPager?.offscreenPageLimit = 3
         
-        val compositePageTransformer = CompositePageTransformer()
-        // Margem de 20dp entre os itens (Elegante mas simples)
-        compositePageTransformer.addTransformer(MarginPageTransformer(20))
+        // Desabilita o swipe manual para parecer um banner fixo (opcional, mas elegante)
+        binding.bannerViewPager?.isUserInputEnabled = false
         
-        // 🔥 REMOVIDO: O efeito de escala (Zoom) foi retirado para evitar distorção
-        // Apenas a margem é mantida para separar os banners
-        
-        binding.bannerViewPager?.setPageTransformer(compositePageTransformer)
-
-        binding.bannerViewPager?.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
-            override fun onPageSelected(position: Int) {
-                super.onPageSelected(position)
-                currentBannerIndex = position
-                bannerJob?.cancel()
-                iniciarCicloBanner()
-            }
-        })
+        // Removemos todos os Transformers de Zoom que causavam distorção
+        // O banner agora é uma imagem estática limpa
     }
 
     private fun setupBottomNavigation() {
@@ -222,17 +207,15 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ CARREGA DADOS DO DATABASE IMEDIATAMENTE + ATIVA MODO SUPERSONICO
+    // ✅ CARREGA DADOS DO DATABASE IMEDIATAMENTE
     private fun carregarDadosLocaisImediato() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 // Pega do banco local (Room)
                 val localMovies = database.streamDao().getRecentVods(20)
-                // Mapeia usando stream_icon
                 val movieItems = localMovies.map { VodItem(it.stream_id.toString(), it.name, it.stream_icon ?: "") }
 
                 val localSeries = database.streamDao().getRecentSeries(20)
-                // Mapeia usando cover (CORREÇÃO CRÍTICA)
                 val seriesItems = localSeries.map { VodItem(it.series_id.toString(), it.name, it.cover ?: "") }
 
                 withContext(Dispatchers.Main) {
@@ -259,7 +242,9 @@ class HomeActivity : AppCompatActivity() {
                         }
                     }
                     
-                    prepararBannerDosRecentes(localMovies, localSeries)
+                    // Salva a lista completa para sortear no onResume
+                    listaCompletaParaSorteio = (localMovies + localSeries)
+                    sortearBannerUnico()
                     
                     // 🚀 ATIVA O MODO SUPERSONICO (PRELOAD DAS LISTAS INFERIORES)
                     ativarModoSupersonico(movieItems, seriesItems)
@@ -290,39 +275,15 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    private fun prepararBannerDosRecentes(filmes: List<VodEntity>, series: List<SeriesEntity>) {
-        // Mistura filmes e séries para o banner
-        val mixLançamentos = (filmes + series).shuffled().take(10)
-        
-        if (mixLançamentos.isNotEmpty()) {
-            listaBannerItems = mixLançamentos
-            bannerAdapter.updateList(listaBannerItems)
-            
-            // 🔥 POSICIONA NO MEIO PARA PERMITIR SCROLL ESQUERDA/DIREITA INFINITO
-            val middle = Integer.MAX_VALUE / 2
-            val startPos = middle - (middle % listaBannerItems.size)
-            binding.bannerViewPager?.setCurrentItem(startPos, false)
-            
-            iniciarCicloBanner()
+    // ✅ SORTEIO DE BANNER ÚNICO (Executa ao abrir ou voltar para a tela)
+    private fun sortearBannerUnico() {
+        if (listaCompletaParaSorteio.isNotEmpty()) {
+            val itemSorteado = listaCompletaParaSorteio.random()
+            // Atualiza o adapter com APENAS 1 item
+            bannerAdapter.updateList(listOf(itemSorteado))
         } else {
             // Se o banco estiver vazio, tenta o online
             carregarBannerAlternado() 
-        }
-    }
-
-    private fun iniciarCicloBanner() {
-        bannerJob?.cancel()
-        bannerJob = lifecycleScope.launch {
-            while (true) {
-                delay(8000) // 8 segundos por banner
-                if (listaBannerItems.isNotEmpty()) {
-                    // 🔥 Só avança para a próxima posição (sempre para frente no infinito)
-                    val nextIndex = (binding.bannerViewPager?.currentItem ?: 0) + 1
-                    binding.bannerViewPager?.setCurrentItem(nextIndex, true)
-                } else {
-                    break
-                }
-            }
         }
     }
 
@@ -337,13 +298,12 @@ class HomeActivity : AppCompatActivity() {
     // ✅ LÓGICA HÍBRIDA: ESTABILIZADA PARA NÃO DISTORCER
     private fun buscarImagemBackgroundTMDB(nome: String, isSeries: Boolean, fallback: String, internalId: Int, targetImg: ImageView, targetLogo: ImageView, targetTitle: TextView) {
         
-        // 🚀 1. CARREGAMENTO INSTANTÂNEO (Igual ao VodActivity/SeriesActivity)
+        // 🚀 1. CARREGAMENTO INSTANTÂNEO
         try {
-            // 🔥 FORCE SCALE TYPE: Garante que a imagem ocupe o espaço sem pular
             targetImg.scaleType = ImageView.ScaleType.CENTER_CROP
             
             Glide.with(this@HomeActivity)
-                .load(fallback) // Carrega do stream_icon ou cover
+                .load(fallback)
                 .centerCrop()
                 .dontAnimate() // 🚫 REMOVE ANIMAÇÃO QUE CAUSA PULO/DISTORÇÃO
                 .format(DecodeFormat.PREFER_RGB_565) 
@@ -351,7 +311,7 @@ class HomeActivity : AppCompatActivity() {
                 .into(targetImg)
         } catch (e: Exception) {}
 
-        // 🚀 2. BUSCA MELHORIA NO TMDB (EM SEGUNDO PLANO)
+        // 🚀 2. BUSCA MELHORIA NO TMDB
         val tipo = if (isSeries) "tv" else "movie"
         val nomeLimpo = limparNomeParaTMDB(nome)
         val query = URLEncoder.encode(nomeLimpo, "UTF-8")
@@ -367,13 +327,12 @@ class HomeActivity : AppCompatActivity() {
                     
                     withContext(Dispatchers.Main) {
                         try {
-                            // Só troca a imagem se o TMDB tiver uma capa de fundo (backdrop) válida
                             if (backdropPath != "null" && backdropPath.isNotEmpty()) {
                                 Glide.with(this@HomeActivity)
                                     .load("https://image.tmdb.org/t/p/original$backdropPath")
                                     .centerCrop()
-                                    .dontAnimate() // 🚫 REMOVE ANIMAÇÃO PARA FICAR ESTATICO/SOLIDO
-                                    .placeholder(targetImg.drawable) // Usa a imagem atual para não piscar
+                                    .dontAnimate()
+                                    .placeholder(android.R.color.transparent) 
                                     .into(targetImg)
                             }
                         } catch (e: Exception) {}
@@ -381,17 +340,14 @@ class HomeActivity : AppCompatActivity() {
                     
                     buscarLogoOverlayHome(tmdbId, tipo, internalId, isSeries, targetLogo, targetTitle)
                 }
-            } catch (e: Exception) {
-                // Se falhar, não faz nada (já temos a imagem do banco)
-            }
+            } catch (e: Exception) {}
         }
     }
 
     private fun buscarLogoOverlayHome(tmdbId: String, tipo: String, internalId: Int, isSeries: Boolean, targetLogo: ImageView, targetTitle: TextView) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // ✅ CORREÇÃO: Busca APENAS PT e NULL (Garante que a logo apareça em PT ou Símbolo)
-                // Se não achar esses, vai ignorar as outras linguas estranhas.
+                // ✅ CORREÇÃO: Busca PT e NULL
                 val imagesUrl = "https://api.themoviedb.org/3/$tipo/$tmdbId/images?api_key=$TMDB_API_KEY&include_image_language=pt,null"
                 
                 val imagesJson = URL(imagesUrl).readText()
@@ -402,7 +358,7 @@ class HomeActivity : AppCompatActivity() {
                     
                     var bestPath: String? = null
                     
-                    // 1. Tenta achar PT (Prioridade Máxima)
+                    // 1. Tenta achar PT
                     for (i in 0 until logos.length()) {
                         val logo = logos.getJSONObject(i)
                         if (logo.optString("iso_639_1") == "pt") {
@@ -416,7 +372,6 @@ class HomeActivity : AppCompatActivity() {
                         for (i in 0 until logos.length()) {
                             val logo = logos.getJSONObject(i)
                             val lang = logo.optString("iso_639_1")
-                            // Aceita apenas 'null' (sem idioma) ou 'xx' (indefinido)
                             if (lang == "null" || lang == "xx") {
                                 bestPath = logo.getString("file_path")
                                 break
@@ -424,12 +379,9 @@ class HomeActivity : AppCompatActivity() {
                         }
                     }
 
-                    // Se achou alguma logo válida (PT ou NULL)
-                    // Se só tiver Japonês/Coreano, bestPath será null e manteremos o TEXTO.
                     if (bestPath != null) {
                         val fullLogoUrl = "https://image.tmdb.org/t/p/w500$bestPath"
 
-                        // Salva no banco (Lógica mantida)
                         try {
                             if (isSeries) {
                                 database.streamDao().updateSeriesLogo(internalId, fullLogoUrl)
@@ -438,7 +390,6 @@ class HomeActivity : AppCompatActivity() {
                             }
                         } catch(e: Exception) {}
 
-                        // Mostra na tela (Lógica mantida)
                         withContext(Dispatchers.Main) {
                             targetTitle.visibility = View.GONE
                             targetLogo.visibility = View.VISIBLE
@@ -495,23 +446,19 @@ class HomeActivity : AppCompatActivity() {
                         ))
                     }
                     
-                    // ⚡ TRUQUE: A cada 50 filmes, salva e atualiza a tela
                     if (vodBatch.size >= 50) {
                         database.streamDao().insertVodStreams(vodBatch)
                         vodBatch.clear()
                         
-                        // Só chama a atualização de tela no PRIMEIRO lote para ser instantâneo
                         if (!firstVodBatchLoaded) {
                             withContext(Dispatchers.Main) { carregarDadosLocaisImediato() }
                             firstVodBatchLoaded = true
                         }
                     }
                 }
-                // Salva o restante
                 if (vodBatch.isNotEmpty()) {
                     database.streamDao().insertVodStreams(vodBatch)
                 }
-                // Atualiza tela ao final dos filmes
                 withContext(Dispatchers.Main) { carregarDadosLocaisImediato() }
 
                 // --- 2. SÉRIES (Salva a cada 50) ---
@@ -535,12 +482,10 @@ class HomeActivity : AppCompatActivity() {
                         ))
                     }
 
-                    // ⚡ TRUQUE: A cada 50 séries, salva
                     if (seriesBatch.size >= 50) {
                         database.streamDao().insertSeriesStreams(seriesBatch)
                         seriesBatch.clear()
                         
-                        // Atualiza a tela rápido se for o primeiro lote
                         if (!firstSeriesBatchLoaded) {
                             withContext(Dispatchers.Main) { carregarDadosLocaisImediato() }
                             firstSeriesBatchLoaded = true
@@ -600,18 +545,32 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
+    // ✅ ATUALIZAÇÃO DO BANNER AO VOLTAR PARA A HOME
     override fun onResume() {
         super.onResume()
-        if (listaBannerItems.isEmpty()) {
-            carregarBannerAlternado()
-        }
+        // Toda vez que a tela resume (volta de um filme, etc), sorteia um novo
+        sortearBannerUnico()
         
         carregarContinuarAssistindoLocal()
-
+        atualizarNotificacaoDownload() // Atualiza o "1" na bolinha se tiver
+        
         try {
              // Try catch original mantido
         } catch (e: Exception) {
             e.printStackTrace()
+        }
+    }
+    
+    private fun atualizarNotificacaoDownload() {
+        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+        val count = prefs.getInt("active_downloads_count", 0)
+        if (count > 0) {
+            binding.bottomNavigation.getOrCreateBadge(R.id.nav_downloads).apply {
+                isVisible = true
+                number = count
+            }
+        } else {
+            binding.bottomNavigation.removeBadge(R.id.nav_downloads)
         }
     }
 
@@ -755,14 +714,7 @@ class HomeActivity : AppCompatActivity() {
                     val randomIndex = Random.nextInt(results.length())
                     val item = results.getJSONObject(randomIndex)
 
-                    val tituloOriginal = if (item.has("title")) item.getString("title")
-                    else if (item.has("name")) item.getString("name")
-                    else "Destaque"
-
-                    val overview = if (item.has("overview")) item.getString("overview") else ""
                     val backdropPath = item.getString("backdrop_path")
-                    val prefixo = if (tipoAtual == "movie") "Filme em Alta: " else "Série em Alta: "
-                    val tmdbId = item.getString("id")
 
                     if (backdropPath != "null" && backdropPath.isNotBlank()) {
                         val imageUrl = "https://image.tmdb.org/t/p/original$backdropPath"
@@ -911,15 +863,13 @@ class HomeActivity : AppCompatActivity() {
         }
 
         override fun onBindViewHolder(holder: BannerViewHolder, position: Int) {
-            // 🔥 TRUQUE DO INFINITO: Usa o resto da divisão para repetir os itens
-            if (items.isEmpty()) return
-            val realPosition = position % items.size
-            val item = items[realPosition]
-            holder.bind(item)
+            // Se tivermos itens, mostramos o primeiro (já que a lista é unitária agora)
+            if (items.isNotEmpty()) {
+                holder.bind(items[0])
+            }
         }
 
-        // 🔥 Retorna um número gigante para permitir scroll "infinito"
-        override fun getItemCount(): Int = if (items.isEmpty()) 0 else Integer.MAX_VALUE
+        override fun getItemCount(): Int = items.size
 
         inner class BannerViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
             private val imgBanner: ImageView = itemView.findViewById(R.id.imgBanner)

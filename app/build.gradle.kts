@@ -84,4 +84,6 @@ dependencies {
 
     // ADICIONE ESSA LINHA PARA O BOTÃO CAST FUNCIONAR:
     implementation("com.google.android.gms:play-services-cast-framework:21.4.0")
+
+    implementation("com.google.android.flexbox:flexbox:3.0.0")
     }

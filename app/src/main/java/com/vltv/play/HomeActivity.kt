@@ -177,10 +177,11 @@ class HomeActivity : AppCompatActivity() {
         // Mantém 3 páginas na memória para não recarregar
         binding.bannerViewPager?.offscreenPageLimit = 3
         
+        // 🔥 REMOVIDO O EFEITO DE ZOOM QUE CAUSAVA DISTORÇÃO
+        // Apenas margem lateral simples para separar os itens
         val compositePageTransformer = CompositePageTransformer()
-        // Margem de 20dp entre os itens (Elegante mas simples)
-        compositePageTransformer.addTransformer(MarginPageTransformer(20))
-        // REMOVIDO: O efeito de escala (Zoom) que causava a distorção inicial
+        compositePageTransformer.addTransformer(MarginPageTransformer(20)) 
+        
         binding.bannerViewPager?.setPageTransformer(compositePageTransformer)
 
         binding.bannerViewPager?.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
@@ -336,9 +337,12 @@ class HomeActivity : AppCompatActivity() {
         
         // 🚀 1. CARREGAMENTO INSTANTÂNEO (Igual ao VodActivity/SeriesActivity)
         try {
+            // 🔥 FORCE SCALE TYPE: Garante que a imagem ocupe o espaço sem pular
+            targetImg.scaleType = ImageView.ScaleType.CENTER_CROP
+            
             Glide.with(this@HomeActivity)
-                .load(fallback)
-                .centerCrop() // Força o recorte correto
+                .load(fallback) // Carrega do stream_icon ou cover
+                .centerCrop()
                 .dontAnimate() // 🚫 REMOVE ANIMAÇÃO QUE CAUSA PULO/DISTORÇÃO
                 .format(DecodeFormat.PREFER_RGB_565) 
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
@@ -367,7 +371,7 @@ class HomeActivity : AppCompatActivity() {
                                     .load("https://image.tmdb.org/t/p/original$backdropPath")
                                     .centerCrop()
                                     .dontAnimate() // 🚫 REMOVE ANIMAÇÃO PARA FICAR ESTATICO/SOLIDO
-                                    .placeholder(targetImg.drawable) // Usa a imagem atual para não piscar
+                                    .placeholder(android.R.color.transparent) // Sem placeholder visual para não pular
                                     .into(targetImg)
                             }
                         } catch (e: Exception) {}
@@ -384,8 +388,8 @@ class HomeActivity : AppCompatActivity() {
     private fun buscarLogoOverlayHome(tmdbId: String, tipo: String, internalId: Int, isSeries: Boolean, targetLogo: ImageView, targetTitle: TextView) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // ✅ CORREÇÃO: Busca APENAS PT e NULL (Remove Inglês)
-                val imagesUrl = "https://api.themoviedb.org/3/$tipo/$tmdbId/images?api_key=$TMDB_API_KEY&include_image_language=pt,null"
+                // ✅ CORREÇÃO: Busca PT, EN ou NULL (Prioridade PT)
+                val imagesUrl = "https://api.themoviedb.org/3/$tipo/$tmdbId/images?api_key=$TMDB_API_KEY&include_image_language=pt,en,null"
                 
                 val imagesJson = URL(imagesUrl).readText()
                 val imagesObj = JSONObject(imagesJson)
@@ -404,20 +408,20 @@ class HomeActivity : AppCompatActivity() {
                         }
                     }
                     
-                    // 2. Se não achou PT, tenta NULL (Símbolo/Sem Idioma)
+                    // 2. Se não achou PT, tenta NULL (Símbolo/Sem Idioma) ou EN
                     if (bestPath == null) {
                         for (i in 0 until logos.length()) {
                             val logo = logos.getJSONObject(i)
                             val lang = logo.optString("iso_639_1")
-                            // Aceita apenas 'null' (sem idioma) ou 'xx' (indefinido)
-                            if (lang == "null" || lang == "xx") {
+                            // Aceita apenas 'en' (ingles), 'null' (sem idioma) ou 'xx' (indefinido)
+                            if (lang == "en" || lang == "null" || lang == "xx") {
                                 bestPath = logo.getString("file_path")
                                 break
                             }
                         }
                     }
 
-                    // Se achou alguma logo válida (PT ou NULL)
+                    // Se achou alguma logo válida
                     if (bestPath != null) {
                         val fullLogoUrl = "https://image.tmdb.org/t/p/w500$bestPath"
 

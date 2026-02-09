@@ -27,6 +27,7 @@ import com.bumptech.glide.load.resource.bitmap.CenterCrop
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.google.android.material.tabs.TabLayout
 import okhttp3.*
 import org.json.JSONObject
 import java.io.IOException
@@ -71,7 +72,7 @@ class DetailsActivity : AppCompatActivity() {
     private lateinit var btnPlay: Button
     private lateinit var btnResume: Button
     private lateinit var btnFavorite: ImageButton
-    private var btnDownloadArea: LinearLayout? = null // Alterado para opcional
+    private var btnDownloadArea: LinearLayout? = null
     private lateinit var imgDownloadState: ImageView
     private lateinit var tvDownloadState: TextView
     private lateinit var imgBackground: ImageView
@@ -81,10 +82,16 @@ class DetailsActivity : AppCompatActivity() {
     private var btnSettings: Button? = null
     private lateinit var episodesAdapter: EpisodesAdapter
     
-    // ✅ NOVOS IDS PARA CELULAR
+    // ✅ NOVOS IDS PARA CELULAR E VISUAL DISNEY+
     private var btnDownloadAction: LinearLayout? = null
     private var btnFavoriteLayout: LinearLayout? = null
     private var btnTrailerAction: LinearLayout? = null
+    private var btnRestartAction: LinearLayout? = null
+    private var layoutProgress: LinearLayout? = null
+    private var progressBarMovie: ProgressBar? = null
+    private var tvTimeRemaining: TextView? = null
+    private lateinit var tabLayoutDetails: TabLayout
+    private lateinit var recyclerSuggestions: RecyclerView
 
     // Estados do Download
     private enum class DownloadState { BAIXAR, BAIXANDO, BAIXADO }
@@ -107,9 +114,7 @@ class DetailsActivity : AppCompatActivity() {
             setContentView(R.layout.activity_details)
             configurarTelaTV()
             
-            // ✅ PEGA O PERFIL VINDO DA HOME
             currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
-
             streamId = intent.getIntExtra("stream_id", 0)
             name = intent.getStringExtra("name") ?: ""
             icon = intent.getStringExtra("icon")
@@ -124,7 +129,6 @@ class DetailsActivity : AppCompatActivity() {
             tentarCarregarLogoCache()
             sincronizarDadosTMDB()
         } catch (e: Exception) {
-            // MOSTRA O ERRO NA TELA ANTES DE FECHAR
             Log.e("VLTV_DEBUG", "Erro no onCreate: ${e.message}")
             Toast.makeText(this, "Erro Crítico: ${e.message}", Toast.LENGTH_LONG).show()
         }
@@ -144,7 +148,6 @@ class DetailsActivity : AppCompatActivity() {
             imgPoster = findViewById(R.id.imgPoster)
             tvTitle = findViewById(R.id.tvTitle)
             imgTitleLogo = findViewById(R.id.imgTitleLogo)
-            tvTitle.visibility = View.INVISIBLE
             tvRating = findViewById(R.id.tvRating)
             tvGenre = findViewById(R.id.tvGenre)
             tvCast = findViewById(R.id.tvCast)
@@ -161,24 +164,28 @@ class DetailsActivity : AppCompatActivity() {
             tvYear = findViewById(R.id.tvYear)
             btnSettings = findViewById(R.id.btnSettings)
 
-            // ✅ INICIALIZA OS NOVOS LAYOUTS DE CLIQUE DO CELULAR
             btnDownloadAction = findViewById(R.id.btnDownloadAction)
             btnFavoriteLayout = findViewById(R.id.btnFavoriteLayout)
             btnTrailerAction = findViewById(R.id.btnTrailerAction)
             
-            // Na TV, geralmente não baixamos, mas se quiser pode manter
+            // ✅ NOVOS ELEMENTOS DISNEY+
+            btnRestartAction = findViewById(R.id.btnRestartAction)
+            layoutProgress = findViewById(R.id.layoutProgress)
+            progressBarMovie = findViewById(R.id.progressBarMovie)
+            tvTimeRemaining = findViewById(R.id.tvTimeRemaining)
+            tabLayoutDetails = findViewById(R.id.tabLayoutDetails)
+            recyclerSuggestions = findViewById(R.id.recyclerSuggestions)
+            
             if (isTelevisionDevice()) {
                 btnDownloadArea?.visibility = View.GONE
                 btnDownloadAction?.visibility = View.GONE
             }
             
             btnPlay.isFocusable = true
-            btnResume.isFocusable = true
-            btnFavorite.isFocusable = true
             btnPlay.requestFocus()
         } catch (e: Exception) {
             Log.e("VLTV_DEBUG", "Erro ao inicializar views: ${e.message}")
-            throw e // Repassa o erro para o onCreate capturar e mostrar o Toast
+            throw e
         }
     }
 
@@ -190,7 +197,6 @@ class DetailsActivity : AppCompatActivity() {
         Glide.with(this).load(icon).diskCacheStrategy(DiskCacheStrategy.ALL).into(imgPoster)
         Glide.with(this).load(icon).centerCrop().diskCacheStrategy(DiskCacheStrategy.ALL).into(imgBackground)
         
-        // ✅ FAVORITOS POR PERFIL
         val isFavInicial = getFavMovies(this).contains(streamId)
         atualizarIconeFavorito(isFavInicial)
         
@@ -333,7 +339,7 @@ class DetailsActivity : AppCompatActivity() {
             val intent = Intent(this, PlayerActivity::class.java)
             intent.putExtra("stream_id", episode.streamId).putExtra("stream_type", "series")
             intent.putExtra("channel_name", "${name} - S${episode.season}:E${episode.episode}")
-            intent.putExtra("icon", episode.thumb) // ✅ HISTÓRICO DE SÉRIES
+            intent.putExtra("icon", episode.thumb)
             intent.putExtra("PROFILE_NAME", currentProfile)
             startActivity(intent)
         }
@@ -341,7 +347,6 @@ class DetailsActivity : AppCompatActivity() {
             layoutManager = if (isTelevisionDevice()) GridLayoutManager(this@DetailsActivity, 6) else LinearLayoutManager(this@DetailsActivity, LinearLayoutManager.HORIZONTAL, false)
             adapter = episodesAdapter
             setHasFixedSize(true)
-            setItemViewCacheSize(20)
         }
     }
 
@@ -357,8 +362,7 @@ class DetailsActivity : AppCompatActivity() {
             if (hasFocus) {
                 v.setBackgroundResource(R.drawable.bg_focus_neon)
                 if (v is Button) v.setTextColor(android.graphics.Color.YELLOW)
-                v.animate().scaleX(1.15f).scaleY(1.15f).setDuration(150).start()
-                v.elevation = 25f
+                v.animate().scaleX(1.10f).scaleY(1.10f).setDuration(150).start()
             } else {
                 if (v is Button) {
                     v.setBackgroundResource(R.drawable.bg_button_default)
@@ -367,30 +371,42 @@ class DetailsActivity : AppCompatActivity() {
                     v.setBackgroundResource(0)
                 }
                 v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
-                v.elevation = 4f
             }
         }
         btnPlay.onFocusChangeListener = focusListener
-        btnResume.onFocusChangeListener = focusListener
         btnFavorite.onFocusChangeListener = focusListener
 
         btnFavorite.setOnClickListener { toggleFavorite() }
-        
-        // ✅ NOVO: CLIQUE NO LAYOUT DE FAVORITOS (CELULAR)
         btnFavoriteLayout?.setOnClickListener { toggleFavorite() }
-
-        btnPlay.setOnClickListener { abrirPlayer(false) }
-        btnResume.setOnClickListener { abrirPlayer(true) }
+        btnPlay.setOnClickListener { abrirPlayer(true) }
         
-        btnDownloadArea?.setOnClickListener { handleDownloadClick() }
-        
-        // ✅ NOVO: CLIQUE NO BOTÃO DE DOWNLOAD (CELULAR)
-        btnDownloadAction?.setOnClickListener { handleDownloadClick() }
-
-        // ✅ NOVO: CLIQUE NO TRAILER
-        btnTrailerAction?.setOnClickListener { 
-            Toast.makeText(this, "Trailer não disponível no momento", Toast.LENGTH_SHORT).show()
+        // ✅ LÓGICA DO BOTÃO REINICIAR (VOLTA AO ZERO)
+        btnRestartAction?.setOnClickListener { 
+            AlertDialog.Builder(this)
+                .setTitle("Reiniciar Filme")
+                .setMessage("Deseja assistir desde o início?")
+                .setPositiveButton("Sim") { _, _ -> abrirPlayer(false) }
+                .setNegativeButton("Não", null)
+                .show()
         }
+
+        btnDownloadAction?.setOnClickListener { handleDownloadClick() }
+        btnTrailerAction?.setOnClickListener { 
+            Toast.makeText(this, "Trailer disponível em breve", Toast.LENGTH_SHORT).show()
+        }
+
+        // ✅ LÓGICA DAS ABAS (SUGESTÕES / EXTRAS / DETALHES)
+        tabLayoutDetails.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: TabLayout.Tab?) {
+                when (tab?.position) {
+                    0 -> { recyclerSuggestions.visibility = View.VISIBLE; tvPlot.visibility = View.GONE }
+                    1 -> { Toast.makeText(this@DetailsActivity, "Sem extras disponíveis", Toast.LENGTH_SHORT).show() }
+                    2 -> { recyclerSuggestions.visibility = View.GONE; tvPlot.visibility = View.VISIBLE }
+                }
+            }
+            override fun onTabUnselected(tab: TabLayout.Tab?) {}
+            override fun onTabReselected(tab: TabLayout.Tab?) {}
+        })
 
         btnSettings?.setOnClickListener { mostrarConfiguracoes() }
     }
@@ -410,7 +426,6 @@ class DetailsActivity : AppCompatActivity() {
     private fun atualizarIconeFavorito(isFavorite: Boolean) {
         if (isFavorite) {
             btnFavorite.setImageResource(android.R.drawable.btn_star_big_on)
-            // Se for celular, pode trocar o ícone do ImageButton para ic_details_add preenchido se quiser
             btnFavorite.setColorFilter(android.graphics.Color.parseColor("#FFD700"))
         } else {
             btnFavorite.setImageResource(android.R.drawable.btn_star_big_off)
@@ -426,39 +441,61 @@ class DetailsActivity : AppCompatActivity() {
         atualizarIconeFavorito(!isFav)
     }
 
+    // ✅ LÓGICA DISNEY+: VERIFICA POSIÇÃO, MUDA BOTÃO E CALCULA "RESTAM X MIN"
     private fun verificarResume() {
-        val key = "${currentProfile}_movie_resume_${streamId}_pos"
-        val pos = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE).getLong(key, 0L)
-        btnResume.visibility = if (pos > 30000L) View.VISIBLE else View.GONE
+        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+        val keyPos = "${currentProfile}_movie_resume_${streamId}_pos"
+        val keyDur = "${currentProfile}_movie_resume_${streamId}_dur"
+        
+        val pos = prefs.getLong(keyPos, 0L)
+        val totalDur = prefs.getLong(keyDur, 0L)
+
+        if (pos > 30000L && totalDur > 0) {
+            // Existe progresso: muda para CONTINUAR e mostra o Reiniciar
+            btnPlay.text = "▶  CONTINUAR"
+            btnRestartAction?.visibility = View.VISIBLE
+            layoutProgress?.visibility = View.VISIBLE
+            
+            // Calcula progresso da barra
+            val progressPercent = ((pos.toFloat() / totalDur.toFloat()) * 100).toInt()
+            progressBarMovie?.progress = progressPercent
+            
+            // Calcula tempo restante (Ex: Restam 1h5min)
+            val restMs = totalDur - pos
+            val hours = TimeUnit.MILLISECONDS.toHours(restMs)
+            val minutes = TimeUnit.MILLISECONDS.toMinutes(restMs) % 60
+            tvTimeRemaining?.text = "Restam ${hours}h${minutes}min"
+        } else {
+            // Início do filme: mantém ASSISTIR e esconde o resto
+            btnPlay.text = "▶  ASSISTIR"
+            btnRestartAction?.visibility = View.GONE
+            layoutProgress?.visibility = View.GONE
+        }
     }
 
     private fun abrirPlayer(usarResume: Boolean) {
         val intent = Intent(this, PlayerActivity::class.java)
         intent.putExtra("stream_id", streamId).putExtra("stream_type", if (isSeries) "series" else "movie").putExtra("channel_name", name)
-        intent.putExtra("icon", icon) // ✅ ENVIA O ÍCONE PARA O FIREBASE
+        intent.putExtra("icon", icon)
         intent.putExtra("PROFILE_NAME", currentProfile)
         
         if (usarResume) {
             val key = "${currentProfile}_movie_resume_${streamId}_pos"
             val pos = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE).getLong(key, 0L)
             intent.putExtra("start_position_ms", pos)
+        } else {
+            intent.putExtra("start_position_ms", 0L)
         }
         startActivity(intent)
     }
 
-    // ✅ Verifica no Banco de Dados se já está baixando
     private fun restaurarEstadoDownload() {
         CoroutineScope(Dispatchers.IO).launch {
             val db = AppDatabase.getDatabase(applicationContext).streamDao()
             val download = db.getDownloadByStreamId(streamId, if (isSeries) "series" else "movie")
-            
             withContext(Dispatchers.Main) {
                 if (download != null) {
-                    if (download.status == "COMPLETED") {
-                        downloadState = DownloadState.BAIXADO
-                    } else if (download.status == "DOWNLOADING") {
-                        downloadState = DownloadState.BAIXANDO
-                    }
+                    downloadState = if (download.status == "COMPLETED") DownloadState.BAIXADO else DownloadState.BAIXANDO
                 } else {
                     downloadState = DownloadState.BAIXAR
                 }
@@ -467,45 +504,23 @@ class DetailsActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ FUNÇÃO CORRIGIDA: Usa o servidor do usuário e o DownloadHelper correto
     private fun iniciarDownload() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val user = prefs.getString("username", "") ?: ""
         val pass = prefs.getString("password", "") ?: ""
-        
-        // 🔥 CORREÇÃO: Usa o DNS que venceu o teste no Login
         val server = prefs.getString("dns", "") ?: ""
-        val extension = "mp4" // Mantido mp4 por segurança
+        val url = "$server/movie/$user/$pass/$streamId.mp4"
 
-        // 🔥 CORREÇÃO: Monta a URL com o servidor certo
-        val url = "$server/movie/$user/$pass/$streamId.$extension"
-
-        DownloadHelper.iniciarDownload(
-            context = this,
-            url = url,
-            streamId = streamId,
-            nomePrincipal = name,
-            nomeEpisodio = null, // Filme não tem episódio
-            imagemUrl = icon,
-            isSeries = false
-        )
-        
-        // Atualiza a tela para mostrar "Baixando..."
+        DownloadHelper.iniciarDownload(this, url, streamId, name, null, icon, false)
         downloadState = DownloadState.BAIXANDO
         atualizarUI_download()
     }
 
     private fun atualizarUI_download() {
         when (downloadState) {
-            DownloadState.BAIXAR -> {
-                imgDownloadState.setImageResource(android.R.drawable.stat_sys_download); tvDownloadState.text = "BAIXAR"
-            }
-            DownloadState.BAIXANDO -> {
-                imgDownloadState.setImageResource(android.R.drawable.ic_media_play); tvDownloadState.text = "BAIXANDO..."
-            }
-            DownloadState.BAIXADO -> {
-                imgDownloadState.setImageResource(android.R.drawable.stat_sys_download_done); tvDownloadState.text = "BAIXADO"
-            }
+            DownloadState.BAIXAR -> { imgDownloadState.setImageResource(android.R.drawable.stat_sys_download); tvDownloadState.text = "BAIXAR" }
+            DownloadState.BAIXANDO -> { imgDownloadState.setImageResource(android.R.drawable.ic_media_play); tvDownloadState.text = "BAIXANDO..." }
+            DownloadState.BAIXADO -> { imgDownloadState.setImageResource(android.R.drawable.stat_sys_download_done); tvDownloadState.text = "BAIXADO" }
         }
     }
 
@@ -532,7 +547,6 @@ class DetailsActivity : AppCompatActivity() {
     inner class EpisodesAdapter(private val onEpisodeClick: (EpisodeData) -> Unit) : ListAdapter<EpisodeData, EpisodesAdapter.ViewHolder>(DiffCallback) {
         override fun onCreateViewHolder(p: ViewGroup, t: Int) = ViewHolder(LayoutInflater.from(p.context).inflate(R.layout.item_episode, p, false))
         override fun onBindViewHolder(h: ViewHolder, p: Int) = h.bind(getItem(p))
-
         inner class ViewHolder(val v: View) : RecyclerView.ViewHolder(v) {
             fun bind(e: EpisodeData) {
                 v.isFocusable = true
@@ -540,20 +554,6 @@ class DetailsActivity : AppCompatActivity() {
                 tvTitleEp.text = "S${e.season}E${e.episode}: ${e.title}"
                 Glide.with(v.context).load(e.thumb).centerCrop().into(v.findViewById(R.id.imgEpisodeThumb))
                 v.setOnClickListener { onEpisodeClick(e) }
-
-                v.setOnFocusChangeListener { view, hasFocus ->
-                    if (hasFocus) {
-                        tvTitleEp.setTextColor(android.graphics.Color.YELLOW)
-                        view.setBackgroundResource(R.drawable.bg_focus_neon)
-                        view.animate().scaleX(1.15f).scaleY(1.15f).setDuration(200).start()
-                        view.elevation = 20f
-                    } else {
-                        tvTitleEp.setTextColor(android.graphics.Color.WHITE)
-                        view.setBackgroundResource(0)
-                        view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start()
-                        view.elevation = 4f
-                    }
-                }
             }
         }
     }

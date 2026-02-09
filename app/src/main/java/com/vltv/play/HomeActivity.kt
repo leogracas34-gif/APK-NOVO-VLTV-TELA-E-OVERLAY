@@ -343,7 +343,6 @@ class HomeActivity : AppCompatActivity() {
             Glide.with(this@HomeActivity)
                 .load(fallback) // Carrega do stream_icon ou cover
                 .centerCrop()
-                .placeholder(R.drawable.bg_gradient_black)
                 .format(DecodeFormat.PREFER_RGB_565) // Formato mais rápido
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .into(targetImg)
@@ -387,18 +386,29 @@ class HomeActivity : AppCompatActivity() {
     private fun buscarLogoOverlayHome(tmdbId: String, tipo: String, internalId: Int, isSeries: Boolean, targetLogo: ImageView, targetTitle: TextView) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // ✅ CORREÇÃO: Pede APENAS Português na URL.
-                val imagesUrl = "https://api.themoviedb.org/3/$tipo/$tmdbId/images?api_key=$TMDB_API_KEY&include_image_language=pt"
+                // ✅ CORREÇÃO: Busca ampliada para Português, Inglês e Nulo (Garante que a logo apareça)
+                val imagesUrl = "https://api.themoviedb.org/3/$tipo/$tmdbId/images?api_key=$TMDB_API_KEY&include_image_language=pt,en,null"
                 
                 val imagesJson = URL(imagesUrl).readText()
                 val imagesObj = JSONObject(imagesJson)
 
-                // ✅ CORREÇÃO: Só entra se tiver logos (e como filtramos, se tiver, é PT).
                 if (imagesObj.has("logos") && imagesObj.getJSONArray("logos").length() > 0) {
                     val logos = imagesObj.getJSONArray("logos")
                     
-                    // Pega direto a primeira (Garantido ser PT)
-                    val logoPath = logos.getJSONObject(0).getString("file_path")
+                    // Procura preferencialmente uma logo em PT, se não achar, pega a primeira disponível (geralmente original/EN)
+                    var logoPath: String? = null
+                    for (i in 0 until logos.length()) {
+                        val logo = logos.getJSONObject(i)
+                        if (logo.optString("iso_639_1") == "pt") {
+                            logoPath = logo.getString("file_path")
+                            break
+                        }
+                    }
+                    
+                    if (logoPath == null) {
+                        logoPath = logos.getJSONObject(0).getString("file_path")
+                    }
+
                     val fullLogoUrl = "https://image.tmdb.org/t/p/w500$logoPath"
 
                     // Salva no banco (Lógica mantida)
@@ -723,14 +733,7 @@ class HomeActivity : AppCompatActivity() {
                     val randomIndex = Random.nextInt(results.length())
                     val item = results.getJSONObject(randomIndex)
 
-                    val tituloOriginal = if (item.has("title")) item.getString("title")
-                    else if (item.has("name")) item.getString("name")
-                    else "Destaque"
-
-                    val overview = if (item.has("overview")) item.getString("overview") else ""
                     val backdropPath = item.getString("backdrop_path")
-                    val prefixo = if (tipoAtual == "movie") "Filme em Alta: " else "Série em Alta: "
-                    val tmdbId = item.getString("id")
 
                     if (backdropPath != "null" && backdropPath.isNotBlank()) {
                         val imageUrl = "https://image.tmdb.org/t/p/original$backdropPath"

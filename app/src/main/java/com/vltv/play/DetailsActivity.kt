@@ -260,7 +260,13 @@ class DetailsActivity : AppCompatActivity() {
             if (serverYoutubeTrailer != null) {
                 val extrasList = listOf(EpisodeData(0, 0, 1, "Trailer Oficial", "https://img.youtube.com/vi/$serverYoutubeTrailer/0.jpg", serverYoutubeTrailer))
                 episodesAdapter.submitList(extrasList)
-                recyclerEpisodes.visibility = View.VISIBLE
+                
+                // ✅ CORREÇÃO CRÍTICA: SÓ MOSTRA SE A ABA FOR EXTRAS (POSIÇÃO 1)
+                if (tabLayoutDetails.selectedTabPosition == 1) {
+                    recyclerEpisodes.visibility = View.VISIBLE
+                } else {
+                    recyclerEpisodes.visibility = View.GONE
+                }
             }
         }
         verificarResume()
@@ -453,7 +459,13 @@ class DetailsActivity : AppCompatActivity() {
                         if (!isSeries && serverYoutubeTrailer == null && extrasList.isNotEmpty()) {
                             episodes = extrasList
                             episodesAdapter.submitList(extrasList)
-                            recyclerEpisodes.visibility = View.VISIBLE
+                            
+                            // ✅ CORREÇÃO CRÍTICA: Só mostra se a aba for EXTRAS (Pos 1)
+                            if (tabLayoutDetails.selectedTabPosition == 1) {
+                                recyclerEpisodes.visibility = View.VISIBLE
+                            } else {
+                                recyclerEpisodes.visibility = View.GONE
+                            }
                         }
 
                         getSharedPreferences("vltv_text_cache", Context.MODE_PRIVATE).edit()
@@ -530,11 +542,14 @@ class DetailsActivity : AppCompatActivity() {
         btnDownloadAction?.setOnClickListener { handleDownloadClick() }
         btnTrailerAction?.setOnClickListener { 
             // Se tiver trailer (server ou tmdb), o clique no item da lista abre.
-            // Aqui podemos forçar abrir o primeiro da lista se quiser, mas o padrão é o toast.
             if (serverYoutubeTrailer != null) {
                 val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("vnd.youtube:$serverYoutubeTrailer"))
                 startActivity(intent)
             } else {
+                // Se não, avisa para ver a aba Extras
+                if (tabLayoutDetails.selectedTabPosition != 1) {
+                    tabLayoutDetails.getTabAt(1)?.select()
+                }
                 Toast.makeText(this, "Trailer disponível na aba Extras", Toast.LENGTH_SHORT).show()
             }
         }
@@ -687,7 +702,7 @@ class DetailsActivity : AppCompatActivity() {
             DownloadState.BAIXANDO -> { 
                 imgDownloadState.visibility = View.GONE // Esconde seta
                 pbDownloadCircular?.visibility = View.VISIBLE // Mostra bolinha girando
-                tvDownloadState.text = "0%" // Começa do 0 (pode conectar num listener real depois)
+                tvDownloadState.text = "BAIXANDO 0%" // Texto Disney Style
             }
             DownloadState.BAIXADO -> { 
                 imgDownloadState.visibility = View.VISIBLE

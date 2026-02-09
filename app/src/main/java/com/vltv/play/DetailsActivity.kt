@@ -71,7 +71,7 @@ class DetailsActivity : AppCompatActivity() {
     private lateinit var btnPlay: Button
     private lateinit var btnResume: Button
     private lateinit var btnFavorite: ImageButton
-    private lateinit var btnDownloadArea: LinearLayout
+    private var btnDownloadArea: LinearLayout? = null // Alterado para opcional
     private lateinit var imgDownloadState: ImageView
     private lateinit var tvDownloadState: TextView
     private lateinit var imgBackground: ImageView
@@ -81,6 +81,11 @@ class DetailsActivity : AppCompatActivity() {
     private var btnSettings: Button? = null
     private lateinit var episodesAdapter: EpisodesAdapter
     
+    // ✅ NOVOS IDS PARA CELULAR
+    private var btnDownloadAction: LinearLayout? = null
+    private var btnFavoriteLayout: LinearLayout? = null
+    private var btnTrailerAction: LinearLayout? = null
+
     // Estados do Download
     private enum class DownloadState { BAIXAR, BAIXANDO, BAIXADO }
     private var downloadState: DownloadState = DownloadState.BAIXAR
@@ -148,9 +153,17 @@ class DetailsActivity : AppCompatActivity() {
         recyclerEpisodes = findViewById(R.id.recyclerEpisodes)
         tvYear = findViewById(R.id.tvYear)
         btnSettings = findViewById(R.id.btnSettings)
+
+        // ✅ INICIALIZA OS NOVOS LAYOUTS DE CLIQUE DO CELULAR
+        btnDownloadAction = findViewById(R.id.btnDownloadAction)
+        btnFavoriteLayout = findViewById(R.id.btnFavoriteLayout)
+        btnTrailerAction = findViewById(R.id.btnTrailerAction)
         
         // Na TV, geralmente não baixamos, mas se quiser pode manter
-        if (isTelevisionDevice()) btnDownloadArea.visibility = View.GONE
+        if (isTelevisionDevice()) {
+            btnDownloadArea?.visibility = View.GONE
+            btnDownloadAction?.visibility = View.GONE
+        }
         
         btnPlay.isFocusable = true
         btnResume.isFocusable = true
@@ -351,9 +364,23 @@ class DetailsActivity : AppCompatActivity() {
         btnFavorite.onFocusChangeListener = focusListener
 
         btnFavorite.setOnClickListener { toggleFavorite() }
+        
+        // ✅ NOVO: CLIQUE NO LAYOUT DE FAVORITOS (CELULAR)
+        btnFavoriteLayout?.setOnClickListener { toggleFavorite() }
+
         btnPlay.setOnClickListener { abrirPlayer(false) }
         btnResume.setOnClickListener { abrirPlayer(true) }
-        btnDownloadArea.setOnClickListener { handleDownloadClick() }
+        
+        btnDownloadArea?.setOnClickListener { handleDownloadClick() }
+        
+        // ✅ NOVO: CLIQUE NO BOTÃO DE DOWNLOAD (CELULAR)
+        btnDownloadAction?.setOnClickListener { handleDownloadClick() }
+
+        // ✅ NOVO: CLIQUE NO TRAILER
+        btnTrailerAction?.setOnClickListener { 
+            Toast.makeText(this, "Trailer não disponível no momento", Toast.LENGTH_SHORT).show()
+        }
+
         btnSettings?.setOnClickListener { mostrarConfiguracoes() }
     }
 
@@ -372,6 +399,7 @@ class DetailsActivity : AppCompatActivity() {
     private fun atualizarIconeFavorito(isFavorite: Boolean) {
         if (isFavorite) {
             btnFavorite.setImageResource(android.R.drawable.btn_star_big_on)
+            // Se for celular, pode trocar o ícone do ImageButton para ic_details_add preenchido se quiser
             btnFavorite.setColorFilter(android.graphics.Color.parseColor("#FFD700"))
         } else {
             btnFavorite.setImageResource(android.R.drawable.btn_star_big_off)
@@ -459,13 +487,13 @@ class DetailsActivity : AppCompatActivity() {
     private fun atualizarUI_download() {
         when (downloadState) {
             DownloadState.BAIXAR -> {
-                imgDownloadState.setImageResource(android.R.drawable.stat_sys_download); tvDownloadState.text = "Baixar"
+                imgDownloadState.setImageResource(android.R.drawable.stat_sys_download); tvDownloadState.text = "BAIXAR"
             }
             DownloadState.BAIXANDO -> {
-                imgDownloadState.setImageResource(android.R.drawable.ic_media_play); tvDownloadState.text = "Baixando..."
+                imgDownloadState.setImageResource(android.R.drawable.ic_media_play); tvDownloadState.text = "BAIXANDO..."
             }
             DownloadState.BAIXADO -> {
-                imgDownloadState.setImageResource(android.R.drawable.stat_sys_download_done); tvDownloadState.text = "Baixado"
+                imgDownloadState.setImageResource(android.R.drawable.stat_sys_download_done); tvDownloadState.text = "BAIXADO"
             }
         }
     }

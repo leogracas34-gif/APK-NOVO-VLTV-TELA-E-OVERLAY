@@ -567,16 +567,17 @@ class HomeActivity : AppCompatActivity() {
         }
     }
     
+    // ✅ CORREÇÃO AQUI: Adicionado o operador seguro (?.)
     private fun atualizarNotificacaoDownload() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val count = prefs.getInt("active_downloads_count", 0)
         if (count > 0) {
-            binding.bottomNavigation.getOrCreateBadge(R.id.nav_downloads).apply {
+            binding.bottomNavigation?.getOrCreateBadge(R.id.nav_downloads)?.apply {
                 isVisible = true
                 number = count
             }
         } else {
-            binding.bottomNavigation.removeBadge(R.id.nav_downloads)
+            binding.bottomNavigation?.removeBadge(R.id.nav_downloads)
         }
     }
 

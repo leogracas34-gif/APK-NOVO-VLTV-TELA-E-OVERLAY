@@ -3,7 +3,9 @@ package com.vltv.play
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.res.ColorStateList
 import android.content.res.Configuration
+import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -104,6 +106,9 @@ class DetailsActivity : AppCompatActivity() {
     private var tvDetailGenre: TextView? = null
     private var tvDetailDirector: TextView? = null
 
+    // ✅ PROGRESS BAR PROGRAMÁTICA (Estilo Disney)
+    private var pbDownloadCircular: ProgressBar? = null
+
     // Estados do Download
     private enum class DownloadState { BAIXAR, BAIXANDO, BAIXADO }
     private var downloadState: DownloadState = DownloadState.BAIXAR
@@ -195,6 +200,20 @@ class DetailsActivity : AppCompatActivity() {
             tvDetailGenre = findViewById(R.id.tvDetailGenre)
             tvDetailDirector = findViewById(R.id.tvDetailDirector)
             
+            // ✅ CRIAÇÃO PROGRAMÁTICA DO PROGRESS BAR (Disney Style)
+            // Como não podemos mexer no XML, injetamos o loader direto no layout do botão
+            if (btnDownloadAction != null) {
+                pbDownloadCircular = ProgressBar(this)
+                val params = LinearLayout.LayoutParams(24.toPx(), 24.toPx()) // Tamanho do ícone
+                params.setMargins(0,0,0,5)
+                pbDownloadCircular?.layoutParams = params
+                pbDownloadCircular?.indeterminateTintList = ColorStateList.valueOf(Color.WHITE)
+                pbDownloadCircular?.visibility = View.GONE
+                
+                // Adiciona no topo do layout (substituindo visualmente o ícone quando ativo)
+                btnDownloadAction?.addView(pbDownloadCircular, 0)
+            }
+
             if (isTelevisionDevice()) {
                 btnDownloadArea?.visibility = View.GONE
                 btnDownloadAction?.visibility = View.GONE
@@ -207,6 +226,8 @@ class DetailsActivity : AppCompatActivity() {
             throw e
         }
     }
+
+    private fun Int.toPx(): Int = (this * resources.displayMetrics.density).toInt()
 
     private fun carregarConteudo() {
         tvRating.text = "⭐ $rating"
@@ -221,7 +242,6 @@ class DetailsActivity : AppCompatActivity() {
         
         if (isSeries) carregarEpisodios() else {
             tvEpisodesTitle.visibility = View.GONE
-            // recyclerEpisodes será usado para Extras se não for série
         }
         verificarResume()
         restaurarEstadoDownload()
@@ -336,12 +356,10 @@ class DetailsActivity : AppCompatActivity() {
                 try {
                     val d = JSONObject(body)
                     
-                    // GÊNEROS
                     val gs = d.optJSONArray("genres")
                     val genresList = mutableListOf<String>()
                     if (gs != null) for (i in 0 until gs.length()) genresList.add(gs.getJSONObject(i).getString("name"))
                     
-                    // ELENCO
                     val castArray = d.optJSONObject("credits")?.optJSONArray("cast")
                     val castNamesList = mutableListOf<String>()
                     if (castArray != null) {
@@ -349,11 +367,9 @@ class DetailsActivity : AppCompatActivity() {
                         for (i in 0 until limit) castNamesList.add(castArray.getJSONObject(i).getString("name"))
                     }
 
-                    // DURAÇÃO
                     val runtime = d.optInt("runtime", 0)
                     val durText = if (runtime > 0) "${runtime / 60}h ${runtime % 60}min" else "N/A"
 
-                    // DIREÇÃO
                     val crew = d.optJSONObject("credits")?.optJSONArray("crew")
                     var directorName = "Desconhecido"
                     if (crew != null) {
@@ -365,14 +381,12 @@ class DetailsActivity : AppCompatActivity() {
                         }
                     }
 
-                    // ✅ SUGESTÕES (Disney Style)
                     val similarArr = d.optJSONObject("recommendations")?.optJSONArray("results")
                     val suggestions = mutableListOf<JSONObject>()
                     if (similarArr != null) {
                         for (i in 0 until similarArr.length()) suggestions.add(similarArr.getJSONObject(i))
                     }
 
-                    // ✅ EXTRAS (Disney Style)
                     val videosArr = d.optJSONObject("videos")?.optJSONArray("results")
                     val extrasList = mutableListOf<EpisodeData>()
                     if (videosArr != null) {
@@ -393,7 +407,6 @@ class DetailsActivity : AppCompatActivity() {
                         tvDetailDirector?.text = directorName
                         findViewById<TextView>(R.id.tvCast)?.text = e
                         
-                        // Configura as sugestões e extras
                         recyclerSuggestions.adapter = SuggestionsAdapter(suggestions)
                         if (!isSeries) {
                             episodes = extrasList
@@ -412,7 +425,6 @@ class DetailsActivity : AppCompatActivity() {
     private fun setupEpisodesRecycler() {
         episodesAdapter = EpisodesAdapter { episode ->
             if (episode.videoKey != null) {
-                // Abre trailer do YouTube ou player externo para extras
                 val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("vnd.youtube:${episode.videoKey}"))
                 startActivity(intent)
             } else {
@@ -433,7 +445,6 @@ class DetailsActivity : AppCompatActivity() {
     }
 
     private fun carregarEpisodios() {
-        // Mock inicial ou carregamento via Xtream
         episodes = listOf(EpisodeData(101, 1, 1, "Episódio 1", icon ?: ""))
         episodesAdapter.submitList(episodes)
         tvEpisodesTitle.visibility = View.VISIBLE
@@ -480,17 +491,17 @@ class DetailsActivity : AppCompatActivity() {
         tabLayoutDetails.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
                 when (tab?.position) {
-                    0 -> { // SUGESTÕES
+                    0 -> { 
                         recyclerSuggestions.visibility = View.VISIBLE
                         recyclerEpisodes.visibility = View.GONE
                         layoutTabDetails?.visibility = View.GONE
                     }
-                    1 -> { // EXTRAS
+                    1 -> { 
                         recyclerSuggestions.visibility = View.GONE
                         recyclerEpisodes.visibility = View.VISIBLE
                         layoutTabDetails?.visibility = View.GONE
                     }
-                    2 -> { // DETALHES
+                    2 -> { 
                         recyclerSuggestions.visibility = View.GONE
                         recyclerEpisodes.visibility = View.GONE
                         layoutTabDetails?.visibility = View.VISIBLE
@@ -526,15 +537,12 @@ class DetailsActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ LÓGICA DE FAVORITO INSTANTÂNEO (TV STYLE)
     private fun toggleFavorite() {
         val favs = getFavMovies(this)
         val isFav = favs.contains(streamId)
         
-        // 1. Muda na tela IMEDIATAMENTE (Visual Instantâneo)
         atualizarIconeFavorito(!isFav)
 
-        // 2. Processa os dados em background (Sem travar ou demorar)
         if (isFav) favs.remove(streamId) else favs.add(streamId)
         saveFavMovies(this, favs)
     }
@@ -600,16 +608,35 @@ class DetailsActivity : AppCompatActivity() {
     private fun iniciarDownload() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val url = "${prefs.getString("dns", "")}/movie/${prefs.getString("username", "")}/${prefs.getString("password", "")}/$streamId.mp4"
+        
+        // Dispara o download real
         DownloadHelper.iniciarDownload(this, url, streamId, name, null, icon, false)
+        
+        // Força a mudança visual IMEDIATAMENTE (Efeito Disney)
         downloadState = DownloadState.BAIXANDO
         atualizarUI_download()
     }
 
+    // ✅ ATUALIZAÇÃO UI DISNEY: Troca Ícone pela Barra de Progresso
     private fun atualizarUI_download() {
         when (downloadState) {
-            DownloadState.BAIXAR -> { imgDownloadState.setImageResource(android.R.drawable.stat_sys_download); tvDownloadState.text = "BAIXAR" }
-            DownloadState.BAIXANDO -> { imgDownloadState.setImageResource(android.R.drawable.ic_media_play); tvDownloadState.text = "BAIXANDO..." }
-            DownloadState.BAIXADO -> { imgDownloadState.setImageResource(android.R.drawable.stat_sys_download_done); tvDownloadState.text = "BAIXADO" }
+            DownloadState.BAIXAR -> { 
+                imgDownloadState.visibility = View.VISIBLE
+                pbDownloadCircular?.visibility = View.GONE // Esconde bolinha
+                imgDownloadState.setImageResource(android.R.drawable.stat_sys_download)
+                tvDownloadState.text = "BAIXAR"
+            }
+            DownloadState.BAIXANDO -> { 
+                imgDownloadState.visibility = View.GONE // Esconde seta
+                pbDownloadCircular?.visibility = View.VISIBLE // Mostra bolinha girando
+                tvDownloadState.text = "0%" // Começa do 0 (pode conectar num listener real depois)
+            }
+            DownloadState.BAIXADO -> { 
+                imgDownloadState.visibility = View.VISIBLE
+                pbDownloadCircular?.visibility = View.GONE
+                imgDownloadState.setImageResource(android.R.drawable.stat_sys_download_done)
+                tvDownloadState.text = "BAIXADO"
+            }
         }
     }
 
@@ -647,7 +674,6 @@ class DetailsActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ ADAPTER PARA SUGESTÕES (Disney Style)
     inner class SuggestionsAdapter(val items: List<JSONObject>) : RecyclerView.Adapter<SuggestionsAdapter.ViewHolder>() {
         inner class ViewHolder(v: View) : RecyclerView.ViewHolder(v) {
             val img: ImageView = v.findViewById(android.R.id.icon)

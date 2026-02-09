@@ -177,10 +177,12 @@ class HomeActivity : AppCompatActivity() {
         // Mantém 3 páginas na memória para não recarregar
         binding.bannerViewPager?.offscreenPageLimit = 3
         
-        // 🔥 REMOVIDO O EFEITO DE ZOOM QUE CAUSAVA DISTORÇÃO
-        // Apenas margem lateral simples para separar os itens
         val compositePageTransformer = CompositePageTransformer()
-        compositePageTransformer.addTransformer(MarginPageTransformer(20)) 
+        // Margem de 20dp entre os itens (Elegante mas simples)
+        compositePageTransformer.addTransformer(MarginPageTransformer(20))
+        
+        // 🔥 REMOVIDO: O efeito de escala (Zoom) foi retirado para evitar distorção
+        // Apenas a margem é mantida para separar os banners
         
         binding.bannerViewPager?.setPageTransformer(compositePageTransformer)
 
@@ -371,7 +373,7 @@ class HomeActivity : AppCompatActivity() {
                                     .load("https://image.tmdb.org/t/p/original$backdropPath")
                                     .centerCrop()
                                     .dontAnimate() // 🚫 REMOVE ANIMAÇÃO PARA FICAR ESTATICO/SOLIDO
-                                    .placeholder(android.R.color.transparent) // Sem placeholder visual para não pular
+                                    .placeholder(targetImg.drawable) // Usa a imagem atual para não piscar
                                     .into(targetImg)
                             }
                         } catch (e: Exception) {}
@@ -388,8 +390,9 @@ class HomeActivity : AppCompatActivity() {
     private fun buscarLogoOverlayHome(tmdbId: String, tipo: String, internalId: Int, isSeries: Boolean, targetLogo: ImageView, targetTitle: TextView) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // ✅ CORREÇÃO: Busca PT, EN ou NULL (Prioridade PT)
-                val imagesUrl = "https://api.themoviedb.org/3/$tipo/$tmdbId/images?api_key=$TMDB_API_KEY&include_image_language=pt,en,null"
+                // ✅ CORREÇÃO: Busca APENAS PT e NULL (Garante que a logo apareça em PT ou Símbolo)
+                // Se não achar esses, vai ignorar as outras linguas estranhas.
+                val imagesUrl = "https://api.themoviedb.org/3/$tipo/$tmdbId/images?api_key=$TMDB_API_KEY&include_image_language=pt,null"
                 
                 val imagesJson = URL(imagesUrl).readText()
                 val imagesObj = JSONObject(imagesJson)
@@ -399,7 +402,7 @@ class HomeActivity : AppCompatActivity() {
                     
                     var bestPath: String? = null
                     
-                    // 1. Tenta achar PT
+                    // 1. Tenta achar PT (Prioridade Máxima)
                     for (i in 0 until logos.length()) {
                         val logo = logos.getJSONObject(i)
                         if (logo.optString("iso_639_1") == "pt") {
@@ -408,20 +411,21 @@ class HomeActivity : AppCompatActivity() {
                         }
                     }
                     
-                    // 2. Se não achou PT, tenta NULL (Símbolo/Sem Idioma) ou EN
+                    // 2. Se não achou PT, tenta NULL (Símbolo/Sem Idioma)
                     if (bestPath == null) {
                         for (i in 0 until logos.length()) {
                             val logo = logos.getJSONObject(i)
                             val lang = logo.optString("iso_639_1")
-                            // Aceita apenas 'en' (ingles), 'null' (sem idioma) ou 'xx' (indefinido)
-                            if (lang == "en" || lang == "null" || lang == "xx") {
+                            // Aceita apenas 'null' (sem idioma) ou 'xx' (indefinido)
+                            if (lang == "null" || lang == "xx") {
                                 bestPath = logo.getString("file_path")
                                 break
                             }
                         }
                     }
 
-                    // Se achou alguma logo válida
+                    // Se achou alguma logo válida (PT ou NULL)
+                    // Se só tiver Japonês/Coreano, bestPath será null e manteremos o TEXTO.
                     if (bestPath != null) {
                         val fullLogoUrl = "https://image.tmdb.org/t/p/w500$bestPath"
 

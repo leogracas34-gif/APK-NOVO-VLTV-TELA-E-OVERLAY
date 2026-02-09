@@ -170,7 +170,7 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ CONFIGURAÇÃO DO CARROSSEL (Visual Disney 3D + Profundidade + Loop Infinito)
+    // ✅ CONFIGURAÇÃO DO CARROSSEL ESTABILIZADO (SEM DISTORÇÃO)
     private fun setupViewPagerBanner() {
         bannerAdapter = BannerAdapter(emptyList())
         binding.bannerViewPager?.adapter = bannerAdapter
@@ -178,13 +178,9 @@ class HomeActivity : AppCompatActivity() {
         binding.bannerViewPager?.offscreenPageLimit = 3
         
         val compositePageTransformer = CompositePageTransformer()
-        // Margem de 40dp entre os itens
-        compositePageTransformer.addTransformer(MarginPageTransformer(40))
-        // Efeito de escala (Zoom no centro)
-        compositePageTransformer.addTransformer { page, position ->
-            val r = 1 - abs(position)
-            page.scaleY = 0.85f + r * 0.15f 
-        }
+        // Margem de 20dp entre os itens (Elegante mas simples)
+        compositePageTransformer.addTransformer(MarginPageTransformer(20))
+        // REMOVIDO: O efeito de escala (Zoom) que causava a distorção inicial
         binding.bannerViewPager?.setPageTransformer(compositePageTransformer)
 
         binding.bannerViewPager?.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
@@ -335,15 +331,16 @@ class HomeActivity : AppCompatActivity() {
                    .take(50)
     }
 
-    // ✅ LÓGICA HÍBRIDA: DATABASE PRIMEIRO (INSTANTÂNEO), DEPOIS TMDB
+    // ✅ LÓGICA HÍBRIDA: ESTABILIZADA PARA NÃO DISTORCER
     private fun buscarImagemBackgroundTMDB(nome: String, isSeries: Boolean, fallback: String, internalId: Int, targetImg: ImageView, targetLogo: ImageView, targetTitle: TextView) {
         
         // 🚀 1. CARREGAMENTO INSTANTÂNEO (Igual ao VodActivity/SeriesActivity)
         try {
             Glide.with(this@HomeActivity)
-                .load(fallback) // Carrega do stream_icon ou cover
-                .centerCrop()
-                .format(DecodeFormat.PREFER_RGB_565) // Formato mais rápido
+                .load(fallback)
+                .centerCrop() // Força o recorte correto
+                .dontAnimate() // 🚫 REMOVE ANIMAÇÃO QUE CAUSA PULO/DISTORÇÃO
+                .format(DecodeFormat.PREFER_RGB_565) 
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .into(targetImg)
         } catch (e: Exception) {}
@@ -369,6 +366,7 @@ class HomeActivity : AppCompatActivity() {
                                 Glide.with(this@HomeActivity)
                                     .load("https://image.tmdb.org/t/p/original$backdropPath")
                                     .centerCrop()
+                                    .dontAnimate() // 🚫 REMOVE ANIMAÇÃO PARA FICAR ESTATICO/SOLIDO
                                     .placeholder(targetImg.drawable) // Usa a imagem atual para não piscar
                                     .into(targetImg)
                             }
@@ -386,8 +384,8 @@ class HomeActivity : AppCompatActivity() {
     private fun buscarLogoOverlayHome(tmdbId: String, tipo: String, internalId: Int, isSeries: Boolean, targetLogo: ImageView, targetTitle: TextView) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // ✅ CORREÇÃO: Busca ampliada para Português, Inglês e Nulo (Garante que a logo apareça)
-                val imagesUrl = "https://api.themoviedb.org/3/$tipo/$tmdbId/images?api_key=$TMDB_API_KEY&include_image_language=pt,en,null"
+                // ✅ CORREÇÃO: Busca APENAS PT e NULL (Remove Inglês)
+                val imagesUrl = "https://api.themoviedb.org/3/$tipo/$tmdbId/images?api_key=$TMDB_API_KEY&include_image_language=pt,null"
                 
                 val imagesJson = URL(imagesUrl).readText()
                 val imagesObj = JSONObject(imagesJson)
@@ -395,41 +393,54 @@ class HomeActivity : AppCompatActivity() {
                 if (imagesObj.has("logos") && imagesObj.getJSONArray("logos").length() > 0) {
                     val logos = imagesObj.getJSONArray("logos")
                     
-                    // Procura preferencialmente uma logo em PT, se não achar, pega a primeira disponível (geralmente original/EN)
-                    var logoPath: String? = null
+                    var bestPath: String? = null
+                    
+                    // 1. Tenta achar PT
                     for (i in 0 until logos.length()) {
                         val logo = logos.getJSONObject(i)
                         if (logo.optString("iso_639_1") == "pt") {
-                            logoPath = logo.getString("file_path")
+                            bestPath = logo.getString("file_path")
                             break
                         }
                     }
                     
-                    if (logoPath == null) {
-                        logoPath = logos.getJSONObject(0).getString("file_path")
+                    // 2. Se não achou PT, tenta NULL (Símbolo/Sem Idioma)
+                    if (bestPath == null) {
+                        for (i in 0 until logos.length()) {
+                            val logo = logos.getJSONObject(i)
+                            val lang = logo.optString("iso_639_1")
+                            // Aceita apenas 'null' (sem idioma) ou 'xx' (indefinido)
+                            if (lang == "null" || lang == "xx") {
+                                bestPath = logo.getString("file_path")
+                                break
+                            }
+                        }
                     }
 
-                    val fullLogoUrl = "https://image.tmdb.org/t/p/w500$logoPath"
+                    // Se achou alguma logo válida (PT ou NULL)
+                    if (bestPath != null) {
+                        val fullLogoUrl = "https://image.tmdb.org/t/p/w500$bestPath"
 
-                    // Salva no banco (Lógica mantida)
-                    try {
-                        if (isSeries) {
-                            database.streamDao().updateSeriesLogo(internalId, fullLogoUrl)
-                        } else {
-                            database.streamDao().updateVodLogo(internalId, fullLogoUrl)
-                        }
-                    } catch(e: Exception) {}
-
-                    // Mostra na tela (Lógica mantida)
-                    withContext(Dispatchers.Main) {
-                        targetTitle.visibility = View.GONE
-                        targetLogo.visibility = View.VISIBLE
+                        // Salva no banco (Lógica mantida)
                         try {
-                            Glide.with(this@HomeActivity)
-                                .load(fullLogoUrl)
-                                .diskCacheStrategy(DiskCacheStrategy.ALL)
-                                .into(targetLogo)
-                        } catch (e: Exception) {}
+                            if (isSeries) {
+                                database.streamDao().updateSeriesLogo(internalId, fullLogoUrl)
+                            } else {
+                                database.streamDao().updateVodLogo(internalId, fullLogoUrl)
+                            }
+                        } catch(e: Exception) {}
+
+                        // Mostra na tela (Lógica mantida)
+                        withContext(Dispatchers.Main) {
+                            targetTitle.visibility = View.GONE
+                            targetLogo.visibility = View.VISIBLE
+                            try {
+                                Glide.with(this@HomeActivity)
+                                    .load(fullLogoUrl)
+                                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+                                    .into(targetLogo)
+                            } catch (e: Exception) {}
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -438,7 +449,7 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ SINCRONIZAÇÃO OTIMIZADA: Salva em Lotes (Chunking) para evitar tela preta
+    // ✅ SINCRONIZAÇÃO OTIMIZADA: Com DELAY inicial para não travar a abertura
     private fun sincronizarConteudoSilenciosamente() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val dns = prefs.getString("dns", "") ?: ""
@@ -448,6 +459,9 @@ class HomeActivity : AppCompatActivity() {
         if (dns.isEmpty() || user.isEmpty()) return
 
         lifecycleScope.launch(Dispatchers.IO) {
+            // ✅ CORREÇÃO: Espera 4 segundos para o app abrir liso antes de baixar coisas
+            delay(4000)
+            
             try {
                 // --- 1. FILMES (Salva a cada 50) ---
                 val vodUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_vod_streams"
@@ -733,7 +747,14 @@ class HomeActivity : AppCompatActivity() {
                     val randomIndex = Random.nextInt(results.length())
                     val item = results.getJSONObject(randomIndex)
 
+                    val tituloOriginal = if (item.has("title")) item.getString("title")
+                    else if (item.has("name")) item.getString("name")
+                    else "Destaque"
+
+                    val overview = if (item.has("overview")) item.getString("overview") else ""
                     val backdropPath = item.getString("backdrop_path")
+                    val prefixo = if (tipoAtual == "movie") "Filme em Alta: " else "Série em Alta: "
+                    val tmdbId = item.getString("id")
 
                     if (backdropPath != "null" && backdropPath.isNotBlank()) {
                         val imageUrl = "https://image.tmdb.org/t/p/original$backdropPath"
@@ -742,6 +763,7 @@ class HomeActivity : AppCompatActivity() {
                                 Glide.with(this@HomeActivity)
                                     .load(imageUrl)
                                     .centerCrop()
+                                    .dontAnimate()
                                     .into(binding.root.findViewById<ImageView>(R.id.imgBanner) ?: return@withContext)
                             } catch (e: Exception) {}
                         }

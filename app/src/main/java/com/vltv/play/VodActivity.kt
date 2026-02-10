@@ -27,6 +27,7 @@ import com.bumptech.glide.Priority
 import com.bumptech.glide.load.DecodeFormat
 import com.vltv.play.data.AppDatabase
 import com.vltv.play.data.VodEntity
+import com.google.android.material.bottomnavigation.BottomNavigationView // ✅ Importação para o Menu
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -52,6 +53,7 @@ class VodActivity : AppCompatActivity() {
     private var moviesAdapter: VodAdapter? = null
     
     private var currentProfile: String = "Padrao"
+    private var bottomNavigation: BottomNavigationView? = null // ✅ Menu
 
     private val database by lazy { AppDatabase.getDatabase(this) }
 
@@ -66,15 +68,24 @@ class VodActivity : AppCompatActivity() {
 
         currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
 
+        // ✅ CORREÇÃO: Libera barra de navegação no celular
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
+        
+        if (isTelevision(this)) {
+            windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
+        } else {
+            windowInsetsController?.show(WindowInsetsCompat.Type.systemBars())
+        }
 
         rvCategories = findViewById(R.id.rvCategories)
         rvMovies = findViewById(R.id.rvChannels)
         progressBar = findViewById(R.id.progressBar)
         tvCategoryTitle = findViewById(R.id.tvCategoryTitle)
+        bottomNavigation = findViewById(R.id.bottomNavigation) // ✅ Vincula o Menu
         gridCachePrefs = getSharedPreferences("vltv_grid_cache", Context.MODE_PRIVATE)
+
+        setupBottomNavigation() // ✅ Configura cliques do Menu
 
         val searchInput = findViewById<View>(R.id.etSearchContent)
         searchInput?.isFocusableInTouchMode = false
@@ -91,13 +102,13 @@ class VodActivity : AppCompatActivity() {
 
         setupRecyclerFocus()
 
-        // ✅ LÓGICA CONDICIONAL DE SCROLL (MANTÉM TV VERTICAL E CELULAR HORIZONTAL)
         if (isTelevision(this)) {
             rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
             rvMovies.layoutManager = GridLayoutManager(this, 5)
+            bottomNavigation?.visibility = View.GONE // Esconde menu na TV
         } else {
             rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.HORIZONTAL, false)
-            rvMovies.layoutManager = GridLayoutManager(this, 3) // 3 colunas para o celular não espremer
+            rvMovies.layoutManager = GridLayoutManager(this, 3) 
         }
 
         rvCategories.setHasFixedSize(true)
@@ -113,6 +124,54 @@ class VodActivity : AppCompatActivity() {
 
         rvCategories.requestFocus()
         carregarCategorias()
+    }
+    
+    // ✅ Lógica do Menu Rodapé
+    private fun setupBottomNavigation() {
+        bottomNavigation?.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.nav_home -> {
+                    finish() // Volta para a Home
+                    true
+                }
+                R.id.nav_search -> {
+                    startActivity(Intent(this, SearchActivity::class.java).apply {
+                        putExtra("PROFILE_NAME", currentProfile)
+                    })
+                    true
+                }
+                R.id.nav_downloads -> {
+                    startActivity(Intent(this, DownloadsActivity::class.java))
+                    true
+                }
+                R.id.nav_profile -> {
+                    startActivity(Intent(this, SettingsActivity::class.java).apply {
+                        putExtra("PROFILE_NAME", currentProfile)
+                    })
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+    
+    // ✅ Atualiza notificação ao voltar para a tela
+    override fun onResume() {
+        super.onResume()
+        atualizarNotificacaoDownload()
+    }
+
+    private fun atualizarNotificacaoDownload() {
+        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+        val count = prefs.getInt("active_downloads_count", 0)
+        if (count > 0) {
+            bottomNavigation?.getOrCreateBadge(R.id.nav_downloads)?.apply {
+                isVisible = true
+                number = count
+            }
+        } else {
+            bottomNavigation?.removeBadge(R.id.nav_downloads)
+        }
     }
 
     private fun setupRecyclerFocus() {

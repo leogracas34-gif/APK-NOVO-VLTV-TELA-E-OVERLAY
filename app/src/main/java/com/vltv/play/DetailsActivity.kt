@@ -30,7 +30,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.google.android.material.tabs.TabLayout
-import com.google.android.material.bottomnavigation.BottomNavigationView // ✅ Importação para o Menu
+import com.google.android.material.bottomnavigation.BottomNavigationView
 import okhttp3.*
 import org.json.JSONObject
 import java.io.IOException
@@ -40,10 +40,7 @@ import java.util.concurrent.TimeUnit
 import com.vltv.play.CastMember
 import com.vltv.play.CastAdapter
 import com.vltv.play.data.AppDatabase
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.* // ✅ Importante para o monitoramento
 
 // ✅ MANTIDO: EpisodeData
 data class EpisodeData(
@@ -52,7 +49,7 @@ data class EpisodeData(
     val episode: Int,
     val title: String,
     val thumb: String,
-    val videoKey: String? = null // Adicionado para extras
+    val videoKey: String? = null
 )
 
 class DetailsActivity : AppCompatActivity() {
@@ -64,10 +61,7 @@ class DetailsActivity : AppCompatActivity() {
     private var episodes: List<EpisodeData> = emptyList()
     private var hasResumePosition: Boolean = false
     
-    // ✅ ID do YouTube vindo do seu servidor (Campo: youtube_trailer)
     private var serverYoutubeTrailer: String? = null
-    
-    // ✅ PERFIL ATUAL
     private var currentProfile: String = "Padrao"
 
     private lateinit var imgPoster: ImageView
@@ -90,7 +84,6 @@ class DetailsActivity : AppCompatActivity() {
     private var btnSettings: Button? = null
     private lateinit var episodesAdapter: EpisodesAdapter
     
-    // ✅ NOVOS IDS PARA CELULAR E VISUAL DISNEY+
     private var btnDownloadAction: LinearLayout? = null
     private var btnFavoriteLayout: LinearLayout? = null
     private var btnTrailerAction: LinearLayout? = null
@@ -101,10 +94,8 @@ class DetailsActivity : AppCompatActivity() {
     private lateinit var tabLayoutDetails: TabLayout
     private lateinit var recyclerSuggestions: RecyclerView
     
-    // ✅ MENU RODAPÉ (Variável adicionada)
     private var bottomNavigation: BottomNavigationView? = null
     
-    // ✅ IDS ESPECÍFICOS DA ABA DETALHES (RESUMÃO)
     private var layoutTabDetails: LinearLayout? = null
     private var tvDetailFullTitle: TextView? = null
     private var tvDetailFullPlot: TextView? = null
@@ -113,12 +104,13 @@ class DetailsActivity : AppCompatActivity() {
     private var tvDetailGenre: TextView? = null
     private var tvDetailDirector: TextView? = null
 
-    // ✅ PROGRESS BAR PROGRAMÁTICA (Estilo Disney)
     private var pbDownloadCircular: ProgressBar? = null
 
-    // Estados do Download
     private enum class DownloadState { BAIXAR, BAIXANDO, BAIXADO }
     private var downloadState: DownloadState = DownloadState.BAIXAR
+
+    // ✅ NOVO: Controle do Monitoramento em Tempo Real
+    private var uiMonitorJob: Job? = null
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
@@ -135,7 +127,7 @@ class DetailsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         try {
             setContentView(R.layout.activity_details)
-            configurarTelaTV() // ✅ Configurado para mostrar botões no celular
+            configurarTelaTV()
             
             currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
             streamId = intent.getIntExtra("stream_id", 0)
@@ -144,14 +136,13 @@ class DetailsActivity : AppCompatActivity() {
             rating = intent.getStringExtra("rating") ?: "0.0"
             isSeries = intent.getBooleanExtra("is_series", false)
             
-            // ✅ CAPTURA O ID DO YOUTUBE VINDO DO SERVIDOR (Se existir)
             serverYoutubeTrailer = intent.getStringExtra("youtube_trailer")
             if (serverYoutubeTrailer == "null" || serverYoutubeTrailer?.isEmpty() == true) {
                 serverYoutubeTrailer = null
             }
             
             inicializarViews()
-            setupBottomNavigation() // ✅ Inicializa o Menu
+            setupBottomNavigation()
             carregarConteudo()
             setupEventos()
             setupEpisodesRecycler()
@@ -168,7 +159,6 @@ class DetailsActivity : AppCompatActivity() {
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         
-        // ✅ CORREÇÃO: Mostra as barras (botões) no celular, esconde apenas na TV
         if (isTelevisionDevice()) {
             requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
             windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars()) 
@@ -209,10 +199,8 @@ class DetailsActivity : AppCompatActivity() {
             tabLayoutDetails = findViewById(R.id.tabLayoutDetails)
             recyclerSuggestions = findViewById(R.id.recyclerSuggestions)
             
-            // ✅ MENU RODAPÉ
             bottomNavigation = findViewById(R.id.bottomNavigation)
             
-            // ✅ IDS ESPECÍFICOS DA ABA DETALHES
             layoutTabDetails = findViewById(R.id.layoutTabDetails)
             tvDetailFullTitle = findViewById(R.id.tvDetailFullTitle)
             tvDetailFullPlot = findViewById(R.id.tvDetailFullPlot)
@@ -221,7 +209,6 @@ class DetailsActivity : AppCompatActivity() {
             tvDetailGenre = findViewById(R.id.tvDetailGenre)
             tvDetailDirector = findViewById(R.id.tvDetailDirector)
             
-            // ✅ CRIAÇÃO PROGRAMÁTICA DO PROGRESS BAR (Disney Style)
             if (btnDownloadAction != null) {
                 pbDownloadCircular = ProgressBar(this)
                 val params = LinearLayout.LayoutParams(24.toPx(), 24.toPx())
@@ -229,15 +216,13 @@ class DetailsActivity : AppCompatActivity() {
                 pbDownloadCircular?.layoutParams = params
                 pbDownloadCircular?.indeterminateTintList = ColorStateList.valueOf(Color.WHITE)
                 pbDownloadCircular?.visibility = View.GONE
-                
-                // Adiciona no topo do layout (substituindo visualmente o ícone quando ativo)
                 btnDownloadAction?.addView(pbDownloadCircular, 0)
             }
 
             if (isTelevisionDevice()) {
                 btnDownloadArea?.visibility = View.GONE
                 btnDownloadAction?.visibility = View.GONE
-                bottomNavigation?.visibility = View.GONE // Esconde menu na TV
+                bottomNavigation?.visibility = View.GONE
             }
             
             btnPlay.isFocusable = true
@@ -248,25 +233,17 @@ class DetailsActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ LÓGICA DO MENU RODAPÉ
     private fun setupBottomNavigation() {
         bottomNavigation?.setOnItemSelectedListener { item ->
             when (item.itemId) {
-                R.id.nav_home -> {
-                    // Volta para a Home (encerra detalhes)
-                    finish()
-                    true
-                }
+                R.id.nav_home -> { finish(); true }
                 R.id.nav_search -> {
                     startActivity(Intent(this, SearchActivity::class.java).apply {
                         putExtra("PROFILE_NAME", currentProfile)
                     })
                     true
                 }
-                R.id.nav_downloads -> {
-                    startActivity(Intent(this, DownloadsActivity::class.java))
-                    true
-                }
+                R.id.nav_downloads -> { startActivity(Intent(this, DownloadsActivity::class.java)); true }
                 R.id.nav_profile -> {
                     startActivity(Intent(this, SettingsActivity::class.java).apply {
                         putExtra("PROFILE_NAME", currentProfile)
@@ -295,13 +272,9 @@ class DetailsActivity : AppCompatActivity() {
             carregarEpisodios() 
         } else {
             tvEpisodesTitle.visibility = View.GONE
-            
-            // ✅ SE TIVER TRAILER DO SERVIDOR
             if (serverYoutubeTrailer != null) {
                 val extrasList = listOf(EpisodeData(0, 0, 1, "Trailer Oficial", "https://img.youtube.com/vi/$serverYoutubeTrailer/0.jpg", serverYoutubeTrailer))
                 episodesAdapter.submitList(extrasList)
-                
-                // Só mostra se a aba for EXTRAS
                 if (tabLayoutDetails.selectedTabPosition == 1) {
                     recyclerEpisodes.visibility = View.VISIBLE
                 } else {
@@ -311,6 +284,43 @@ class DetailsActivity : AppCompatActivity() {
         }
         verificarResume()
         restaurarEstadoDownload()
+    }
+
+    // ✅ FUNÇÃO NOVA: Monitora o download em tempo real (Corrige o 0% travado)
+    private fun iniciarMonitoramentoUI() {
+        if (uiMonitorJob?.isActive == true) return
+        
+        uiMonitorJob = CoroutineScope(Dispatchers.Main).launch {
+            val db = AppDatabase.getDatabase(applicationContext).streamDao()
+            val tipo = if (isSeries) "series" else "movie"
+            
+            while (isActive) {
+                val download = withContext(Dispatchers.IO) {
+                    db.getDownloadByStreamId(streamId, tipo)
+                }
+
+                if (download != null) {
+                    if (download.status == "BAIXADO" || download.status == "COMPLETED") {
+                        downloadState = DownloadState.BAIXADO
+                        atualizarUI_download()
+                        this.cancel() // Para se acabou
+                    } else if (download.status == "BAIXANDO" || download.status == "RUNNING") {
+                        downloadState = DownloadState.BAIXANDO
+                        
+                        // Atualiza visualmente a porcentagem
+                        tvDownloadState.text = "${download.progress}%"
+                        imgDownloadState.visibility = View.GONE
+                        pbDownloadCircular?.visibility = View.VISIBLE
+                    } else if (download.status == "ERRO") {
+                        tvDownloadState.text = "ERRO"
+                        imgDownloadState.visibility = View.VISIBLE
+                        pbDownloadCircular?.visibility = View.GONE
+                        this.cancel()
+                    }
+                }
+                delay(1000) // Atualiza a cada 1 segundo
+            }
+        }
     }
 
     private fun tentarCarregarTextoCache() {
@@ -488,8 +498,6 @@ class DetailsActivity : AppCompatActivity() {
                         if (!isSeries && serverYoutubeTrailer == null && extrasList.isNotEmpty()) {
                             episodes = extrasList
                             episodesAdapter.submitList(extrasList)
-                            
-                            // ✅ SÓ MOSTRA SE A ABA FOR EXTRAS
                             if (tabLayoutDetails.selectedTabPosition == 1) {
                                 recyclerEpisodes.visibility = View.VISIBLE
                             } else {
@@ -532,7 +540,6 @@ class DetailsActivity : AppCompatActivity() {
         episodes = listOf(EpisodeData(101, 1, 1, "Episódio 1", icon ?: ""))
         episodesAdapter.submitList(episodes)
         tvEpisodesTitle.visibility = View.VISIBLE
-        // Lógica de visibilidade controlada pelo TabLayout agora
         if (tabLayoutDetails.selectedTabPosition == 1) {
             recyclerEpisodes.visibility = View.VISIBLE
         } else {
@@ -693,7 +700,11 @@ class DetailsActivity : AppCompatActivity() {
             val download = db.getDownloadByStreamId(streamId, if (isSeries) "series" else "movie")
             withContext(Dispatchers.Main) {
                 if (download != null) {
-                    downloadState = if (download.status == "COMPLETED") DownloadState.BAIXADO else DownloadState.BAIXANDO
+                    downloadState = if (download.status == "COMPLETED" || download.status == "BAIXADO") DownloadState.BAIXADO else DownloadState.BAIXANDO
+                    // ✅ Se estiver baixando, liga o monitor para atualizar o %
+                    if (downloadState == DownloadState.BAIXANDO) {
+                        iniciarMonitoramentoUI()
+                    }
                 } else {
                     downloadState = DownloadState.BAIXAR
                 }
@@ -706,20 +717,19 @@ class DetailsActivity : AppCompatActivity() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val url = "${prefs.getString("dns", "")}/movie/${prefs.getString("username", "")}/${prefs.getString("password", "")}/$streamId.mp4"
         
-        // Dispara o download real
         DownloadHelper.iniciarDownload(this, url, streamId, name, null, icon, false)
         
-        // Efeito Disney
         downloadState = DownloadState.BAIXANDO
         atualizarUI_download()
         
-        // ✅ ATUALIZA O CONTADOR E A BOLINHA VERMELHA NA HORA
         val currentCount = prefs.getInt("active_downloads_count", 0)
         prefs.edit().putInt("active_downloads_count", currentCount + 1).apply()
         atualizarNotificacaoDownload()
+        
+        // ✅ Começa a monitorar imediatamente ao clicar
+        iniciarMonitoramentoUI()
     }
 
-    // ✅ ATUALIZAÇÃO VISUAL E NOTIFICAÇÃO NO MENU
     private fun atualizarUI_download() {
         when (downloadState) {
             DownloadState.BAIXAR -> { 
@@ -731,7 +741,7 @@ class DetailsActivity : AppCompatActivity() {
             DownloadState.BAIXANDO -> { 
                 imgDownloadState.visibility = View.GONE
                 pbDownloadCircular?.visibility = View.VISIBLE
-                tvDownloadState.text = "BAIXANDO 0%"
+                tvDownloadState.text = "0%" // O monitor vai atualizar isso logo em seguida
             }
             DownloadState.BAIXADO -> { 
                 imgDownloadState.visibility = View.VISIBLE
@@ -742,11 +752,9 @@ class DetailsActivity : AppCompatActivity() {
         }
     }
     
-    // ✅ FUNÇÃO NOVA: ATUALIZA A BOLINHA VERMELHA NO MENU RODAPÉ
     private fun atualizarNotificacaoDownload() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val count = prefs.getInt("active_downloads_count", 0)
-        // Usa ?. para evitar erro se o menu não estiver inicializado (ex: TV)
         if (count > 0) {
             bottomNavigation?.getOrCreateBadge(R.id.nav_downloads)?.apply {
                 isVisible = true
@@ -774,6 +782,7 @@ class DetailsActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         client.dispatcher.cancelAll()
+        uiMonitorJob?.cancel() // ✅ Para o monitoramento ao sair da tela
         super.onDestroy()
     }
 
@@ -843,6 +852,6 @@ class DetailsActivity : AppCompatActivity() {
         super.onResume()
         restaurarEstadoDownload()
         verificarResume()
-        atualizarNotificacaoDownload() // ✅ Atualiza a notificação ao voltar para a tela
+        atualizarNotificacaoDownload() // ✅ Atualiza ao voltar
     }
 }

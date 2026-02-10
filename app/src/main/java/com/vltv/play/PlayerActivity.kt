@@ -38,7 +38,7 @@ import retrofit2.Callback
 import retrofit2.Response
 import java.util.ArrayList
 
-// ✅ IMPORTS NECESSÁRIOS PARA O VOLUME E O BANCO DE DADOS (Adicionados)
+// ✅ IMPORTS NECESSÁRIOS PARA O VOLUME E O BANCO DE DADOS
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.lifecycle.lifecycleScope
@@ -97,7 +97,7 @@ class PlayerActivity : AppCompatActivity() {
 
     private val USER_AGENT = "IPTVSmartersPro"
 
-    // ✅ INSTÂNCIA DO BANCO DE DADOS ROOM (ADICIONADO PARA O CONTINUAR ASSISTINDO)
+    // ✅ INSTÂNCIA DO BANCO DE DADOS ROOM
     private val database by lazy { AppDatabase.getDatabase(this) }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -138,7 +138,7 @@ class PlayerActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_player)
 
-        // ✅ CORREÇÃO AQUI: Mudança para TRANSIENT_BARS_BY_SWIPE para a barra sumir sozinha
+        // ✅ CORREÇÃO: Mudança para TRANSIENT_BARS_BY_SWIPE para a barra sumir sozinha
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
@@ -327,13 +327,20 @@ class PlayerActivity : AppCompatActivity() {
 
     @OptIn(UnstableApi::class)
     private fun iniciarPlayer() {
-        if (streamType == "vod_offline") {
-            val uriStr = offlineUri
+        // ✅ CORREÇÃO CRÍTICA: Se tiver offlineUri, força o modo offline mesmo se o tipo vier errado
+        if (streamType == "vod_offline" || !offlineUri.isNullOrBlank()) {
+            var uriStr = offlineUri
             if (uriStr.isNullOrBlank()) {
                 Toast.makeText(this, "Arquivo offline inválido.", Toast.LENGTH_LONG).show()
                 loading.visibility = View.GONE
                 return
             }
+            
+            // ✅ CORREÇÃO DE PROTOCOLO: Adiciona file:// se for caminho puro
+            if (!uriStr!!.startsWith("content://") && !uriStr!!.startsWith("file://") && !uriStr!!.startsWith("http")) {
+                uriStr = "file://$uriStr"
+            }
+
             player?.release()
             
             // ✅ CORREÇÃO DE VOLUME (OFFLINE)
@@ -359,7 +366,8 @@ class PlayerActivity : AppCompatActivity() {
                     }
                 }
                 override fun onPlayerError(error: PlaybackException) {
-                    Toast.makeText(this@PlayerActivity, "Erro offline.", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@PlayerActivity, "Erro ao reproduzir arquivo local.", Toast.LENGTH_LONG).show()
+                    Log.e("PLAYER_OFFLINE", "Erro: ${error.message}")
                 }
             })
             return

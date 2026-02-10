@@ -49,7 +49,7 @@ class DownloadsActivity : AppCompatActivity() {
 
         rvDownloads.layoutManager = LinearLayoutManager(this)
         
-        // Inicializa o Adapter com lista vazia no começo
+        // Inicializa o Adapter
         adapter = DownloadsAdapter(emptyList(), 
             onClick = { item -> abrirPlayerOffline(item) },
             onLongClick = { item -> confirmarExclusao(item) }
@@ -60,10 +60,8 @@ class DownloadsActivity : AppCompatActivity() {
     }
 
     private fun observarBancoDeDados() {
-        // Observa a tabela 'downloads' em tempo real
         val dao = AppDatabase.getDatabase(this).streamDao()
         
-        // Usa LiveData para atualizar a lista automaticamente
         dao.getAllDownloads().observe(this, Observer { lista ->
             if (lista.isNullOrEmpty()) {
                 tvEmpty.visibility = View.VISIBLE
@@ -81,18 +79,16 @@ class DownloadsActivity : AppCompatActivity() {
         
         if (!file.exists()) {
             Toast.makeText(this, "Arquivo não encontrado! Talvez tenha sido apagado.", Toast.LENGTH_LONG).show()
-            // Opcional: Perguntar se quer remover da lista já que não existe mais
             return
         }
 
-        // ✅ CORREÇÃO CRÍTICA: Envia os parâmetros exatos que o PlayerActivity espera para modo offline
         val intent = Intent(this, PlayerActivity::class.java).apply {
             putExtra("stream_id", item.stream_id)
-            putExtra("stream_type", "vod_offline") // Força o modo offline
-            putExtra("offline_uri", item.file_path) // Caminho absoluto do arquivo
+            putExtra("stream_type", "vod_offline")
+            putExtra("offline_uri", item.file_path)
             putExtra("channel_name", if (item.episode_name != null) "${item.name} - ${item.episode_name}" else item.name)
             putExtra("icon", item.image_url)
-            putExtra("PROFILE_NAME", "Padrao") // Ou pegue do SharedPreferences se tiver
+            putExtra("PROFILE_NAME", "Padrao")
         }
         startActivity(intent)
     }
@@ -117,7 +113,9 @@ class DownloadsActivity : AppCompatActivity() {
 
                 // 2. Apaga do Banco de Dados
                 val db = AppDatabase.getDatabase(applicationContext).streamDao()
-                db.deleteDownload(item.android_download_id) // Usa o ID correto para deletar
+                
+                // ✅ CORREÇÃO AQUI: Usando item.id (Int) em vez de android_download_id (Long)
+                db.deleteDownload(item.id)
 
                 withContext(Dispatchers.Main) {
                     Toast.makeText(applicationContext, "Download excluído.", Toast.LENGTH_SHORT).show()
@@ -155,18 +153,16 @@ class DownloadsActivity : AppCompatActivity() {
         override fun onBindViewHolder(holder: VH, position: Int) {
             val item = items[position]
             
-            // Define o título
             if (item.episode_name != null) {
                 holder.tvName.text = "${item.name}\n${item.episode_name}"
             } else {
                 holder.tvName.text = item.name
             }
 
-            // Status e Progresso
             if (item.status == "BAIXANDO" || item.status == "DOWNLOADING") {
                 holder.tvStatus.text = "Baixando... ${item.progress}%"
                 holder.tvStatus.setTextColor(android.graphics.Color.YELLOW)
-                holder.itemView.isEnabled = false // Bloqueia clique enquanto baixa
+                holder.itemView.isEnabled = false
                 holder.itemView.alpha = 0.5f
             } else if (item.status == "BAIXADO" || item.status == "COMPLETED") {
                 holder.tvStatus.text = "Completo • Toque para assistir"
@@ -176,27 +172,24 @@ class DownloadsActivity : AppCompatActivity() {
             } else {
                 holder.tvStatus.text = "Falha no download"
                 holder.tvStatus.setTextColor(android.graphics.Color.RED)
-                holder.itemView.isEnabled = true // Permite clicar para tentar de novo ou apagar
+                holder.itemView.isEnabled = true
             }
 
-            // Carrega a capa
             holder.imgCapa?.let { img ->
                 Glide.with(holder.itemView.context)
                     .load(item.image_url)
-                    .placeholder(android.R.drawable.ic_menu_gallery) // Placeholder padrão
+                    .placeholder(android.R.drawable.ic_menu_gallery)
                     .centerCrop()
                     .diskCacheStrategy(DiskCacheStrategy.ALL)
                     .into(img)
             }
 
-            // Cliques
             holder.itemView.setOnClickListener { onClick(item) }
             holder.itemView.setOnLongClickListener { 
                 onLongClick(item)
                 true
             }
             
-            // Efeito de Foco
             holder.itemView.setOnFocusChangeListener { v, hasFocus ->
                 if (hasFocus) {
                     v.setBackgroundResource(R.drawable.bg_focus_neon)

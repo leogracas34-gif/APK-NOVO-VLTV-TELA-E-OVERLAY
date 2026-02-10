@@ -49,10 +49,10 @@ class DownloadsActivity : AppCompatActivity() {
 
         rvDownloads.layoutManager = LinearLayoutManager(this)
         
-        // Inicializa o Adapter vazio
+        // Inicializa o Adapter com lista vazia no começo
         adapter = DownloadsAdapter(emptyList(), 
-            onClick = { download -> abrirPlayerOffline(download) },
-            onLongClick = { download -> confirmarExclusao(download) }
+            onClick = { item -> abrirPlayerOffline(item) },
+            onLongClick = { item -> confirmarExclusao(item) }
         )
         rvDownloads.adapter = adapter
 
@@ -61,7 +61,10 @@ class DownloadsActivity : AppCompatActivity() {
 
     private fun observarBancoDeDados() {
         // Observa a tabela 'downloads' em tempo real
-        AppDatabase.getDatabase(this).streamDao().getAllDownloads().observe(this, Observer { lista ->
+        val dao = AppDatabase.getDatabase(this).streamDao()
+        
+        // Usa LiveData para atualizar a lista automaticamente
+        dao.getAllDownloads().observe(this, Observer { lista ->
             if (lista.isNullOrEmpty()) {
                 tvEmpty.visibility = View.VISIBLE
                 rvDownloads.visibility = View.GONE
@@ -78,16 +81,18 @@ class DownloadsActivity : AppCompatActivity() {
         
         if (!file.exists()) {
             Toast.makeText(this, "Arquivo não encontrado! Talvez tenha sido apagado.", Toast.LENGTH_LONG).show()
+            // Opcional: Perguntar se quer remover da lista já que não existe mais
             return
         }
 
-        // Prepara o Intent para o PlayerActivity
+        // ✅ CORREÇÃO CRÍTICA: Envia os parâmetros exatos que o PlayerActivity espera para modo offline
         val intent = Intent(this, PlayerActivity::class.java).apply {
             putExtra("stream_id", item.stream_id)
-            putExtra("stream_type", "offline") // Novo tipo para o Player saber que é local
-            putExtra("video_url", item.file_path) // Caminho absoluto do arquivo
+            putExtra("stream_type", "vod_offline") // Força o modo offline
+            putExtra("offline_uri", item.file_path) // Caminho absoluto do arquivo
             putExtra("channel_name", if (item.episode_name != null) "${item.name} - ${item.episode_name}" else item.name)
             putExtra("icon", item.image_url)
+            putExtra("PROFILE_NAME", "Padrao") // Ou pegue do SharedPreferences se tiver
         }
         startActivity(intent)
     }
@@ -112,7 +117,7 @@ class DownloadsActivity : AppCompatActivity() {
 
                 // 2. Apaga do Banco de Dados
                 val db = AppDatabase.getDatabase(applicationContext).streamDao()
-                db.deleteDownload(item.id)
+                db.deleteDownload(item.android_download_id) // Usa o ID correto para deletar
 
                 withContext(Dispatchers.Main) {
                     Toast.makeText(applicationContext, "Download excluído.", Toast.LENGTH_SHORT).show()
@@ -137,9 +142,8 @@ class DownloadsActivity : AppCompatActivity() {
 
         class VH(v: View) : RecyclerView.ViewHolder(v) {
             val tvName: TextView = v.findViewById(R.id.tvDownloadName)
-            val tvStatus: TextView = v.findViewById(R.id.tvDownloadPath) // Usando o ID existente para status
-            val imgCapa: ImageView? = v.findViewById(R.id.imgPoster) // Tenta achar imagem se tiver no layout
-            val progressBar: ProgressBar? = v.findViewById(R.id.progressBarDownload) // Se tiver barra de progresso
+            val tvStatus: TextView = v.findViewById(R.id.tvDownloadPath)
+            val imgCapa: ImageView? = v.findViewById(R.id.imgPoster)
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
@@ -151,7 +155,7 @@ class DownloadsActivity : AppCompatActivity() {
         override fun onBindViewHolder(holder: VH, position: Int) {
             val item = items[position]
             
-            // Define o título (Se for série, mostra o episódio também)
+            // Define o título
             if (item.episode_name != null) {
                 holder.tvName.text = "${item.name}\n${item.episode_name}"
             } else {
@@ -162,39 +166,41 @@ class DownloadsActivity : AppCompatActivity() {
             if (item.status == "BAIXANDO" || item.status == "DOWNLOADING") {
                 holder.tvStatus.text = "Baixando... ${item.progress}%"
                 holder.tvStatus.setTextColor(android.graphics.Color.YELLOW)
+                holder.itemView.isEnabled = false // Bloqueia clique enquanto baixa
+                holder.itemView.alpha = 0.5f
             } else if (item.status == "BAIXADO" || item.status == "COMPLETED") {
                 holder.tvStatus.text = "Completo • Toque para assistir"
                 holder.tvStatus.setTextColor(android.graphics.Color.GREEN)
+                holder.itemView.isEnabled = true
+                holder.itemView.alpha = 1.0f
             } else {
                 holder.tvStatus.text = "Falha no download"
                 holder.tvStatus.setTextColor(android.graphics.Color.RED)
+                holder.itemView.isEnabled = true // Permite clicar para tentar de novo ou apagar
             }
 
-            // Tenta carregar a capa se o ImageView existir no layout 'item_download'
-            // Se você não tiver ImageView no layout, ele vai ignorar sem dar erro (null safety)
+            // Carrega a capa
             holder.imgCapa?.let { img ->
                 Glide.with(holder.itemView.context)
                     .load(item.image_url)
-                    .placeholder(android.R.drawable.ic_menu_gallery)
+                    .placeholder(android.R.drawable.ic_menu_gallery) // Placeholder padrão
                     .centerCrop()
                     .diskCacheStrategy(DiskCacheStrategy.ALL)
                     .into(img)
             }
 
-            // Clique Simples
+            // Cliques
             holder.itemView.setOnClickListener { onClick(item) }
-            
-            // Clique Longo (Deletar)
             holder.itemView.setOnLongClickListener { 
                 onLongClick(item)
                 true
             }
             
-            // Efeito de Foco (Para TV Box)
+            // Efeito de Foco
             holder.itemView.setOnFocusChangeListener { v, hasFocus ->
                 if (hasFocus) {
-                    v.setBackgroundResource(R.drawable.bg_focus_neon) // Seu background de foco
-                    v.animate().scaleX(1.05f).scaleY(1.05f).setDuration(200).start()
+                    v.setBackgroundResource(R.drawable.bg_focus_neon)
+                    v.animate().scaleX(1.02f).scaleY(1.02f).setDuration(200).start()
                 } else {
                     v.setBackgroundResource(0)
                     v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start()

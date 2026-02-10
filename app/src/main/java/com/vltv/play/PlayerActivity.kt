@@ -38,7 +38,7 @@ import retrofit2.Callback
 import retrofit2.Response
 import java.util.ArrayList
 
-// ✅ IMPORTS NECESSÁRIOS PARA O VOLUME E O BANCO DE DADOS
+// ✅ IMPORTS NECESSÁRIOS
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.lifecycle.lifecycleScope
@@ -47,7 +47,7 @@ import kotlinx.coroutines.launch
 import com.vltv.play.data.AppDatabase
 import com.vltv.play.data.WatchHistoryEntity
 
-// ✅ FIREBASE PARA HISTÓRICO
+// ✅ FIREBASE
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 
@@ -78,10 +78,10 @@ class PlayerActivity : AppCompatActivity() {
 
     private var offlineUri: String? = null
 
-    // MOCHILA DE EPISÓDIOS (Para saber a sequência dos IDs)
+    // MOCHILA DE EPISÓDIOS
     private var episodeList = ArrayList<Int>()
 
-    // Lista de Backup (Sua lista original)
+    // Lista de Backup
     private val serverBackupList = listOf(
         "http://tvblack.shop",
         "http://firewallnaousardns.xyz:80",
@@ -108,18 +108,15 @@ class PlayerActivity : AppCompatActivity() {
                 val dur = p.duration
                 val pos = p.currentPosition
                 if (dur > 0) {
-                    // ✅ LÓGICA DE PRECISÃO: 98% da duração do episódio
                     val progress = pos.toFloat() / dur.toFloat()
-                    
                     if (progress >= 0.98f) {
                         val remaining = dur - pos
                         val seconds = (remaining / 1000L).toInt()
                         tvNextEpisodeTitle.text = "Próximo episódio em ${seconds}s"
                         
-                        // ✅ AJUSTE DE FOCO TV: Se o botão estava invisível e agora vai aparecer
                         if (nextEpisodeContainer.visibility != View.VISIBLE) {
                             nextEpisodeContainer.visibility = View.VISIBLE
-                            btnPlayNextEpisode.requestFocus() // ✅ Força o controle a ir para o botão
+                            btnPlayNextEpisode.requestFocus()
                         }
                         
                         if (remaining <= 1000L) {
@@ -138,12 +135,10 @@ class PlayerActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_player)
 
-        // ✅ CORREÇÃO: Mudança para TRANSIENT_BARS_BY_SWIPE para a barra sumir sozinha
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
 
-        // Mantendo as flags de compatibilidade antigas para TV Boxes que não usam InsetsController
         window.decorView.systemUiVisibility =
             View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
             View.SYSTEM_UI_FLAG_FULLSCREEN or
@@ -163,14 +158,13 @@ class PlayerActivity : AppCompatActivity() {
         btnPlayNextEpisode.isFocusable = true
         btnPlayNextEpisode.isFocusableInTouchMode = true
         
-        // ✅ CORREÇÃO: Zoom suave de 1.1f e cor Branca original mantida com foco Neon
         btnPlayNextEpisode.setOnFocusChangeListener { view, hasFocus ->
             if (hasFocus) {
                 view.setBackgroundResource(R.drawable.bg_focus_neon)
                 btnPlayNextEpisode.setTextColor(Color.WHITE)
                 view.animate().scaleX(1.1f).scaleY(1.1f).setDuration(150).start()
             } else {
-                view.setBackgroundResource(0) // Ou seu background padrão
+                view.setBackgroundResource(0)
                 btnPlayNextEpisode.setTextColor(Color.WHITE)
                 view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
             }
@@ -183,7 +177,6 @@ class PlayerActivity : AppCompatActivity() {
         nextStreamId = intent.getIntExtra("next_stream_id", 0)
         nextChannelName = intent.getStringExtra("next_channel_name")
 
-        // ✅ RECUPERA O PERFIL
         currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
 
         val listaExtra = intent.getIntegerArrayListExtra("episode_list")
@@ -313,7 +306,6 @@ class PlayerActivity : AppCompatActivity() {
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) {
-            // ✅ Garante que ao voltar para a Activity o modo imersivo seja reaplicado
             val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
             windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
@@ -327,23 +319,22 @@ class PlayerActivity : AppCompatActivity() {
 
     @OptIn(UnstableApi::class)
     private fun iniciarPlayer() {
-        // ✅ CORREÇÃO CRÍTICA: Se tiver offlineUri, força o modo offline mesmo se o tipo vier errado
+        // ✅ CORREÇÃO CRÍTICA: Prioriza o arquivo offline se existir o caminho
         if (streamType == "vod_offline" || !offlineUri.isNullOrBlank()) {
             var uriStr = offlineUri
             if (uriStr.isNullOrBlank()) {
-                Toast.makeText(this, "Arquivo offline inválido.", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Arquivo offline não encontrado.", Toast.LENGTH_LONG).show()
                 loading.visibility = View.GONE
                 return
             }
             
-            // ✅ CORREÇÃO DE PROTOCOLO: Adiciona file:// se for caminho puro
+            // ✅ CORREÇÃO DE PROTOCOLO: Adiciona file:// se for caminho local puro
             if (!uriStr!!.startsWith("content://") && !uriStr!!.startsWith("file://") && !uriStr!!.startsWith("http")) {
                 uriStr = "file://$uriStr"
             }
 
             player?.release()
             
-            // ✅ CORREÇÃO DE VOLUME (OFFLINE)
             val audioAttributes = AudioAttributes.Builder()
                 .setUsage(C.USAGE_MEDIA)
                 .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
@@ -354,24 +345,32 @@ class PlayerActivity : AppCompatActivity() {
                 .build()
                 
             playerView.player = player
-            val mediaItem = MediaItem.fromUri(Uri.parse(uriStr))
-            player?.setMediaItem(mediaItem)
-            player?.prepare()
-            player?.playWhenReady = true
-            player?.addListener(object : Player.Listener {
-                override fun onPlaybackStateChanged(state: Int) {
-                    when (state) {
-                        Player.STATE_READY -> loading.visibility = View.GONE
-                        Player.STATE_BUFFERING -> loading.visibility = View.VISIBLE
+            
+            try {
+                val mediaItem = MediaItem.fromUri(Uri.parse(uriStr))
+                player?.setMediaItem(mediaItem)
+                player?.prepare()
+                player?.playWhenReady = true
+                
+                player?.addListener(object : Player.Listener {
+                    override fun onPlaybackStateChanged(state: Int) {
+                        when (state) {
+                            Player.STATE_READY -> loading.visibility = View.GONE
+                            Player.STATE_BUFFERING -> loading.visibility = View.VISIBLE
+                        }
                     }
-                }
-                override fun onPlayerError(error: PlaybackException) {
-                    Toast.makeText(this@PlayerActivity, "Erro ao reproduzir arquivo local.", Toast.LENGTH_LONG).show()
-                    Log.e("PLAYER_OFFLINE", "Erro: ${error.message}")
-                }
-            })
-            return
+                    override fun onPlayerError(error: PlaybackException) {
+                        Toast.makeText(this@PlayerActivity, "Erro ao reproduzir arquivo: ${error.message}", Toast.LENGTH_LONG).show()
+                        Log.e("PLAYER_OFFLINE", "Erro: ${error.message}")
+                    }
+                })
+            } catch (e: Exception) {
+                Toast.makeText(this, "Erro crítico ao carregar arquivo.", Toast.LENGTH_SHORT).show()
+            }
+            return // ✅ SAI DA FUNÇÃO PARA NÃO TENTAR CONECTAR NA INTERNET
         }
+
+        // --- LÓGICA ONLINE (Só executa se não for offline) ---
 
         if (activeServerList.isEmpty()) {
             Toast.makeText(this, "Erro: Sem servidor.", Toast.LENGTH_LONG).show()
@@ -430,7 +429,6 @@ class PlayerActivity : AppCompatActivity() {
             .setPrioritizeTimeOverSizeThresholds(true)
             .build()
         
-        // ✅ CORREÇÃO DE VOLUME: Áudio configurado como "MOVIE" para ganho máximo na TV
         val audioAttributes = AudioAttributes.Builder()
             .setUsage(C.USAGE_MEDIA)
             .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
@@ -439,7 +437,7 @@ class PlayerActivity : AppCompatActivity() {
         player = ExoPlayer.Builder(this)
             .setMediaSourceFactory(mediaSourceFactory)
             .setLoadControl(loadControl)
-            .setAudioAttributes(audioAttributes, true) // ✅ Aplica o ganho de áudio
+            .setAudioAttributes(audioAttributes, true)
             .build()
 
         playerView.player = player
@@ -490,7 +488,6 @@ class PlayerActivity : AppCompatActivity() {
     private fun abrirProximoEpisodio() {
         if (nextStreamId == 0) return
 
-        // ✅ CORREÇÃO ÁUDIO FANTASMA: Para o player antes de trocar de tela
         player?.stop()
         player?.release()
         player = null
@@ -525,7 +522,6 @@ class PlayerActivity : AppCompatActivity() {
         intent.putExtra("stream_ext", "mp4")
         intent.putExtra("stream_type", "series")
         intent.putExtra("channel_name", novoTitulo)
-        // ✅ REPASSA O PERFIL PARA O PRÓXIMO EPISÓDIO
         intent.putExtra("PROFILE_NAME", currentProfile)
         
         if (episodeList.isNotEmpty()) {
@@ -535,7 +531,6 @@ class PlayerActivity : AppCompatActivity() {
         finish()
     }
 
-    // ✅ CHAVE POR PERFIL
     private fun getMovieKey(id: Int) = "${currentProfile}_movie_resume_$id"
 
     private fun saveMovieResume(id: Int, positionMs: Long, durationMs: Long) {
@@ -551,13 +546,9 @@ class PlayerActivity : AppCompatActivity() {
             .putLong("${getMovieKey(id)}_dur", durationMs)
             .apply()
             
-        // ✅ SALVA TAMBÉM NO FIREBASE PARA A HOME ATUALIZAR
         salvarNoFirebase(id, positionMs, durationMs)
-
-        // ✅ SALVA TAMBÉM LOCALMENTE PARA A HOME LER SEM FIREBASE
         salvarNoHistoricoLocal(id.toString())
 
-        // ✅ GRAVA NO BANCO DE DADOS (ROOM) PARA O CONTINUAR ASSISTINDO FUNCIONAR
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 database.streamDao().saveWatchHistory(WatchHistoryEntity(
@@ -570,9 +561,7 @@ class PlayerActivity : AppCompatActivity() {
                     is_series = false,
                     timestamp = System.currentTimeMillis()
                 ))
-            } catch (e: Exception) {
-                // Erro silencioso
-            }
+            } catch (e: Exception) { }
         }
     }
 
@@ -584,7 +573,6 @@ class PlayerActivity : AppCompatActivity() {
             .apply()
     }
 
-    // ✅ CHAVE POR PERFIL
     private fun getSeriesKey(episodeStreamId: Int) = "${currentProfile}_series_resume_$episodeStreamId"
 
     private fun saveSeriesResume(id: Int, positionMs: Long, durationMs: Long) {
@@ -600,13 +588,9 @@ class PlayerActivity : AppCompatActivity() {
             .putLong("${getSeriesKey(id)}_dur", durationMs)
             .apply()
 
-        // ✅ SALVA TAMBÉM NO FIREBASE PARA A HOME ATUALIZAR
         salvarNoFirebase(id, positionMs, durationMs)
-
-        // ✅ SALVA TAMBÉM LOCALMENTE PARA A HOME LER SEM FIREBASE
         salvarNoHistoricoLocal(id.toString())
 
-        // ✅ GRAVA NO BANCO DE DADOS (ROOM) PARA O CONTINUAR ASSISTINDO FUNCIONAR
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 database.streamDao().saveWatchHistory(WatchHistoryEntity(
@@ -619,9 +603,7 @@ class PlayerActivity : AppCompatActivity() {
                     is_series = true,
                     timestamp = System.currentTimeMillis()
                 ))
-            } catch (e: Exception) {
-                // Erro silencioso
-            }
+            } catch (e: Exception) { }
         }
     }
 
@@ -633,27 +615,19 @@ class PlayerActivity : AppCompatActivity() {
             .apply()
     }
 
-    // ✅ NOVA FUNÇÃO: SALVA O HISTÓRICO NO CELULAR (PARA A HOME LOCAL)
     private fun salvarNoHistoricoLocal(id: String) {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val keyIds = "${currentProfile}_local_history_ids"
-        
-        // Pega a lista atual de IDs salvos
         val ids = prefs.getStringSet(keyIds, mutableSetOf())?.toMutableSet() ?: mutableSetOf()
-        
-        // Adiciona o novo ID à lista
         ids.add(id)
-        
         prefs.edit().apply {
             putStringSet(keyIds, ids)
-            // Salva o Nome e o Ícone para a Home desenhar o card
             putString("${currentProfile}_history_name_$id", tvChannelName.text.toString())
             putString("${currentProfile}_history_icon_$id", intent.getStringExtra("icon") ?: "")
             apply()
         }
     }
 
-    // ✅ NOVA FUNÇÃO: SALVA O PROGRESSO NO FIREBASE (CONTINUAR ASSISTINDO)
     private fun salvarNoFirebase(id: Int, positionMs: Long, durationMs: Long) {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val userEmail = prefs.getString("username", "") ?: ""
@@ -731,7 +705,6 @@ class PlayerActivity : AppCompatActivity() {
         if (action == KeyEvent.ACTION_DOWN) {
             when (keyCode) {
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                    // ✅ FOCO TV: Se o botão de próximo estiver visível, o OK clica nele
                     if (nextEpisodeContainer.visibility == View.VISIBLE) {
                         btnPlayNextEpisode.performClick()
                         return true
@@ -746,12 +719,10 @@ class PlayerActivity : AppCompatActivity() {
                 }
 
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
-                    // ✅ FOCO TV: Se o botão de próximo estiver visível, o foco vai pra ele ao apertar pra baixo
                     if (nextEpisodeContainer.visibility == View.VISIBLE) {
                         btnPlayNextEpisode.requestFocus()
                         return true
                     }
-                    
                     if (!playerView.isControllerFullyVisible) {
                         playerView.showController()
                     }
@@ -822,7 +793,6 @@ class PlayerActivity : AppCompatActivity() {
     override fun onStop() {
         super.onStop()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && !isInPictureInPictureMode) {
-            // ✅ CORREÇÃO ÁUDIO FANTASMA: Usa stop() em vez de pause()
             player?.stop()
             player?.release()
             player = null

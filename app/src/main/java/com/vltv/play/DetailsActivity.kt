@@ -30,6 +30,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.google.android.material.tabs.TabLayout
+import com.google.android.material.bottomnavigation.BottomNavigationView // ✅ Importação para o Menu
 import okhttp3.*
 import org.json.JSONObject
 import java.io.IOException
@@ -100,6 +101,9 @@ class DetailsActivity : AppCompatActivity() {
     private lateinit var tabLayoutDetails: TabLayout
     private lateinit var recyclerSuggestions: RecyclerView
     
+    // ✅ MENU RODAPÉ (Variável adicionada)
+    private var bottomNavigation: BottomNavigationView? = null
+    
     // ✅ IDS ESPECÍFICOS DA ABA DETALHES (RESUMÃO)
     private var layoutTabDetails: LinearLayout? = null
     private var tvDetailFullTitle: TextView? = null
@@ -131,7 +135,7 @@ class DetailsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         try {
             setContentView(R.layout.activity_details)
-            configurarTelaTV() // ✅ Agora configura para NÃO esconder os botões
+            configurarTelaTV() // ✅ Configurado para mostrar botões no celular
             
             currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
             streamId = intent.getIntExtra("stream_id", 0)
@@ -142,12 +146,12 @@ class DetailsActivity : AppCompatActivity() {
             
             // ✅ CAPTURA O ID DO YOUTUBE VINDO DO SERVIDOR (Se existir)
             serverYoutubeTrailer = intent.getStringExtra("youtube_trailer")
-            // Tratamento caso venha vazio ou null
             if (serverYoutubeTrailer == "null" || serverYoutubeTrailer?.isEmpty() == true) {
                 serverYoutubeTrailer = null
             }
             
             inicializarViews()
+            setupBottomNavigation() // ✅ Inicializa o Menu
             carregarConteudo()
             setupEventos()
             setupEpisodesRecycler()
@@ -164,15 +168,11 @@ class DetailsActivity : AppCompatActivity() {
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         
-        // 🚫 REMOVIDO: windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
-        // Isso garante que os botões de voltar/home fiquem VISÍVEIS
-        
+        // ✅ CORREÇÃO: Mostra as barras (botões) no celular, esconde apenas na TV
         if (isTelevisionDevice()) {
             requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-            // Na TV, podemos querer esconder, mas no celular você pediu para mostrar
             windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars()) 
         } else {
-            // Celular: Mostra as barras (Status e Navegação)
             windowInsetsController?.show(WindowInsetsCompat.Type.systemBars())
         }
     }
@@ -209,7 +209,10 @@ class DetailsActivity : AppCompatActivity() {
             tabLayoutDetails = findViewById(R.id.tabLayoutDetails)
             recyclerSuggestions = findViewById(R.id.recyclerSuggestions)
             
-            // ✅ INICIALIZAÇÃO DOS CAMPOS DA ABA DETALHES
+            // ✅ MENU RODAPÉ
+            bottomNavigation = findViewById(R.id.bottomNavigation)
+            
+            // ✅ IDS ESPECÍFICOS DA ABA DETALHES
             layoutTabDetails = findViewById(R.id.layoutTabDetails)
             tvDetailFullTitle = findViewById(R.id.tvDetailFullTitle)
             tvDetailFullPlot = findViewById(R.id.tvDetailFullPlot)
@@ -219,10 +222,9 @@ class DetailsActivity : AppCompatActivity() {
             tvDetailDirector = findViewById(R.id.tvDetailDirector)
             
             // ✅ CRIAÇÃO PROGRAMÁTICA DO PROGRESS BAR (Disney Style)
-            // Como não podemos mexer no XML, injetamos o loader direto no layout do botão
             if (btnDownloadAction != null) {
                 pbDownloadCircular = ProgressBar(this)
-                val params = LinearLayout.LayoutParams(24.toPx(), 24.toPx()) // Tamanho do ícone
+                val params = LinearLayout.LayoutParams(24.toPx(), 24.toPx())
                 params.setMargins(0,0,0,5)
                 pbDownloadCircular?.layoutParams = params
                 pbDownloadCircular?.indeterminateTintList = ColorStateList.valueOf(Color.WHITE)
@@ -235,6 +237,7 @@ class DetailsActivity : AppCompatActivity() {
             if (isTelevisionDevice()) {
                 btnDownloadArea?.visibility = View.GONE
                 btnDownloadAction?.visibility = View.GONE
+                bottomNavigation?.visibility = View.GONE // Esconde menu na TV
             }
             
             btnPlay.isFocusable = true
@@ -242,6 +245,36 @@ class DetailsActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Log.e("VLTV_DEBUG", "Erro ao inicializar views: ${e.message}")
             throw e
+        }
+    }
+
+    // ✅ LÓGICA DO MENU RODAPÉ
+    private fun setupBottomNavigation() {
+        bottomNavigation?.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.nav_home -> {
+                    // Volta para a Home (encerra detalhes)
+                    finish()
+                    true
+                }
+                R.id.nav_search -> {
+                    startActivity(Intent(this, SearchActivity::class.java).apply {
+                        putExtra("PROFILE_NAME", currentProfile)
+                    })
+                    true
+                }
+                R.id.nav_downloads -> {
+                    startActivity(Intent(this, DownloadsActivity::class.java))
+                    true
+                }
+                R.id.nav_profile -> {
+                    startActivity(Intent(this, SettingsActivity::class.java).apply {
+                        putExtra("PROFILE_NAME", currentProfile)
+                    })
+                    true
+                }
+                else -> false
+            }
         }
     }
 
@@ -261,15 +294,14 @@ class DetailsActivity : AppCompatActivity() {
         if (isSeries) {
             carregarEpisodios() 
         } else {
-            // ✅ Se for filme, a lista de episódios vira lista de EXTRAS
             tvEpisodesTitle.visibility = View.GONE
             
-            // ✅ Se já tivermos o ID do servidor, já carrega o trailer imediatamente
+            // ✅ SE TIVER TRAILER DO SERVIDOR
             if (serverYoutubeTrailer != null) {
                 val extrasList = listOf(EpisodeData(0, 0, 1, "Trailer Oficial", "https://img.youtube.com/vi/$serverYoutubeTrailer/0.jpg", serverYoutubeTrailer))
                 episodesAdapter.submitList(extrasList)
                 
-                // ✅ CORREÇÃO CRÍTICA: SÓ MOSTRA SE A ABA FOR EXTRAS (POSIÇÃO 1)
+                // Só mostra se a aba for EXTRAS
                 if (tabLayoutDetails.selectedTabPosition == 1) {
                     recyclerEpisodes.visibility = View.VISIBLE
                 } else {
@@ -383,7 +415,6 @@ class DetailsActivity : AppCompatActivity() {
     }
 
     private fun buscarDetalhesCompletos(id: Int, type: String, key: String) {
-        // ✅ CORREÇÃO: Busca Similar (se recomendações falhar) e Vídeos em PT/EN
         val detailsUrl = "https://api.themoviedb.org/3/$type/$id?api_key=$key&append_to_response=credits,recommendations,similar,videos&include_video_language=pt,en&language=pt-BR"
         client.newCall(Request.Builder().url(detailsUrl).build()).enqueue(object : Callback {
             override fun onResponse(call: Call, response: Response) {
@@ -416,8 +447,6 @@ class DetailsActivity : AppCompatActivity() {
                         }
                     }
 
-                    // ✅ SUGESTÕES INTELIGENTES (Fallback Similar)
-                    // Se não tiver recomendações, usa os similares
                     var similarArr = d.optJSONObject("recommendations")?.optJSONArray("results")
                     if (similarArr == null || similarArr.length() == 0) {
                         similarArr = d.optJSONObject("similar")?.optJSONArray("results")
@@ -428,16 +457,12 @@ class DetailsActivity : AppCompatActivity() {
                         for (i in 0 until similarArr.length()) suggestions.add(similarArr.getJSONObject(i))
                     }
 
-                    // ✅ EXTRAS (Se não tiver ID do servidor, usa TMDB)
                     val extrasList = mutableListOf<EpisodeData>()
-                    
-                    // Só busca no TMDB se o servidor não mandou
                     if (serverYoutubeTrailer == null) {
                         val videosArr = d.optJSONObject("videos")?.optJSONArray("results")
                         if (videosArr != null) {
                             for (i in 0 until videosArr.length()) {
                                 val v = videosArr.getJSONObject(i)
-                                // Só aceita YouTube
                                 if (v.optString("site") == "YouTube") {
                                     extrasList.add(EpisodeData(i, 0, i+1, v.getString("name"), "https://img.youtube.com/vi/${v.getString("key")}/0.jpg", v.getString("key")))
                                 }
@@ -456,19 +481,15 @@ class DetailsActivity : AppCompatActivity() {
                         tvDetailDirector?.text = directorName
                         findViewById<TextView>(R.id.tvCast)?.text = e
                         
-                        // Configura as sugestões
                         if (suggestions.isNotEmpty()) {
                             recyclerSuggestions.adapter = SuggestionsAdapter(suggestions)
-                        } else {
-                            // Poderia mostrar uma mensagem de "sem sugestões", mas deixar vazio é mais clean
                         }
 
-                        // Configura extras se não for série e se não tivermos usado o do servidor
                         if (!isSeries && serverYoutubeTrailer == null && extrasList.isNotEmpty()) {
                             episodes = extrasList
                             episodesAdapter.submitList(extrasList)
                             
-                            // ✅ CORREÇÃO CRÍTICA: Só mostra se a aba for EXTRAS (Pos 1)
+                            // ✅ SÓ MOSTRA SE A ABA FOR EXTRAS
                             if (tabLayoutDetails.selectedTabPosition == 1) {
                                 recyclerEpisodes.visibility = View.VISIBLE
                             } else {
@@ -488,7 +509,6 @@ class DetailsActivity : AppCompatActivity() {
     private fun setupEpisodesRecycler() {
         episodesAdapter = EpisodesAdapter { episode ->
             if (episode.videoKey != null) {
-                // Abre trailer do YouTube ou player externo para extras
                 val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("vnd.youtube:${episode.videoKey}"))
                 startActivity(intent)
             } else {
@@ -512,9 +532,12 @@ class DetailsActivity : AppCompatActivity() {
         episodes = listOf(EpisodeData(101, 1, 1, "Episódio 1", icon ?: ""))
         episodesAdapter.submitList(episodes)
         tvEpisodesTitle.visibility = View.VISIBLE
-        // Só mostra se estiver na aba de episódios, que para séries geralmente é a padrão ou a segunda
-        // Mas vamos deixar visivel por padrão para séries pois é o conteúdo principal
-        recyclerEpisodes.visibility = View.VISIBLE
+        // Lógica de visibilidade controlada pelo TabLayout agora
+        if (tabLayoutDetails.selectedTabPosition == 1) {
+            recyclerEpisodes.visibility = View.VISIBLE
+        } else {
+            recyclerEpisodes.visibility = View.GONE
+        }
     }
 
     private fun setupEventos() {
@@ -551,12 +574,10 @@ class DetailsActivity : AppCompatActivity() {
 
         btnDownloadAction?.setOnClickListener { handleDownloadClick() }
         btnTrailerAction?.setOnClickListener { 
-            // Se tiver trailer (server ou tmdb), o clique no item da lista abre.
             if (serverYoutubeTrailer != null) {
                 val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("vnd.youtube:$serverYoutubeTrailer"))
                 startActivity(intent)
             } else {
-                // Se não, avisa para ver a aba Extras
                 if (tabLayoutDetails.selectedTabPosition != 1) {
                     tabLayoutDetails.getTabAt(1)?.select()
                 }
@@ -613,15 +634,12 @@ class DetailsActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ LÓGICA DE FAVORITO INSTANTÂNEO (TV STYLE)
     private fun toggleFavorite() {
         val favs = getFavMovies(this)
         val isFav = favs.contains(streamId)
         
-        // 1. Muda na tela IMEDIATAMENTE (Visual Instantâneo)
         atualizarIconeFavorito(!isFav)
 
-        // 2. Processa os dados em background (Sem travar ou demorar)
         if (isFav) favs.remove(streamId) else favs.add(streamId)
         saveFavMovies(this, favs)
     }
@@ -691,28 +709,29 @@ class DetailsActivity : AppCompatActivity() {
         // Dispara o download real
         DownloadHelper.iniciarDownload(this, url, streamId, name, null, icon, false)
         
-        // Força a mudança visual IMEDIATAMENTE (Efeito Disney)
+        // Efeito Disney
         downloadState = DownloadState.BAIXANDO
         atualizarUI_download()
         
-        // ✅ SALVA O ESTADO DE DOWNLOAD PARA A HOME (NOTIFICAÇÃO NO RODAPÉ)
+        // ✅ ATUALIZA O CONTADOR E A BOLINHA VERMELHA NA HORA
         val currentCount = prefs.getInt("active_downloads_count", 0)
         prefs.edit().putInt("active_downloads_count", currentCount + 1).apply()
+        atualizarNotificacaoDownload()
     }
 
-    // ✅ ATUALIZAÇÃO UI DISNEY: Troca Ícone pela Barra de Progresso
+    // ✅ ATUALIZAÇÃO VISUAL E NOTIFICAÇÃO NO MENU
     private fun atualizarUI_download() {
         when (downloadState) {
             DownloadState.BAIXAR -> { 
                 imgDownloadState.visibility = View.VISIBLE
-                pbDownloadCircular?.visibility = View.GONE // Esconde bolinha
+                pbDownloadCircular?.visibility = View.GONE
                 imgDownloadState.setImageResource(android.R.drawable.stat_sys_download)
                 tvDownloadState.text = "BAIXAR"
             }
             DownloadState.BAIXANDO -> { 
-                imgDownloadState.visibility = View.GONE // Esconde seta
-                pbDownloadCircular?.visibility = View.VISIBLE // Mostra bolinha girando
-                tvDownloadState.text = "BAIXANDO 0%" // Texto Disney Style
+                imgDownloadState.visibility = View.GONE
+                pbDownloadCircular?.visibility = View.VISIBLE
+                tvDownloadState.text = "BAIXANDO 0%"
             }
             DownloadState.BAIXADO -> { 
                 imgDownloadState.visibility = View.VISIBLE
@@ -720,6 +739,21 @@ class DetailsActivity : AppCompatActivity() {
                 imgDownloadState.setImageResource(android.R.drawable.stat_sys_download_done)
                 tvDownloadState.text = "BAIXADO"
             }
+        }
+    }
+    
+    // ✅ FUNÇÃO NOVA: ATUALIZA A BOLINHA VERMELHA NO MENU RODAPÉ
+    private fun atualizarNotificacaoDownload() {
+        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+        val count = prefs.getInt("active_downloads_count", 0)
+        // Usa ?. para evitar erro se o menu não estiver inicializado (ex: TV)
+        if (count > 0) {
+            bottomNavigation?.getOrCreateBadge(R.id.nav_downloads)?.apply {
+                isVisible = true
+                number = count
+            }
+        } else {
+            bottomNavigation?.removeBadge(R.id.nav_downloads)
         }
     }
 
@@ -806,6 +840,9 @@ class DetailsActivity : AppCompatActivity() {
     }
 
     override fun onResume() {
-        super.onResume(); restaurarEstadoDownload(); verificarResume()
+        super.onResume()
+        restaurarEstadoDownload()
+        verificarResume()
+        atualizarNotificacaoDownload() // ✅ Atualiza a notificação ao voltar para a tela
     }
 }

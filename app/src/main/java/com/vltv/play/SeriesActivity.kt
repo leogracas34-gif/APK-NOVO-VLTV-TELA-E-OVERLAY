@@ -30,6 +30,7 @@ import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
 import android.graphics.Color
+import com.google.android.material.bottomnavigation.BottomNavigationView // ADICIONADO PARA O MENU
 
 // --- IMPORTAÇÕES PARA A API DO TMDB E PERFORMANCE ---
 import kotlinx.coroutines.CoroutineScope
@@ -39,7 +40,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.URL
 import java.net.URLEncoder
-import kotlinx.coroutines.Job // Adicionado para controle de fluxo
+import kotlinx.coroutines.Job
 
 // ✅ IMPORTAÇÕES DA DATABASE MANTIDAS
 import androidx.lifecycle.lifecycleScope
@@ -52,26 +53,26 @@ class SeriesActivity : AppCompatActivity() {
     private lateinit var rvSeries: RecyclerView
     private lateinit var progressBar: View
     private lateinit var tvCategoryTitle: TextView
+    
+    // ✅ ADICIONADO: Variável do Menu
+    private var bottomNavigation: BottomNavigationView? = null 
 
     private var username = ""
     private var password = ""
-    private lateinit var seriesCachePrefs: SharedPreferences // ✅ NOVO: Armazena links das logos
+    private lateinit var seriesCachePrefs: SharedPreferences
 
     // Cache em memória
     private var cachedCategories: List<LiveCategory>? = null
-    private val seriesCache = mutableMapOf<String, List<SeriesStream>>() // key = categoryId
+    private val seriesCache = mutableMapOf<String, List<SeriesStream>>() 
     private var favSeriesCache: List<SeriesStream>? = null
 
     private var categoryAdapter: SeriesCategoryAdapter? = null
     private var seriesAdapter: SeriesAdapter? = null
 
-    // ✅ VARIÁVEL DE PERFIL INTEGRADA PARA SINCRONIZAR FAVORITOS
     private var currentProfile: String = "Padrao"
 
-    // ✅ DATABASE INICIALIZADA (ADICIONADO)
     private val database by lazy { AppDatabase.getDatabase(this) }
 
-    // ✅ FUNÇÃO PARA DETECTAR SE É TV BOX OU CELULAR
     private fun isTelevision(context: Context): Boolean {
         val uiMode = context.resources.configuration.uiMode
         return (uiMode and Configuration.UI_MODE_TYPE_MASK) == Configuration.UI_MODE_TYPE_TELEVISION
@@ -80,32 +81,40 @@ class SeriesActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // --- USANDO O LAYOUT LIMPO (SEM PLAYER) ---
+        // Reutiliza o layout de VOD (que tem o menu e categorias no topo)
         setContentView(R.layout.activity_vod)
-        // ---------------------------
 
-        // ✅ RECUPERA O PERFIL VINDO DA HOME
         currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
 
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
+        
+        // ✅ CORREÇÃO: Exibir barras no celular, esconder na TV
+        if (isTelevision(this)) {
+            windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
+        } else {
+            windowInsetsController?.show(WindowInsetsCompat.Type.systemBars())
+        }
 
         rvCategories = findViewById(R.id.rvCategories)
-        rvSeries = findViewById(R.id.rvChannels) // O ID bate com o XML novo (activity_vod)
+        rvSeries = findViewById(R.id.rvChannels)
         progressBar = findViewById(R.id.progressBar)
         tvCategoryTitle = findViewById(R.id.tvCategoryTitle)
+        
+        // ✅ ADICIONADO: Vínculo do Menu
+        bottomNavigation = findViewById(R.id.bottomNavigation)
 
-        // ✅ Inicializa o cache exclusivo para séries
         seriesCachePrefs = getSharedPreferences("vltv_series_cache", Context.MODE_PRIVATE)
 
-        // ✅ BUSCA DIRETA (PULA A PONTE)
+        // ✅ ADICIONADO: Configura cliques do Menu
+        setupBottomNavigation()
+
         val searchInput = findViewById<View>(R.id.etSearchContent)
-        searchInput?.isFocusableInTouchMode = false // Impede abrir teclado aqui
+        searchInput?.isFocusableInTouchMode = false
         searchInput?.setOnClickListener {
             val intent = Intent(this, SearchActivity::class.java)
             intent.putExtra("initial_query", "")
-            intent.putExtra("PROFILE_NAME", currentProfile) // REPASSA O PERFIL NA BUSCA
+            intent.putExtra("PROFILE_NAME", currentProfile)
             startActivity(intent)
         }
 
@@ -113,26 +122,79 @@ class SeriesActivity : AppCompatActivity() {
         username = prefs.getString("username", "") ?: ""
         password = prefs.getString("password", "") ?: ""
 
-        rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
+        // ✅ CORREÇÃO: Lógica para Celular (Horizontal) vs TV (Vertical)
+        if (isTelevision(this)) {
+            // Configuração TV: Menu Escondido, Categorias na Esquerda (Vertical)
+            rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
+            rvSeries.layoutManager = GridLayoutManager(this, 5)
+            bottomNavigation?.visibility = View.GONE
+        } else {
+            // Configuração Celular: Menu Visível, Categorias no Topo (Horizontal)
+            rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.HORIZONTAL, false)
+            rvSeries.layoutManager = GridLayoutManager(this, 3)
+            bottomNavigation?.visibility = View.VISIBLE
+        }
+
         rvCategories.setHasFixedSize(true)
-        rvCategories.setItemViewCacheSize(60) // ✅ CACHE PARA NAVEGAÇÃO RÁPIDA
-        rvCategories.overScrollMode = View.OVER_SCROLL_NEVER // ✅ REMOVE TREMEDEIRA
+        rvCategories.setItemViewCacheSize(60)
+        rvCategories.overScrollMode = View.OVER_SCROLL_NEVER
         rvCategories.isFocusable = true
         rvCategories.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
 
-        rvSeries.layoutManager = GridLayoutManager(this, 5)
         rvSeries.isFocusable = true
         rvSeries.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
         rvSeries.setHasFixedSize(true)
-        rvSeries.setItemViewCacheSize(100) // ✅ CACHE PARA PÔSTERES
+        rvSeries.setItemViewCacheSize(100)
 
         carregarCategorias()
     }
 
-    // ✅ FUNÇÃO ATUALIZADA: DOUBLE PRELOAD (POSTER + LOGO TMDB)
+    // ✅ ADICIONADO: Função para controlar o Menu de Rodapé
+    private fun setupBottomNavigation() {
+        bottomNavigation?.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.nav_home -> {
+                    finish() // Volta para a Home
+                    true
+                }
+                R.id.nav_search -> {
+                    val intent = Intent(this, SearchActivity::class.java)
+                    intent.putExtra("PROFILE_NAME", currentProfile)
+                    startActivity(intent)
+                    true
+                }
+                R.id.nav_downloads -> {
+                    startActivity(Intent(this, DownloadsActivity::class.java))
+                    true
+                }
+                R.id.nav_profile -> {
+                    val intent = Intent(this, SettingsActivity::class.java)
+                    intent.putExtra("PROFILE_NAME", currentProfile)
+                    startActivity(intent)
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+    
+    // ✅ ADICIONADO: Atualiza bolinha de notificação do download ao voltar
+    override fun onResume() {
+        super.onResume()
+        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+        val count = prefs.getInt("active_downloads_count", 0)
+        if (count > 0) {
+            bottomNavigation?.getOrCreateBadge(R.id.nav_downloads)?.apply {
+                isVisible = true
+                number = count
+            }
+        } else {
+            bottomNavigation?.removeBadge(R.id.nav_downloads)
+        }
+    }
+
     private fun preLoadImages(series: List<SeriesStream>) {
         CoroutineScope(Dispatchers.IO).launch {
-            // 1. Pré-carrega os posters (Até 40)
             val limitPosters = if (series.size > 40) 40 else series.size
             for (i in 0 until limitPosters) {
                 val url = series[i].icon
@@ -141,14 +203,13 @@ class SeriesActivity : AppCompatActivity() {
                         Glide.with(this@SeriesActivity)
                             .load(url)
                             .diskCacheStrategy(DiskCacheStrategy.ALL)
-                            .format(DecodeFormat.PREFER_RGB_565) // Otimização TV Box
+                            .format(DecodeFormat.PREFER_RGB_565)
                             .priority(Priority.LOW) 
-                            .preload(180, 270) // Redimensionado
+                            .preload(180, 270)
                     }
                 }
             }
 
-            // 2. Pré-carrega as logos do TMDB (Somente as primeiras 15 para não dar erro de limite)
             val limitLogos = if (series.size > 15) 15 else series.size
             for (i in 0 until limitLogos) {
                 preLoadTmdbLogo(series[i].name)
@@ -156,7 +217,6 @@ class SeriesActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ FUNÇÃO AUXILIAR PARA O PRELOAD DA LOGO
     private suspend fun preLoadTmdbLogo(rawName: String) {
         val TMDB_API_KEY = "9b73f5dd15b8165b1b57419be2f29128"
         var cleanName = rawName.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
@@ -165,12 +225,10 @@ class SeriesActivity : AppCompatActivity() {
 
         try {
             val query = URLEncoder.encode(cleanName, "UTF-8")
-            // ✅ CORREÇÃO: region=BR adicionado
             val searchJson = URL("https://api.themoviedb.org/3/search/tv?api_key=$TMDB_API_KEY&query=$query&language=pt-BR&region=BR").readText()
             val results = JSONObject(searchJson).getJSONArray("results")
 
             if (results.length() > 0) {
-                // ✅ FILTRO DE MATCH EXATO PARA O PRELOAD
                 var bestResult = results.getJSONObject(0)
                 for (j in 0 until results.length()) {
                     val obj = results.getJSONObject(j)
@@ -186,7 +244,6 @@ class SeriesActivity : AppCompatActivity() {
                 
                 if (logos.length() > 0) {
                     var finalPath = ""
-                    // ✅ CORREÇÃO: Prioridade para logo em PT
                     for (i in 0 until logos.length()) {
                         val lg = logos.getJSONObject(i)
                         if (lg.optString("iso_639_1") == "pt") {
@@ -209,7 +266,6 @@ class SeriesActivity : AppCompatActivity() {
         } catch (e: Exception) { e.printStackTrace() }
     }
 
-    // -------- helper p/ detectar adulto --------
     private fun isAdultName(name: String?): Boolean {
         if (name.isNullOrBlank()) return false
         val n = name.lowercase()
@@ -297,10 +353,8 @@ class SeriesActivity : AppCompatActivity() {
     private fun carregarSeries(categoria: LiveCategory) {
         tvCategoryTitle.text = categoria.name
 
-        // ✅ ADICIONADO: BUSCA NO BANCO PRIMEIRO (ULTRA VELOCIDADE)
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // Pegamos 1000 registros para garantir que cobrimos a categoria
                 val localData = database.streamDao().getRecentSeries(1000)
                 val filtradas = localData.filter { it.category_id == categoria.id }
                 if (filtradas.isNotEmpty() && seriesCache[categoria.id] == null) {
@@ -312,7 +366,7 @@ class SeriesActivity : AppCompatActivity() {
 
         seriesCache[categoria.id]?.let { seriesCacheadas ->
             aplicarSeries(seriesCacheadas)
-            preLoadImages(seriesCacheadas) // ✅ PRELOAD DO CACHE
+            preLoadImages(seriesCacheadas)
             return
         }
 
@@ -337,9 +391,8 @@ class SeriesActivity : AppCompatActivity() {
                         }
 
                         aplicarSeries(series)
-                        preLoadImages(series) // ✅ PRELOAD DA API
+                        preLoadImages(series)
 
-                        // ✅ ADICIONADO: SALVA NO BANCO SILENCIOSAMENTE PARA O PRÓXIMO ACESSO
                         lifecycleScope.launch(Dispatchers.IO) {
                             try {
                                 val entities = series.map { SeriesEntity(it.series_id, it.name, it.cover, it.rating, categoria.id, System.currentTimeMillis()) }
@@ -355,7 +408,6 @@ class SeriesActivity : AppCompatActivity() {
             })
     }
 
-    // ✅ CORREÇÃO DEFINITIVA: Busca séries favoritas sem depender de navegação prévia
     private fun carregarSeriesFavoritas() {
         tvCategoryTitle.text = "FAVORITOS"
         val favIds = getFavSeries(this)
@@ -365,16 +417,13 @@ class SeriesActivity : AppCompatActivity() {
             return
         }
 
-        // 1. Tenta encontrar no Cache primeiro (Aceleração)
         val listaNoCache = seriesCache.values.flatten().distinctBy { it.id }.filter { favIds.contains(it.id) }
 
-        // 2. Se já achou tudo que precisava na memória, exibe logo
         if (listaNoCache.size >= favIds.size) {
             aplicarSeries(listaNoCache)
             return
         }
 
-        // 3. Se faltar dados, busca a lista completa do servidor para filtrar
         progressBar.visibility = View.VISIBLE
         XtreamApi.service.getSeries(username, password, categoryId = "0")
             .enqueue(object : Callback<List<SeriesStream>> {
@@ -386,7 +435,6 @@ class SeriesActivity : AppCompatActivity() {
                     if (response.isSuccessful && response.body() != null) {
                         var todas = response.body()!!
                         
-                        // Atualiza cache de apoio
                         seriesCache["ALL_FOR_FAV"] = todas
                         
                         val favoritasFiltradas = todas.filter { favIds.contains(it.id) }
@@ -402,7 +450,6 @@ class SeriesActivity : AppCompatActivity() {
 
                 override fun onFailure(call: Call<List<SeriesStream>>, t: Throwable) {
                     progressBar.visibility = View.GONE
-                    // Em caso de falha, mostra o que tinha no cache
                     aplicarSeries(listaNoCache)
                 }
             })
@@ -421,19 +468,18 @@ class SeriesActivity : AppCompatActivity() {
         intent.putExtra("name", serie.name)
         intent.putExtra("icon", serie.icon)
         intent.putExtra("rating", serie.rating ?: "0.0")
-        intent.putExtra("PROFILE_NAME", currentProfile) // ✅ REPASSA O PERFIL PARA OS DETALHES
+        intent.putExtra("PROFILE_NAME", currentProfile)
         startActivity(intent)
     }
 
-    // ✅ CORREÇÃO: Lê os favoritos de acordo com o perfil atual (Sincronizado com Detalhes)
     private fun getFavSeries(context: Context): MutableSet<Int> {
         val prefs = context.getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
-        val key = "${currentProfile}_fav_series" // Chave mestre do perfil
+        val key = "${currentProfile}_fav_series"
         val set = prefs.getStringSet(key, emptySet()) ?: emptySet()
         return set.mapNotNull { it.toIntOrNull() }.toMutableSet()
     }
 
-    // ================= ADAPTERS =================
+    // ================= ADAPTERS (MANTIDOS ORIGINAIS) =================
 
     inner class SeriesCategoryAdapter(
         private val list: List<LiveCategory>,
@@ -473,7 +519,6 @@ class SeriesActivity : AppCompatActivity() {
 
             holder.itemView.setOnFocusChangeListener { view, hasFocus ->
                 if (hasFocus) {
-                    // ✅ FOCO AMARELO + NEON + ZOOM NAS CATEGORIAS
                     holder.tvName.setTextColor(Color.YELLOW)
                     holder.tvName.textSize = 20f
                     view.setBackgroundResource(R.drawable.bg_focus_neon)
@@ -512,7 +557,7 @@ class SeriesActivity : AppCompatActivity() {
             val imgPoster: ImageView = v.findViewById(R.id.imgPoster)
             val imgLogo: ImageView = v.findViewById(R.id.imgLogo)
             val imgDownload: ImageView = v.findViewById(R.id.imgDownload)
-            var job: Job? = null // Adicionado para controle de fluxo
+            var job: Job? = null
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
@@ -523,7 +568,7 @@ class SeriesActivity : AppCompatActivity() {
 
         override fun onBindViewHolder(holder: VH, position: Int) {
             val item = list[position]
-            holder.job?.cancel() // ✅ Para buscas do item anterior ao reciclar
+            holder.job?.cancel()
             
             holder.tvName.visibility = View.GONE
             holder.imgLogo.setImageDrawable(null)
@@ -533,11 +578,11 @@ class SeriesActivity : AppCompatActivity() {
             val context = holder.itemView.context
             
             Glide.with(context)
-                .asBitmap() // Adicionado para performance
+                .asBitmap()
                 .load(item.icon)
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
-                .format(DecodeFormat.PREFER_RGB_565) // Adicionado para economizar RAM
-                .override(180, 270) // Redimensionamento fixo
+                .format(DecodeFormat.PREFER_RGB_565)
+                .override(180, 270)
                 .priority(if (isTelevision(context)) Priority.HIGH else Priority.IMMEDIATE)
                 .thumbnail(0.1f)
                 .placeholder(R.drawable.bg_logo_placeholder)
@@ -545,7 +590,6 @@ class SeriesActivity : AppCompatActivity() {
                 .centerCrop()
                 .into(holder.imgPoster)
 
-            // ✅ Lógica de Cache para Parar o Pisca-Pisca
             val cachedUrl = seriesCachePrefs.getString("logo_${item.name}", null)
             if (cachedUrl != null) {
                 holder.tvName.visibility = View.GONE
@@ -567,12 +611,11 @@ class SeriesActivity : AppCompatActivity() {
 
             holder.itemView.setOnFocusChangeListener { view, hasFocus ->
                 if (hasFocus) {
-                    // ✅ FOCO AMARELO + NEON + ZOOM 1.15f
                     holder.tvName.setTextColor(Color.YELLOW)
                     holder.tvName.textSize = 18f
                     view.animate().scaleX(1.15f).scaleY(1.15f).setDuration(150).start()
                     view.elevation = 20f
-                    view.setBackgroundResource(R.drawable.bg_focus_neon) // Aplica borda neon
+                    view.setBackgroundResource(R.drawable.bg_focus_neon)
                     if (holder.imgLogo.visibility != View.VISIBLE) holder.tvName.visibility = View.VISIBLE
                     view.alpha = 1.0f
                 } else {
@@ -580,7 +623,7 @@ class SeriesActivity : AppCompatActivity() {
                     holder.tvName.textSize = 14f
                     view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
                     view.elevation = 4f
-                    view.setBackgroundResource(0) // Remove borda
+                    view.setBackgroundResource(0)
                     holder.tvName.visibility = View.GONE
                     view.alpha = 0.8f
                 }
@@ -600,7 +643,6 @@ class SeriesActivity : AppCompatActivity() {
 
             try {
                 val query = URLEncoder.encode(cleanName, "UTF-8")
-                // ✅ CORREÇÃO: region=BR adicionado
                 val searchJson = URL("https://api.themoviedb.org/3/search/tv?api_key=$TMDB_API_KEY&query=$query&language=pt-BR&region=BR").readText()
                 val results = JSONObject(searchJson).getJSONArray("results")
 
@@ -612,7 +654,6 @@ class SeriesActivity : AppCompatActivity() {
                     
                     if (logos.length() > 0) {
                         var finalPath = ""
-                        // ✅ CORREÇÃO: Prioridade para logo em PT
                         for (i in 0 until logos.length()) {
                             val lg = logos.getJSONObject(i)
                             if (lg.optString("iso_639_1") == "pt") {
@@ -624,7 +665,6 @@ class SeriesActivity : AppCompatActivity() {
                         
                         val finalUrl = "https://image.tmdb.org/t/p/w500$finalPath"
                         
-                        // ✅ Salva no Cache para nunca mais precisar buscar na internet
                         seriesCachePrefs.edit().putString("logo_$rawName", finalUrl).apply()
 
                         withContext(Dispatchers.Main) {

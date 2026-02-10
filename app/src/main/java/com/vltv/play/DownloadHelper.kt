@@ -5,7 +5,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.database.Cursor
 import android.net.Uri
 import android.os.Environment
 import android.util.Log
@@ -18,78 +17,64 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.net.HttpURLConnection
-import java.net.URL
 
 object DownloadHelper {
 
     private const val TAG = "DownloadHelper"
     
-    // ✅ SEGURANÇA: Pasta e Extensão ocultas
+    // ✅ Pasta Segura e Extensão Oculta
     private const val PASTA_OCULTA = "vltv_secure_storage"
-    private const val EXTENSAO_SEGURA = ".vltv"
+    private const val EXTENSAO_SEGURA = ".vltv" // Arquivo não aparece na galeria
 
-    // Estados do Download (Compatível com sua lógica visual)
+    // Estados
     const val STATE_BAIXAR = "BAIXAR"
     const val STATE_BAIXANDO = "BAIXANDO"
     const val STATE_BAIXADO = "BAIXADO"
     const val STATE_ERRO = "ERRO"
 
-    // ✅ NOVA FUNÇÃO: Aceita dados de Filme e Série para o Banco
+    /**
+     * Inicia o download de forma assíncrona e segura.
+     * Compatível com filmes e séries.
+     */
     fun iniciarDownload(
         context: Context,
         url: String,
         streamId: Int,
-        nomePrincipal: String, // Nome do Filme ou da Série
-        nomeEpisodio: String?, // Ex: "T01E01" (Null se for filme)
-        imagemUrl: String?,
+        nomePrincipal: String,
+        nomeEpisodio: String? = null, // Pode ser nulo se for filme
+        imagemUrl: String? = null,
         isSeries: Boolean
     ) {
-        // Rodamos em Background para o teste de URL não travar o app
         CoroutineScope(Dispatchers.IO).launch {
-            Log.d(TAG, "Iniciando processo: $nomePrincipal | ID: $streamId")
-
-            // 1. Testa a URL antes (Sua lógica, agora segura em background)
-            if (!testarUrl(url)) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "❌ Link indisponível/offline", Toast.LENGTH_LONG).show()
-                }
-                return@launch
-            }
-
             try {
-                // 2. Cria nome de arquivo seguro e único
-                val tipo = if (isSeries) "series" else "movie"
-                val nomeArquivoFisico = "${tipo}_${streamId}_${System.currentTimeMillis()}$EXTENSAO_SEGURA"
+                Log.d(TAG, "Iniciando Download: $nomePrincipal | URL: $url")
 
+                // 1. Sanitização do Nome do Arquivo (Remove caracteres proibidos)
+                val nomeSeguro = nomePrincipal.replace(Regex("[^a-zA-Z0-9\\.\\-]"), "_")
+                val tipo = if (isSeries) "series" else "movie"
+                val nomeArquivoFisico = "${tipo}_${streamId}_${nomeSeguro}$EXTENSAO_SEGURA"
+
+                // 2. Configura a Requisição do Download Manager
                 val uri = Uri.parse(url)
                 val request = DownloadManager.Request(uri)
                     .setTitle(if (isSeries && nomeEpisodio != null) "$nomePrincipal - $nomeEpisodio" else nomePrincipal)
-                    .setDescription("Baixando conteúdo seguro...")
-                    .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE) // Mostra progresso
-                    .setVisibleInDownloadsUi(false) // Esconde do app "Downloads" do Android
+                    .setDescription("Baixando conteúdo...")
+                    .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                    .setVisibleInDownloadsUi(false) // Esconde do app de Arquivos padrão
                     .setAllowedOverMetered(true)
                     .setAllowedOverRoaming(false)
                 
-                // 🔒 SALVA NA PASTA OCULTA DO APP (Ninguém vê na galeria)
-                // Usando destinationInExternalFilesDir para garantir que fique na pasta do app
+                // 3. Define o local de salvamento (Pasta do App - Não requer permissão de armazenamento no Android 10+)
+                // O arquivo será salvo em: /Android/data/com.vltv.play/files/vltv_secure_storage/
                 request.setDestinationInExternalFilesDir(context, PASTA_OCULTA, nomeArquivoFisico)
 
+                // 4. Enfileira o Download
                 val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
                 val downloadId = dm.enqueue(request)
 
-                if (downloadId == -1L) {
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "❌ Erro ao iniciar gerenciador", Toast.LENGTH_SHORT).show()
-                    }
-                    return@launch
-                }
-
-                // 3. Salva no BANCO DE DADOS (Substituindo o SharedPreferences)
-                // Constrói o caminho completo para salvar no banco
+                // 5. Salva no Banco de Dados (Room) para persistência
                 val diretorio = context.getExternalFilesDir(PASTA_OCULTA)
                 val arquivo = File(diretorio, nomeArquivoFisico)
-                val caminhoCompleto = arquivo.absolutePath
                 
                 val novoDownload = DownloadEntity(
                     android_download_id = downloadId,
@@ -97,21 +82,21 @@ object DownloadHelper {
                     name = nomePrincipal,
                     episode_name = nomeEpisodio,
                     image_url = imagemUrl,
-                    file_path = caminhoCompleto,
+                    file_path = arquivo.absolutePath,
                     type = tipo,
-                    status = STATE_BAIXANDO,
+                    status = STATE_BAIXANDO, // Começa como baixando
                     progress = 0,
-                    total_size = "0MB" // Inicialmente 0
+                    total_size = "Calculando..."
                 )
 
                 AppDatabase.getDatabase(context).streamDao().insertDownload(novoDownload)
 
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "✅ Download iniciado: $nomePrincipal", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "✅ Download iniciado!", Toast.LENGTH_SHORT).show()
                 }
 
             } catch (e: Exception) {
-                Log.e(TAG, "ERRO CRÍTICO: ${e.message}", e)
+                Log.e(TAG, "Erro ao iniciar download: ${e.message}", e)
                 withContext(Dispatchers.Main) {
                     Toast.makeText(context, "Erro ao baixar: ${e.message}", Toast.LENGTH_LONG).show()
                 }
@@ -119,71 +104,38 @@ object DownloadHelper {
         }
     }
 
-    // ✅ Teste de URL simplificado e seguro
-    private fun testarUrl(urlString: String): Boolean {
-        return try {
-            val url = URL(urlString)
-            val conn = url.openConnection() as HttpURLConnection
-            conn.requestMethod = "HEAD"
-            conn.connectTimeout = 5000
-            conn.readTimeout = 5000
-            conn.connect()
-            val code = conn.responseCode
-            conn.disconnect()
-            Log.d(TAG, "URL Test: $code")
-            code in 200..399 // Aceita redirecionamentos (3xx) também
-        } catch (e: Exception) {
-            Log.e(TAG, "Falha no teste de URL: ${e.message}")
-            false
-        }
-    }
-
-    // --- RECEIVER (Atualiza o Banco quando termina) ---
-
+    // --- RECEIVER (Escuta quando o download termina) ---
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val id = intent?.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L) ?: return
             if (id == -1L || context == null) return
 
             CoroutineScope(Dispatchers.IO).launch {
-                val db = AppDatabase.getDatabase(context).streamDao()
-                
-                // Verifica o status real no sistema
-                val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-                val query = DownloadManager.Query().setFilterById(id)
-                
-                var statusFinal = STATE_ERRO
-                var progress = 0
-
                 try {
+                    val db = AppDatabase.getDatabase(context).streamDao()
+                    val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                    val query = DownloadManager.Query().setFilterById(id)
+
                     dm.query(query).use { cursor ->
                         if (cursor.moveToFirst()) {
-                            val statusColumn = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
-                            if (statusColumn >= 0) {
-                                val status = cursor.getInt(statusColumn)
-                                if (status == DownloadManager.STATUS_SUCCESSFUL) {
-                                    statusFinal = STATE_BAIXADO
-                                    progress = 100
-                                    Log.d(TAG, "Download CONCLUÍDO ID: $id")
-                                } else if (status == DownloadManager.STATUS_FAILED) {
-                                    statusFinal = STATE_ERRO
-                                    Log.e(TAG, "Download FALHOU ID: $id")
+                            val statusIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
+                            val status = cursor.getInt(statusIndex)
+
+                            when (status) {
+                                DownloadManager.STATUS_SUCCESSFUL -> {
+                                    db.updateDownloadStatus(id, STATE_BAIXADO)
+                                    db.updateDownloadProgress(id, 100)
+                                    Log.d(TAG, "Download Concluído ID: $id")
+                                }
+                                DownloadManager.STATUS_FAILED -> {
+                                    db.updateDownloadStatus(id, STATE_ERRO)
+                                    Log.e(TAG, "Download Falhou ID: $id")
                                 }
                             }
                         }
                     }
-                    
-                    // Atualiza a tabela do banco
-                    // OBS: O método updateDownloadProgress precisa existir no StreamDao
-                    db.updateDownloadProgress(id, statusFinal, progress)
-                    
-                    // Se falhou, podemos deletar o registro ou marcar como erro
-                    if (statusFinal == STATE_ERRO) {
-                        // db.deleteDownloadByAndroidId(id) // Opcional: remover se falhar
-                    }
-
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    Log.e(TAG, "Erro no Receiver: ${e.message}")
                 }
             }
         }
@@ -191,17 +143,15 @@ object DownloadHelper {
 
     fun registerReceiver(context: Context) {
         try {
-            // Compatível com Android 12+ (Flag Exported/Not Exported)
             val filter = IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
             ContextCompat.registerReceiver(
                 context, 
                 receiver, 
-                filter,
-                ContextCompat.RECEIVER_NOT_EXPORTED
+                filter, 
+                ContextCompat.RECEIVER_EXPORTED // Necessário para Android 13+
             )
-            Log.d(TAG, "Receiver registrado com sucesso")
         } catch (e: Exception) {
-            Log.e(TAG, "Erro registrando receiver: ${e.message}")
+            Log.e(TAG, "Erro ao registrar receiver: ${e.message}")
         }
     }
     

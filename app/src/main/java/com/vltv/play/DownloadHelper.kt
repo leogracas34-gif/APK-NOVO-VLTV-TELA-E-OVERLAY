@@ -24,7 +24,7 @@ object DownloadHelper {
     
     // ✅ Pasta Segura e Extensão Oculta
     private const val PASTA_OCULTA = "vltv_secure_storage"
-    private const val EXTENSAO_SEGURA = ".vltv" // Arquivo não aparece na galeria
+    private const val EXTENSAO_SEGURA = ".vltv"
 
     // Estados
     const val STATE_BAIXAR = "BAIXAR"
@@ -34,14 +34,13 @@ object DownloadHelper {
 
     /**
      * Inicia o download de forma assíncrona e segura.
-     * Compatível com filmes e séries.
      */
     fun iniciarDownload(
         context: Context,
         url: String,
         streamId: Int,
         nomePrincipal: String,
-        nomeEpisodio: String? = null, // Pode ser nulo se for filme
+        nomeEpisodio: String? = null,
         imagemUrl: String? = null,
         isSeries: Boolean
     ) {
@@ -49,30 +48,29 @@ object DownloadHelper {
             try {
                 Log.d(TAG, "Iniciando Download: $nomePrincipal | URL: $url")
 
-                // 1. Sanitização do Nome do Arquivo (Remove caracteres proibidos)
+                // 1. Sanitização do Nome
                 val nomeSeguro = nomePrincipal.replace(Regex("[^a-zA-Z0-9\\.\\-]"), "_")
                 val tipo = if (isSeries) "series" else "movie"
                 val nomeArquivoFisico = "${tipo}_${streamId}_${nomeSeguro}$EXTENSAO_SEGURA"
 
-                // 2. Configura a Requisição do Download Manager
+                // 2. Configura a Requisição
                 val uri = Uri.parse(url)
                 val request = DownloadManager.Request(uri)
                     .setTitle(if (isSeries && nomeEpisodio != null) "$nomePrincipal - $nomeEpisodio" else nomePrincipal)
                     .setDescription("Baixando conteúdo...")
                     .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                    .setVisibleInDownloadsUi(false) // Esconde do app de Arquivos padrão
+                    .setVisibleInDownloadsUi(false)
                     .setAllowedOverMetered(true)
                     .setAllowedOverRoaming(false)
                 
-                // 3. Define o local de salvamento (Pasta do App - Não requer permissão de armazenamento no Android 10+)
-                // O arquivo será salvo em: /Android/data/com.vltv.play/files/vltv_secure_storage/
+                // 3. Define o local de salvamento
                 request.setDestinationInExternalFilesDir(context, PASTA_OCULTA, nomeArquivoFisico)
 
                 // 4. Enfileira o Download
                 val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
                 val downloadId = dm.enqueue(request)
 
-                // 5. Salva no Banco de Dados (Room) para persistência
+                // 5. Salva no Banco de Dados
                 val diretorio = context.getExternalFilesDir(PASTA_OCULTA)
                 val arquivo = File(diretorio, nomeArquivoFisico)
                 
@@ -84,7 +82,7 @@ object DownloadHelper {
                     image_url = imagemUrl,
                     file_path = arquivo.absolutePath,
                     type = tipo,
-                    status = STATE_BAIXANDO, // Começa como baixando
+                    status = STATE_BAIXANDO,
                     progress = 0,
                     total_size = "Calculando..."
                 )
@@ -104,7 +102,7 @@ object DownloadHelper {
         }
     }
 
-    // --- RECEIVER (Escuta quando o download termina) ---
+    // --- RECEIVER (Corrigido para usar updateDownloadProgress corretamente) ---
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val id = intent?.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L) ?: return
@@ -123,12 +121,13 @@ object DownloadHelper {
 
                             when (status) {
                                 DownloadManager.STATUS_SUCCESSFUL -> {
-                                    db.updateDownloadStatus(id, STATE_BAIXADO)
-                                    db.updateDownloadProgress(id, 100)
+                                    // ✅ CORREÇÃO: Passa ID, Status (String) e Progresso (Int) juntos
+                                    db.updateDownloadProgress(id, STATE_BAIXADO, 100)
                                     Log.d(TAG, "Download Concluído ID: $id")
                                 }
                                 DownloadManager.STATUS_FAILED -> {
-                                    db.updateDownloadStatus(id, STATE_ERRO)
+                                    // ✅ CORREÇÃO: Passa ID, Status (String) e Progresso 0
+                                    db.updateDownloadProgress(id, STATE_ERRO, 0)
                                     Log.e(TAG, "Download Falhou ID: $id")
                                 }
                             }
@@ -148,7 +147,7 @@ object DownloadHelper {
                 context, 
                 receiver, 
                 filter, 
-                ContextCompat.RECEIVER_EXPORTED // Necessário para Android 13+
+                ContextCompat.RECEIVER_EXPORTED
             )
         } catch (e: Exception) {
             Log.e(TAG, "Erro ao registrar receiver: ${e.message}")

@@ -360,6 +360,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
             when (item.itemId) {
                 R.id.nav_home -> {
                     // Voltar para Home (limpando a pilha se necessário)
+                    // CORREÇÃO: USANDO HomeActivity QUE É O NOME CERTO
                     val intent = Intent(this, HomeActivity::class.java)
                     intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
                     startActivity(intent)

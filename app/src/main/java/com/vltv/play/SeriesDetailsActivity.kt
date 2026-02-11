@@ -56,36 +56,25 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private var currentProfile: String = "Padrao"
     private var youtubeTrailerKey: String? = null
 
-    // Views
+    // Views Originais
     private lateinit var imgPoster: ImageView
     private lateinit var imgBackground: ImageView
     private lateinit var tvTitle: TextView
-    private lateinit var imgTitleLogo: ImageView 
+    private lateinit var imgTitleLogo: ImageView
     private lateinit var tvRating: TextView
     private lateinit var tvGenre: TextView
     private lateinit var tvCast: TextView
-    private lateinit var recyclerCast: RecyclerView 
+    private lateinit var recyclerCast: RecyclerView
     private lateinit var tvPlot: TextView
     private lateinit var btnSeasonSelector: TextView
     private lateinit var rvEpisodes: RecyclerView
     private lateinit var btnFavoriteSeries: ImageButton
-
     private lateinit var btnPlaySeries: Button
     private lateinit var btnDownloadEpisodeArea: LinearLayout
     private lateinit var imgDownloadEpisodeState: ImageView
     private lateinit var tvDownloadEpisodeState: TextView
-
     private lateinit var btnDownloadSeason: Button
     private lateinit var btnResume: Button
-
-    // NOVAS VIEWS (Replicadas de Filmes para Séries)
-    private var btnRestartAction: LinearLayout? = null
-    private var btnTrailerAction: LinearLayout? = null
-    private var btnFavoriteLayout: LinearLayout? = null
-    private var layoutProgress: LinearLayout? = null
-    private var progressBarMovie: ProgressBar? = null
-    private var tvTimeRemaining: TextView? = null
-    private lateinit var bottomNavigation: BottomNavigationView
 
     private var appBarLayout: AppBarLayout? = null
     private var tabLayout: TabLayout? = null
@@ -99,6 +88,18 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private lateinit var tvBadge51: TextView
     private lateinit var tvReleaseDate: TextView
     private lateinit var tvCreatedBy: TextView
+
+    // NOVAS VIEWS (Adicionadas conforme XML de Filmes)
+    private lateinit var bottomNavigation: BottomNavigationView
+    private var layoutProgress: LinearLayout? = null
+    private var progressBarMovie: ProgressBar? = null
+    private var tvTimeRemaining: TextView? = null
+    
+    // Botões de Ação Extras
+    private var btnRestartAction: LinearLayout? = null
+    private var btnTrailerAction: LinearLayout? = null
+    private var btnFavoriteLayout: LinearLayout? = null
+    private var btnDownloadAction: LinearLayout? = null // Mapeado do XML de filmes
 
     private var episodesBySeason: Map<String, List<EpisodeStream>> = emptyMap()
     private var sortedSeasons: List<String> = emptyList()
@@ -117,10 +118,10 @@ class SeriesDetailsActivity : AppCompatActivity() {
         // ✅ RECUPERA O NOME DO PERFIL (Para salvar favoritos na conta certa)
         currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
 
-        // MODO IMERSIVO (Corrigido para manter botões visíveis se desejado, ou comportamento de swipe)
+        // MODO IMERSIVO - CORRIGIDO PARA MOSTRAR AS BARRAS E FIXAR O RODAPÉ
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
-        windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        windowInsetsController?.show(WindowInsetsCompat.Type.systemBars()) // ✅ FIXA OS BOTÕES DO CELULAR
+        // Aqui mudamos para SHOW para garantir que a barra de navegação do Android fique visível e não sobreponha
+        windowInsetsController?.show(WindowInsetsCompat.Type.systemBars()) 
 
         seriesId = intent.getIntExtra("series_id", 0)
         seriesName = intent.getStringExtra("name") ?: ""
@@ -168,7 +169,6 @@ class SeriesDetailsActivity : AppCompatActivity() {
         rvEpisodes.isFocusable = true
         rvEpisodes.isFocusableInTouchMode = true
         rvEpisodes.setHasFixedSize(true)
-        
         rvEpisodes.layoutManager = LinearLayoutManager(this)
 
         rvEpisodes.addOnChildAttachStateChangeListener(object : RecyclerView.OnChildAttachStateChangeListener {
@@ -192,13 +192,14 @@ class SeriesDetailsActivity : AppCompatActivity() {
         val isFavInicial = getFavSeries(this).contains(seriesId)
         atualizarIconeFavoritoSerie(isFavInicial)
 
+        // Favorito pelo botão original
         btnFavoriteSeries.setOnClickListener {
-            toggleFavorite()
+           executarLogicaFavorito()
         }
-
-        // NOVO LISTENER PARA O LAYOUT DE FAVORITO (REPLICADO DE FILMES)
+        
+        // Favorito pelo botão novo do layout
         btnFavoriteLayout?.setOnClickListener {
-            toggleFavorite()
+            executarLogicaFavorito()
         }
 
         // CHAMA A FUNÇÃO TRAZIDA DO ARQUIVO ANTIGO
@@ -220,15 +221,15 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 abrirPlayer(epParaContinuar, true)
             }
         }
-
-        // NOVOS LISTENERS PARA REINICIAR E TRAILER (ESTILO FILMES)
+        
+        // NOVOS LISTENERS DE AÇÃO (Reiniciar e Trailer)
         btnRestartAction?.setOnClickListener {
-            val epEncontrado = encontrarEpisodioParaAssistir()
-            if (epEncontrado != null) {
-                AlertDialog.Builder(this)
+            val epInicial = encontrarEpisodioParaAssistir()
+            if (epInicial != null) {
+                 AlertDialog.Builder(this)
                     .setTitle("Reiniciar")
                     .setMessage("Deseja assistir desde o início?")
-                    .setPositiveButton("Sim") { _, _ -> abrirPlayer(epEncontrado, false) }
+                    .setPositiveButton("Sim") { _, _ -> abrirPlayer(epInicial, false) }
                     .setNegativeButton("Não", null)
                     .show()
             }
@@ -239,7 +240,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("vnd.youtube:$youtubeTrailerKey"))
                 startActivity(intent)
             } else {
-                Toast.makeText(this, "Trailer indisponível no momento", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Trailer indisponível.", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -248,14 +249,24 @@ class SeriesDetailsActivity : AppCompatActivity() {
         tentarCarregarLogoCache()
         carregarSeriesInfo()
         sincronizarDadosTMDB()
-
-        // CONFIGURAÇÃO DO BOTTOM NAVIGATION (REPLICADO DE FILMES)
+        
+        // CONFIGURAÇÃO DO BOTTOM NAVIGATION
         bottomNavigation.setOnItemSelectedListener { item ->
             when (item.itemId) {
-                R.id.nav_home -> { finish(); true }
-                R.id.nav_search -> { /* Abrir Busca */ true }
-                R.id.nav_download -> { /* Abrir Downloads */ true }
-                R.id.nav_profile -> { /* Abrir Perfil */ true }
+                R.id.nav_home -> {
+                    finish() // Volta para a tela anterior (Home)
+                    true
+                }
+                R.id.nav_search -> {
+                    // Implementar navegação para busca se desejar
+                    true
+                }
+                R.id.nav_download -> {
+                    true
+                }
+                R.id.nav_profile -> {
+                    true
+                }
                 else -> false
             }
         }
@@ -278,7 +289,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         }
         btnPlaySeries.onFocusChangeListener = commonFocus
         btnResume.onFocusChangeListener = commonFocus
-        
+
         // ✅ LÓGICA DO ARQUIVO ANTIGO: Foco do Seletor (Amarelo no foco, Branco e Cinza normal)
         btnSeasonSelector.onFocusChangeListener = View.OnFocusChangeListener { v, hasFocus ->
             if (hasFocus) {
@@ -339,8 +350,8 @@ class SeriesDetailsActivity : AppCompatActivity() {
             override fun onTabReselected(tab: TabLayout.Tab?) {}
         })
     }
-
-    private fun toggleFavorite() {
+    
+    private fun executarLogicaFavorito() {
         val favs = getFavSeries(this)
         if (favs.contains(seriesId)) {
             favs.remove(seriesId)
@@ -354,8 +365,6 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private fun inicializarViews() {
         appBarLayout = findViewById(R.id.appBar)
         tabLayout = findViewById(R.id.tabLayout)
-        bottomNavigation = findViewById(R.id.bottomNavigation)
-
         if (tabLayout?.tabCount == 0) {
             tabLayout?.addTab(tabLayout!!.newTab().setText("EPISÓDIOS"))
             tabLayout?.addTab(tabLayout!!.newTab().setText("SUGESTÕES"))
@@ -386,18 +395,24 @@ class SeriesDetailsActivity : AppCompatActivity() {
         btnPlaySeries = findViewById(R.id.btnPlay)
         btnFavoriteSeries = findViewById(R.id.btnFavorite)
         btnResume = findViewById(R.id.btnResume)
+        
+        // Botão de Download na lista de episódios (original)
         btnDownloadEpisodeArea = findViewById(R.id.btnDownloadArea)
         imgDownloadEpisodeState = findViewById(R.id.imgDownloadState)
         tvDownloadEpisodeState = findViewById(R.id.tvDownloadState)
         btnDownloadSeason = findViewById(R.id.btnDownloadSeason)
-
-        // MAPEAMENTO DAS NOVAS VIEWS REPLICADAS DE FILMES
-        btnRestartAction = findViewById(R.id.btnRestartAction)
-        btnTrailerAction = findViewById(R.id.btnTrailerAction)
-        btnFavoriteLayout = findViewById(R.id.btnFavoriteLayout)
+        
+        // NOVOS IDs (Do XML de Filmes para Séries)
+        bottomNavigation = findViewById(R.id.bottomNavigation)
         layoutProgress = findViewById(R.id.layoutProgress)
         progressBarMovie = findViewById(R.id.progressBarMovie)
         tvTimeRemaining = findViewById(R.id.tvTimeRemaining)
+        
+        // Ações Extras
+        btnRestartAction = findViewById(R.id.btnRestartAction)
+        btnTrailerAction = findViewById(R.id.btnTrailerAction)
+        btnFavoriteLayout = findViewById(R.id.btnFavoriteLayout)
+        btnDownloadAction = findViewById(R.id.btnDownloadAction) // O do rodapé de ação
     }
 
     private fun verificarTecnologias(nome: String) {
@@ -423,13 +438,14 @@ class SeriesDetailsActivity : AppCompatActivity() {
     }
 
     private fun setupDownloadButtons() {
-        btnDownloadEpisodeArea.setOnClickListener {
-            val ep = currentEpisode ?: return@setOnClickListener
+        // Ação do botão de download da lista de episódios (ou do header, dependendo do XML)
+        val listenerDownload = View.OnClickListener {
+            val ep = currentEpisode ?: return@OnClickListener
             // ✅ CORREÇÃO: Lógica segura de download
             when (downloadState) {
                 DownloadState.BAIXAR -> {
                     val eid = ep.id.toIntOrNull() ?: 0
-                    if (eid == 0) return@setOnClickListener
+                    if (eid == 0) return@OnClickListener
                     val url = montarUrlEpisodio(ep)
                     val nomeEp = "T${currentSeason}E${ep.episode_num}"
                     // Chama o novo helper seguro
@@ -446,13 +462,17 @@ class SeriesDetailsActivity : AppCompatActivity() {
                     setDownloadState(DownloadState.BAIXANDO, ep)
                 }
                 DownloadState.BAIXANDO -> {
-                     Toast.makeText(this, "Já está baixando...", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Já está baixando...", Toast.LENGTH_SHORT).show()
                 }
                 DownloadState.BAIXADO -> {
-                     Toast.makeText(this, "Download concluído!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Download concluído!", Toast.LENGTH_SHORT).show()
                 }
             }
         }
+        
+        btnDownloadEpisodeArea.setOnClickListener(listenerDownload)
+        btnDownloadAction?.setOnClickListener(listenerDownload)
+
         btnDownloadSeason.setOnClickListener {
             if (currentSeason.isBlank()) return@setOnClickListener
             val lista = episodesBySeason[currentSeason] ?: emptyList()
@@ -479,6 +499,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         val url = "https://api.themoviedb.org/3/search/tv?api_key=$apiKey&query=$encodedName&language=pt-BR&region=BR"
         client.newCall(Request.Builder().url(url).build()).enqueue(object : okhttp3.Callback {
             override fun onFailure(call: okhttp3.Call, e: IOException) {
+                // ✅ CORREÇÃO: Usa o nome limpo em caso de erro
                 runOnUiThread { tvTitle.visibility = View.VISIBLE; tvTitle.text = cleanName }
             }
             override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
@@ -490,21 +511,24 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         if (results != null && results.length() > 0) {
                             val show = results.getJSONObject(0)
                             val tmdbId = show.getInt("id")
+                            // Passa o nome limpo para a função de logo
                             buscarLogoSerieTraduzida(tmdbId, apiKey, cleanName)
                             buscarDetalhesTMDB(tmdbId, apiKey)
                             runOnUiThread {
                                 val sinopse = show.optString("overview")
                                 tvPlot.text = if (sinopse.isNotEmpty()) sinopse else "Sinopse indisponível."
                                 val vote = show.optDouble("vote_average", 0.0)
-                                if (vote > 0) tvRating.text = String.format("%.1f", vote)
+                                if (vote > 0) tvRating.text = "Nota: ${String.format("%.1f", vote)}"
                                 val backdropPath = show.optString("backdrop_path")
                                 if (backdropPath.isNotEmpty() && imgBackground != imgPoster) {
                                     Glide.with(this@SeriesDetailsActivity)
                                         .load("https://image.tmdb.org/t/p/w1280$backdropPath")
                                         .centerCrop().into(imgBackground)
                                 }
+                                Glide.with(this@SeriesDetailsActivity).load(seriesIcon).placeholder(R.mipmap.ic_launcher).centerCrop().into(imgPoster)
                             }
                         } else {
+                            // ✅ CORREÇÃO: Usa o nome limpo se não achar nada
                             runOnUiThread { tvTitle.visibility = View.VISIBLE; tvTitle.text = cleanName }
                         }
                     } catch (e: Exception) {
@@ -543,6 +567,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
                                 Glide.with(this@SeriesDetailsActivity).load(finalUrl).diskCacheStrategy(DiskCacheStrategy.ALL).into(imgTitleLogo)
                             }
                         } else {
+                            // ✅ CORREÇÃO: Usa o nome limpo se não achar logo
                             runOnUiThread { tvTitle.visibility = View.VISIBLE; tvTitle.text = nomeLimpo }
                         }
                     } catch (e: Exception) {
@@ -564,43 +589,65 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 val body = response.body?.string() ?: return
                 try {
                     val d = JSONObject(body)
-                    val videos = d.optJSONObject("videos")?.optJSONArray("results")
-                    if (videos != null) {
-                        for (i in 0 until videos.length()) {
-                            val v = videos.getJSONObject(i)
-                            if (v.optString("type") == "Trailer") { youtubeTrailerKey = v.getString("key"); break }
-                        }
-                    }
+                    val gs = d.optJSONArray("genres")
+                    val genresList = mutableListOf<String>()
+                    if (gs != null) for (i in 0 until gs.length()) genresList.add(gs.getJSONObject(i).getString("name"))
+
                     val credits = d.optJSONObject("credits")
                     val castArray = credits?.optJSONArray("cast")
                     val castNames = mutableListOf<String>()
                     if (castArray != null) {
                         val limit = if (castArray.length() > 10) 10 else castArray.length()
-                        for (i in 0 until limit) { castNames.add(castArray.getJSONObject(i).getString("name")) }
+                        for (i in 0 until limit) {
+                            castNames.add(castArray.getJSONObject(i).getString("name"))
+                        }
                     }
+
+                    // DADOS EXTRAS (DATA E CRIADOR)
                     val firstAirDate = d.optString("first_air_date", "")
                     val createdByArray = d.optJSONArray("created_by")
                     val creatorsList = mutableListOf<String>()
                     if (createdByArray != null) {
-                        for (i in 0 until createdByArray.length()) { creatorsList.add(createdByArray.getJSONObject(i).getString("name")) }
+                        for (i in 0 until createdByArray.length()) {
+                            creatorsList.add(createdByArray.getJSONObject(i).getString("name"))
+                        }
                     }
+                    
+                    // BUSCA TRAILER
+                    val videos = d.optJSONObject("videos")?.optJSONArray("results")
+                    if (videos != null) {
+                        for (i in 0 until videos.length()) {
+                            val v = videos.getJSONObject(i)
+                            if (v.optString("type") == "Trailer") {
+                                youtubeTrailerKey = v.getString("key")
+                                break
+                            }
+                        }
+                    }
+
                     val similar = d.optJSONObject("recommendations")
                     val similarResults = similar?.optJSONArray("results")
                     val sugestoesList = ArrayList<JSONObject>()
                     if (similarResults != null) {
-                        for (i in 0 until similarResults.length()) { sugestoesList.add(similarResults.getJSONObject(i)) }
+                        for (i in 0 until similarResults.length()) {
+                            sugestoesList.add(similarResults.getJSONObject(i))
+                        }
                     }
+
                     runOnUiThread {
-                        tvGenre.text = d.optJSONArray("genres")?.getJSONObject(0)?.optString("name") ?: "Série"
+                        tvGenre.text = "Gênero: ${if (genresList.isEmpty()) "Variados" else genresList.joinToString(", ")}"
                         tvCast.text = "Elenco: ${castNames.joinToString(", ")}"
+                        // Preencher Data e Criador e garantir visibilidade
                         if (firstAirDate.isNotEmpty()) {
-                            tvReleaseDate.text = "Lançamento: ${firstAirDate.split("-")[0]}"
+                            val ano = firstAirDate.split("-")[0]
+                            tvReleaseDate.text = "Lançamento: $ano"
                             tvReleaseDate.visibility = View.VISIBLE
                         }
                         if (creatorsList.isNotEmpty()) {
                             tvCreatedBy.text = "Criado por: ${creatorsList.joinToString(", ")}"
                             tvCreatedBy.visibility = View.VISIBLE
                         }
+                        // Configurar Adapter de Sugestões
                         if (sugestoesList.isNotEmpty()) {
                             recyclerSuggestions.adapter = SuggestionsAdapter(sugestoesList)
                         }
@@ -625,13 +672,16 @@ class SeriesDetailsActivity : AppCompatActivity() {
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController?.show(WindowInsetsCompat.Type.systemBars())
         restaurarEstadoDownload()
+        // ✅ CORREÇÃO: Garante que o botão continuar apareça imediatamente ao voltar
         verificarResume()
     }
 
     private fun isTelevisionDevice() = packageManager.hasSystemFeature("android.software.leanback") || packageManager.hasSystemFeature("android.hardware.type.television")
 
+    // ✅ FAVORITOS ISOLADOS POR PERFIL
     private fun getFavSeries(context: Context): MutableSet<Int> {
         val prefs = context.getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+        // Usa a chave baseada no perfil atual
         val key = "${currentProfile}_fav_series"
         val set = prefs.getStringSet(key, emptySet()) ?: emptySet()
         return set.mapNotNull { it.toIntOrNull() }.toMutableSet()
@@ -639,6 +689,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
     private fun saveFavSeries(context: Context, ids: Set<Int>) {
         val prefs = context.getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+        // Usa a chave baseada no perfil atual
         val key = "${currentProfile}_fav_series"
         prefs.edit().putStringSet(key, ids.map { it.toString() }.toSet()).apply()
     }
@@ -666,6 +717,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         sortedSeasons = episodesBySeason.keys.sortedBy { it.toIntOrNull() ?: 0 }
                         if (sortedSeasons.isNotEmpty()) {
                             mudarTemporada(sortedSeasons.first())
+                            // ✅ CORREÇÃO: Verifica se há algo para continuar assim que carrega
                             verificarResume()
                         } else {
                             btnSeasonSelector.text = "Indisponível"
@@ -679,11 +731,14 @@ class SeriesDetailsActivity : AppCompatActivity() {
             })
     }
 
+    // ✅ FUNÇÃO CORRIGIDA PARA A TEMPORADA 1 SEMPRE APARECER NO TOPO
     private fun mostrarSeletorDeTemporada() {
         if (sortedSeasons.isEmpty()) return
         val dialog = BottomSheetDialog(this, R.style.DialogTemporadaTransparente)
         val root = RelativeLayout(this)
-        root.layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 500.toPx())
+        root.layoutParams = ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, 500.toPx()
+        )
         root.setBackgroundColor(Color.TRANSPARENT)
         val btnClose = ImageButton(this)
         btnClose.id = View.generateViewId()
@@ -711,6 +766,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         }
         val rvSeasons = RecyclerView(this)
         val rvParams = RelativeLayout.LayoutParams(250.toPx(), ViewGroup.LayoutParams.WRAP_CONTENT)
+        // ✅ CORREÇÃO: Alinhado ao topo para garantir a Temporada 1 no topo da lista
         rvParams.addRule(RelativeLayout.ALIGN_PARENT_TOP)
         rvParams.addRule(RelativeLayout.ABOVE, btnClose.id)
         rvParams.addRule(RelativeLayout.CENTER_HORIZONTAL)
@@ -744,7 +800,10 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
                     }
                 }
-                tv.setOnClickListener { mudarTemporada(season); dialog.dismiss() }
+                tv.setOnClickListener {
+                    mudarTemporada(season)
+                    dialog.dismiss()
+                }
             }
             override fun getItemCount() = sortedSeasons.size
         }
@@ -754,7 +813,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         val bottomSheet = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
         bottomSheet?.let {
             val behavior = com.google.android.material.bottomsheet.BottomSheetBehavior.from(it)
-            behavior.peekHeight = 500.toPx() 
+            behavior.peekHeight = 500.toPx()
             it.setBackgroundColor(Color.TRANSPARENT)
         }
         dialog.show()
@@ -771,7 +830,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         if (lista.isNotEmpty()) {
             currentEpisode = lista.first()
             restaurarEstadoDownload()
-            verificarResume()
+            verificarResume() // ✅ Verifica resume com chave do perfil
         }
         rvEpisodes.adapter = EpisodeAdapter(lista) { ep, _ ->
             currentEpisode = ep
@@ -785,12 +844,15 @@ class SeriesDetailsActivity : AppCompatActivity() {
         val streamId = ep.id.toIntOrNull() ?: 0
         val ext = ep.container_extension ?: "mp4"
         val lista = episodesBySeason[currentSeason] ?: emptyList()
+        val posInList = lista.indexOfFirst { it.id == ep.id }
+        val nextEp = if (posInList + 1 < lista.size) lista[posInList + 1] else null
         val mochilaIds = ArrayList<Int>()
         for (item in lista) {
             val idInt = item.id.toIntOrNull() ?: 0
             if (idInt != 0) mochilaIds.add(idInt)
         }
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+        // ✅ Chave de resume isolada por perfil
         val keyResume = "${currentProfile}_series_resume_${streamId}_pos"
         val pos = prefs.getLong(keyResume, 0L)
         val existe = usarResume && pos > 30000L
@@ -799,30 +861,49 @@ class SeriesDetailsActivity : AppCompatActivity() {
         intent.putExtra("stream_ext", ext)
         intent.putExtra("stream_type", "series")
         intent.putExtra("channel_name", "T${currentSeason}E${ep.episode_num} - $seriesName")
+        // ✅ PASSA O PERFIL PARA O PLAYER
         intent.putExtra("PROFILE_NAME", currentProfile)
-        if (mochilaIds.isNotEmpty()) { intent.putIntegerArrayListExtra("episode_list", mochilaIds) }
+        if (mochilaIds.isNotEmpty()) {
+            intent.putIntegerArrayListExtra("episode_list", mochilaIds)
+        }
         if (existe) intent.putExtra("start_position_ms", pos)
+        if (nextEp != null) {
+            intent.putExtra("next_stream_id", nextEp.id.toIntOrNull() ?: 0)
+            intent.putExtra("next_channel_name", "T${currentSeason}E${nextEp.episode_num} - $seriesName")
+        }
         startActivity(intent)
     }
 
+    // ✅ CORREÇÃO: Função para encontrar o primeiro episódio ou o último assistido para o botão ASSISTIR
     private fun encontrarEpisodioParaAssistir(): EpisodeStream? {
+        // Tenta encontrar se tem algum resume salvo em qualquer episódio da série
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         for (season in sortedSeasons) {
             val eps = episodesBySeason[season] ?: continue
             for (ep in eps) {
                 val sid = ep.id.toIntOrNull() ?: 0
                 val pos = prefs.getLong("${currentProfile}_series_resume_${sid}_pos", 0L)
-                if (pos > 10000L) { currentSeason = season; currentEpisode = ep; return ep }
+                if (pos > 10000L) {
+                    currentSeason = season
+                    currentEpisode = ep
+                    return ep
+                }
             }
         }
+        // Se não tem nada assistido, pega o Episódio 1 da Temporada 1
         if (sortedSeasons.isNotEmpty()) {
             val s1 = sortedSeasons.first()
             val eps = episodesBySeason[s1]
-            if (!eps.isNullOrEmpty()) { currentSeason = s1; currentEpisode = eps.first(); return eps.first() }
+            if (!eps.isNullOrEmpty()) {
+                currentSeason = s1
+                currentEpisode = eps.first()
+                return eps.first()
+            }
         }
         return null
     }
 
+    // ✅ CORREÇÃO: Função específica para o botão CONTINUAR
     private fun encontrarEpisodioParaContinuar(): EpisodeStream? {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         for (season in sortedSeasons) {
@@ -836,35 +917,47 @@ class SeriesDetailsActivity : AppCompatActivity() {
         return null
     }
 
+    // ✅ RESUME ISOLADO POR PERFIL + PROGRESSO DISNEY+
     private fun verificarResume() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         var temHistorico = false
         var maxPos = 0L
         var maxDur = 0L
+        
+        // Varre todas as temporadas e episódios desta série para ver se o perfil atual assistiu algo
         for (season in sortedSeasons) {
             val eps = episodesBySeason[season] ?: continue
             for (ep in eps) {
                 val sid = ep.id.toIntOrNull() ?: 0
                 val pos = prefs.getLong("${currentProfile}_series_resume_${sid}_pos", 0L)
                 val dur = prefs.getLong("${currentProfile}_series_resume_${sid}_dur", 0L)
-                if (pos > 15000L && dur > 0) {
+                
+                // Se assistiu mais de 15 segundos, considera histórico
+                if (pos > 15000L) {
                     temHistorico = true
-                    maxPos = pos
-                    maxDur = dur
-                    break
+                    // Guarda o que tiver mais progresso/recente para exibir na barra
+                    if (pos > maxPos) {
+                        maxPos = pos
+                        maxDur = dur
+                    }
                 }
             }
-            if (temHistorico) break
         }
+        
         runOnUiThread {
             if (temHistorico) {
                 btnPlaySeries.text = "▶  CONTINUAR"
                 btnResume.visibility = View.VISIBLE
+                
+                // Exibe barra de progresso e botões extras se tiver histórico
                 btnRestartAction?.visibility = View.VISIBLE
                 layoutProgress?.visibility = View.VISIBLE
-                progressBarMovie?.progress = ((maxPos.toFloat() / maxDur.toFloat()) * 100).toInt()
-                val min = TimeUnit.MILLISECONDS.toMinutes(maxDur - maxPos)
-                tvTimeRemaining?.text = "Restam ${min}min"
+                
+                if (maxDur > 0) {
+                     progressBarMovie?.progress = ((maxPos.toFloat() / maxDur.toFloat()) * 100).toInt()
+                     val minRestantes = TimeUnit.MILLISECONDS.toMinutes(maxDur - maxPos)
+                     tvTimeRemaining?.text = "Restam ${minRestantes}min"
+                }
             } else {
                 btnPlaySeries.text = "▶  ASSISTIR"
                 btnResume.visibility = View.GONE
@@ -878,16 +971,35 @@ class SeriesDetailsActivity : AppCompatActivity() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val user = prefs.getString("username", "") ?: ""
         val pass = prefs.getString("password", "") ?: ""
+        // ✅ CORREÇÃO CRÍTICA: Pegando o DNS real que está salvo no app (Dynamic DNS)
         val server = prefs.getString("dns", "") ?: ""
-        return "$server/get.php?username=$user&password=$pass&type=series&output=${ep.container_extension ?: "mp4"}&id=${ep.id}"
+        val eid = ep.id.toIntOrNull() ?: 0
+        val ext = ep.container_extension ?: "mp4"
+        return "$server/get.php?username=$user&password=$pass&type=series&output=$ext&id=$eid"
     }
 
     private fun baixarTemporadaAtual(lista: List<EpisodeStream>) {
         for (ep in lista) {
             val eid = ep.id.toIntOrNull() ?: continue
-            DownloadHelper.iniciarDownload(this, montarUrlEpisodio(ep), eid, seriesName, "T${currentSeason}E${ep.episode_num}", seriesIcon, true)
+            val url = montarUrlEpisodio(ep)
+            val nomeEp = "T${currentSeason}E${ep.episode_num}"
+            // ✅ CORREÇÃO: Usa o helper novo
+            DownloadHelper.iniciarDownload(
+                context = this,
+                url = url,
+                streamId = eid,
+                nomePrincipal = seriesName,
+                nomeEpisodio = nomeEp,
+                imagemUrl = seriesIcon,
+                isSeries = true
+            )
         }
         Toast.makeText(this, "Baixando episódios em segundo plano...", Toast.LENGTH_LONG).show()
+    }
+
+    // ✅ CORREÇÃO: Simplificado para não depender de SharedPreferences
+    private fun getProgressText(): String {
+        return "Baixando..."
     }
 
     private fun setDownloadState(state: DownloadState, ep: EpisodeStream?) {
@@ -895,9 +1007,18 @@ class SeriesDetailsActivity : AppCompatActivity() {
         val eid = ep?.id?.toIntOrNull() ?: 0
         if (eid != 0) getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE).edit().putString("series_download_state_$eid", state.name).apply()
         when (state) {
-            DownloadState.BAIXAR -> { imgDownloadEpisodeState.setImageResource(R.drawable.ic_dl_arrow); tvDownloadEpisodeState.text = "Baixar" }
-            DownloadState.BAIXANDO -> { imgDownloadEpisodeState.setImageResource(R.drawable.ic_dl_loading); tvDownloadEpisodeState.text = "Baixando..." }
-            DownloadState.BAIXADO -> { imgDownloadEpisodeState.setImageResource(R.drawable.ic_dl_done); tvDownloadEpisodeState.text = "Baixado" }
+            DownloadState.BAIXAR -> {
+                imgDownloadEpisodeState.setImageResource(R.drawable.ic_dl_arrow)
+                tvDownloadEpisodeState.text = "Baixar"
+            }
+            DownloadState.BAIXANDO -> {
+                imgDownloadEpisodeState.setImageResource(R.drawable.ic_dl_loading)
+                tvDownloadEpisodeState.text = getProgressText()
+            }
+            DownloadState.BAIXADO -> {
+                imgDownloadEpisodeState.setImageResource(R.drawable.ic_dl_done)
+                tvDownloadEpisodeState.text = "Baixado"
+            }
         }
     }
 
@@ -913,41 +1034,60 @@ class SeriesDetailsActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
-    class EpisodeAdapter(val list: List<EpisodeStream>, private val onClick: (EpisodeStream, Int) -> Unit) : RecyclerView.Adapter<EpisodeAdapter.VH>() {
-        class VH(v: View) : RecyclerView.ViewHolder(v) {
+    // ADAPTER COM LÓGICA DE BARRA DE PROGRESSO NO ITEM
+    inner class EpisodeAdapter(val list: List<EpisodeStream>, private val onClick: (EpisodeStream, Int) -> Unit) : RecyclerView.Adapter<EpisodeAdapter.VH>() {
+        
+        inner class VH(v: View) : RecyclerView.ViewHolder(v) {
             val tvTitle: TextView = v.findViewById(R.id.tvEpisodeTitle)
             val imgThumb: ImageView = v.findViewById(R.id.imgEpisodeThumb)
             val tvPlotEp: TextView = v.findViewById(R.id.tvEpisodePlot)
-            // MAPEIA A PROGRESSBAR DO ITEM (DISNEY+)
-            val pbEpisode: ProgressBar = v.findViewById(R.id.pbEpisodeProgress) 
+            // Tenta achar a progressBar no item_episode.xml
+            val pbEpisode: ProgressBar? = v.findViewById(R.id.pbEpisodeProgress)
         }
+
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = VH(LayoutInflater.from(parent.context).inflate(R.layout.item_episode, parent, false))
+
         override fun onBindViewHolder(holder: VH, position: Int) {
             val ep = list[position]
             val sid = ep.id.toIntOrNull() ?: 0
+            
             holder.tvTitle.text = "E${ep.episode_num.toString().padStart(2, '0')} - ${ep.title}"
             holder.tvPlotEp.text = ep.info?.plot ?: "Sem descrição disponível."
-            Glide.with(holder.itemView.context).load(ep.info?.movie_image ?: "").centerCrop().into(holder.imgThumb)
+            
+            val capaUrl = ep.info?.movie_image ?: ""
+            Glide.with(holder.itemView.context)
+                .load(capaUrl)
+                .placeholder(android.R.color.darker_gray)
+                .error(android.R.color.black)
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .centerCrop()
+                .into(holder.imgThumb)
 
-            // Lógica de progresso no item
-            val pr = holder.itemView.context.getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+            // Lógica de progresso individual do episódio
+            val prefs = holder.itemView.context.getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
             val activity = holder.itemView.context as SeriesDetailsActivity
-            val pos = pr.getLong("${activity.currentProfile}_series_resume_${sid}_pos", 0L)
-            val dur = pr.getLong("${activity.currentProfile}_series_resume_${sid}_dur", 0L)
+            val pos = prefs.getLong("${activity.currentProfile}_series_resume_${sid}_pos", 0L)
+            val dur = prefs.getLong("${activity.currentProfile}_series_resume_${sid}_dur", 0L)
+            
             if (pos > 15000L && dur > 0) {
-                holder.pbEpisode.visibility = View.VISIBLE
-                holder.pbEpisode.progress = ((pos.toFloat() / dur.toFloat()) * 100).toInt()
-            } else { holder.pbEpisode.visibility = View.GONE }
+                 holder.pbEpisode?.visibility = View.VISIBLE
+                 holder.pbEpisode?.progress = ((pos.toFloat() / dur.toFloat()) * 100).toInt()
+            } else {
+                 holder.pbEpisode?.visibility = View.GONE
+            }
 
             holder.itemView.setOnClickListener { onClick(ep, position) }
+            
             holder.itemView.setOnFocusChangeListener { view, hasFocus ->
                 holder.tvTitle.setTextColor(if (hasFocus) Color.YELLOW else Color.WHITE)
                 if (hasFocus) {
                     view.setBackgroundResource(R.drawable.bg_focus_neon)
                     view.animate().scaleX(1.10f).scaleY(1.10f).setDuration(200).start()
+                    view.elevation = 15f
                 } else {
                     view.setBackgroundResource(R.drawable.bg_episodio_item)
                     view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start()
+                    view.elevation = 4f
                 }
             }
         }
@@ -995,14 +1135,19 @@ class SeriesDetailsActivity : AppCompatActivity() {
             val item = items[position]
             val posterPath = item.optString("poster_path")
             val name = item.optString("name")
-            Glide.with(holder.itemView.context).load("https://image.tmdb.org/t/p/w342$posterPath").into(holder.img)
+            val id = item.optInt("id")
+            val rating = item.optDouble("vote_average", 0.0)
+            Glide.with(holder.itemView.context)
+                .load("https://image.tmdb.org/t/p/w342$posterPath")
+                .into(holder.img)
             holder.tvName.text = name
             holder.itemView.setOnClickListener {
                 val intent = Intent(holder.itemView.context, SeriesDetailsActivity::class.java)
-                intent.putExtra("series_id", item.optInt("id"))
+                intent.putExtra("series_id", id)
                 intent.putExtra("name", name)
                 intent.putExtra("icon", "https://image.tmdb.org/t/p/w342$posterPath")
-                intent.putExtra("rating", item.optDouble("vote_average", 0.0).toString())
+                intent.putExtra("rating", rating.toString())
+                // ✅ PASSA O PERFIL PARA A PRÓXIMA TELA
                 intent.putExtra("PROFILE_NAME", currentProfile)
                 holder.itemView.context.startActivity(intent)
             }

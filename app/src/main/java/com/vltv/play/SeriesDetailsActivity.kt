@@ -119,7 +119,6 @@ class SeriesDetailsActivity : AppCompatActivity() {
         currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
 
         // MODO IMERSIVO - CORRIGIDO: Usa SHOW para manter a barra de botões do celular visível e fixa
-        // Isso impede que você precise "passar a mão" para ver os botões
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController?.show(WindowInsetsCompat.Type.systemBars())
 
@@ -252,14 +251,22 @@ class SeriesDetailsActivity : AppCompatActivity() {
         // Configuração do BottomNavigation (Rodapé Fixo)
         bottomNavigation.setOnItemSelectedListener { item ->
             when (item.itemId) {
-                // Ajuste os IDs aqui se o seu menu usar nomes diferentes (ex: nav_home, nav_inicio)
                 R.id.nav_home -> { 
                     finish() // Volta para a Home
                     true 
                 }
-                R.id.nav_search -> true
-                R.id.nav_download -> true
-                R.id.nav_profile -> true
+                R.id.nav_search -> {
+                    // Adicionar lógica de abrir busca se desejar
+                    true
+                }
+                R.id.nav_downloads -> { // ✅ ID CORRIGIDO (PLURAL)
+                    // Adicionar lógica de abrir downloads se desejar
+                    true
+                }
+                R.id.nav_profile -> {
+                    // Adicionar lógica de abrir perfil se desejar
+                    true
+                }
                 else -> false
             }
         }

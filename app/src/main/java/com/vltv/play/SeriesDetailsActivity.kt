@@ -1103,6 +1103,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
             val tvTitle: TextView = v.findViewById(R.id.tvEpisodeTitle)
             val imgThumb: ImageView = v.findViewById(R.id.imgEpisodeThumb)
             val tvPlotEp: TextView = v.findViewById(R.id.tvEpisodePlot)
+            // ✅ Novos elementos para o item
+            val btnDownload: LinearLayout = v.findViewById(R.id.btnDownloadEpisode)
+            val pbProgress: ProgressBar = v.findViewById(R.id.pbEpisodeProgress)
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
@@ -1110,6 +1113,8 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
         override fun onBindViewHolder(holder: VH, position: Int) {
             val ep = list[position]
+            val streamIdEp = ep.id.toIntOrNull() ?: 0
+
             holder.tvTitle.text = "E${ep.episode_num.toString().padStart(2, '0')} - ${ep.title}"
             holder.tvPlotEp.text = ep.info?.plot ?: "Sem descrição disponível."
 
@@ -1123,7 +1128,38 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 .centerCrop()
                 .into(holder.imgThumb)
 
+            // ✅ Lógica de Progresso Individual no Item (Barra azul na miniatura)
+            val prefs = holder.itemView.context.getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+            val profile = (holder.itemView.context as SeriesDetailsActivity).currentProfile
+            val p = prefs.getLong("${profile}_series_resume_${streamIdEp}_pos", 0L)
+            val d = prefs.getLong("${profile}_series_resume_${streamIdEp}_dur", 0L)
+
+            if (p > 15000L && d > 0) {
+                holder.pbProgress.visibility = View.VISIBLE
+                holder.pbProgress.progress = ((p.toFloat() / d.toFloat()) * 100).toInt()
+            } else {
+                holder.pbProgress.visibility = View.GONE
+            }
+
             holder.itemView.setOnClickListener { onClick(ep, position) }
+
+            // ✅ Clique no botão de download individual
+            holder.btnDownload.setOnClickListener {
+                if (streamIdEp != 0) {
+                    val activity = holder.itemView.context as SeriesDetailsActivity
+                    val url = activity.montarUrlEpisodio(ep)
+                    DownloadHelper.iniciarDownload(
+                        context = activity,
+                        url = url,
+                        streamId = streamIdEp,
+                        nomePrincipal = activity.seriesName,
+                        nomeEpisodio = "T${activity.currentSeason}E${ep.episode_num}",
+                        imagemUrl = activity.seriesIcon,
+                        isSeries = true
+                    )
+                    Toast.makeText(activity, "Baixando episódio ${ep.episode_num}...", Toast.LENGTH_SHORT).show()
+                }
+            }
 
             holder.itemView.setOnFocusChangeListener { view, hasFocus ->
                 holder.tvTitle.setTextColor(if (hasFocus) Color.YELLOW else Color.WHITE)

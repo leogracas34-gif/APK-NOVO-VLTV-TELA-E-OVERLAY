@@ -1,4 +1,4 @@
-package com.vltv.play
+Package com.vltv.play
 
 import android.content.Context
 import android.content.Intent
@@ -78,6 +78,13 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private var appBarLayout: AppBarLayout? = null
     private var tabLayout: TabLayout? = null
 
+    // VIEWS DA BARRA DE NAVEGAÇÃO
+    private lateinit var btnNavBack: LinearLayout
+    private lateinit var btnNavHome: LinearLayout
+    private lateinit var btnNavSearch: LinearLayout
+    private lateinit var btnNavDownloads: LinearLayout
+    private lateinit var btnNavProfile: LinearLayout
+
     // VIEWS DE SUGESTÕES E DETALHES
     private lateinit var recyclerSuggestions: RecyclerView
     private lateinit var llTechBadges: LinearLayout
@@ -105,10 +112,10 @@ class SeriesDetailsActivity : AppCompatActivity() {
         // ✅ RECUPERA O NOME DO PERFIL (Para salvar favoritos na conta certa)
         currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
 
-        // MODO IMERSIVO
+        // MODO IMERSIVO (Configurado para permitir ver os botões do celular quando deslizar)
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
+        windowInsetsController?.show(WindowInsetsCompat.Type.systemBars()) // Mostra botões do celular por padrão
 
         seriesId = intent.getIntExtra("series_id", 0)
         seriesName = intent.getStringExtra("name") ?: ""
@@ -216,6 +223,23 @@ class SeriesDetailsActivity : AppCompatActivity() {
         tentarCarregarLogoCache()
         carregarSeriesInfo()
         sincronizarDadosTMDB()
+
+        // LISTENERS DA BARRA DE NAVEGAÇÃO
+        btnNavBack.setOnClickListener { finish() }
+        btnNavHome.setOnClickListener {
+            val intent = Intent(this, MainActivity::class.java)
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            startActivity(intent)
+        }
+        btnNavSearch.setOnClickListener {
+            Toast.makeText(this, "Abrindo Busca...", Toast.LENGTH_SHORT).show()
+        }
+        btnNavDownloads.setOnClickListener {
+            Toast.makeText(this, "Abrindo Downloads...", Toast.LENGTH_SHORT).show()
+        }
+        btnNavProfile.setOnClickListener {
+            Toast.makeText(this, "Perfil: $currentProfile", Toast.LENGTH_SHORT).show()
+        }
 
         // FOCO NOS BOTÕES
         val commonFocus = View.OnFocusChangeListener { v, hasFocus ->
@@ -341,6 +365,13 @@ class SeriesDetailsActivity : AppCompatActivity() {
         imgDownloadEpisodeState = findViewById(R.id.imgDownloadState)
         tvDownloadEpisodeState = findViewById(R.id.tvDownloadState)
         btnDownloadSeason = findViewById(R.id.btnDownloadSeason)
+
+        // Inicializar botões de navegação
+        btnNavBack = findViewById(R.id.btnNavBack)
+        btnNavHome = findViewById(R.id.btnNavHome)
+        btnNavSearch = findViewById(R.id.btnNavSearch)
+        btnNavDownloads = findViewById(R.id.btnNavDownloads)
+        btnNavProfile = findViewById(R.id.btnNavProfile)
     }
 
     private fun verificarTecnologias(nome: String) {
@@ -595,12 +626,11 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        // No modo imersivo da Activity de detalhes, garantimos que os botões de navegação não sumam permanentemente
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
+        windowInsetsController?.show(WindowInsetsCompat.Type.systemBars()) 
         restaurarEstadoDownload()
-        
-        // ✅ CORREÇÃO: Garante que o botão continuar apareça imediatamente ao voltar
         verificarResume()
     }
 
@@ -962,11 +992,13 @@ class SeriesDetailsActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
-    class EpisodeAdapter(val list: List<EpisodeStream>, private val onClick: (EpisodeStream, Int) -> Unit) : RecyclerView.Adapter<EpisodeAdapter.VH>() {
-        class VH(v: View) : RecyclerView.ViewHolder(v) {
+    inner class EpisodeAdapter(val list: List<EpisodeStream>, private val onClick: (EpisodeStream, Int) -> Unit) : RecyclerView.Adapter<EpisodeAdapter.VH>() {
+        inner class VH(v: View) : RecyclerView.ViewHolder(v) {
             val tvTitle: TextView = v.findViewById(R.id.tvEpisodeTitle)
             val imgThumb: ImageView = v.findViewById(R.id.imgEpisodeThumb)
             val tvPlotEp: TextView = v.findViewById(R.id.tvEpisodePlot)
+            // MAPEIA O BOTÃO DE DOWNLOAD DO ITEM
+            val btnDownload: LinearLayout = v.findViewById(R.id.btnDownloadEpisode)
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
@@ -987,7 +1019,27 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 .centerCrop()
                 .into(holder.imgThumb)
 
+            // CLIQUE NO ITEM INTEIRO (ABRIR PLAYER)
             holder.itemView.setOnClickListener { onClick(ep, position) }
+
+            // CLIQUE ESPECÍFICO NO BOTÃO DE DOWNLOAD DO EPISÓDIO
+            holder.btnDownload.setOnClickListener {
+                val context = holder.itemView.context
+                val streamIdEp = ep.id.toIntOrNull() ?: 0
+                if (streamIdEp != 0) {
+                    val url = montarUrlEpisodio(ep)
+                    DownloadHelper.iniciarDownload(
+                        context = context,
+                        url = url,
+                        streamId = streamIdEp,
+                        nomePrincipal = seriesName,
+                        nomeEpisodio = "T${currentSeason}E${ep.episode_num}",
+                        imagemUrl = seriesIcon,
+                        isSeries = true
+                    )
+                    Toast.makeText(context, "Baixando episódio ${ep.episode_num}...", Toast.LENGTH_SHORT).show()
+                }
+            }
 
             holder.itemView.setOnFocusChangeListener { view, hasFocus ->
                 holder.tvTitle.setTextColor(if (hasFocus) Color.YELLOW else Color.WHITE)

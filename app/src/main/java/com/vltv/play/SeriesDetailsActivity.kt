@@ -1,4 +1,4 @@
-Package com.vltv.play
+package com.vltv.play
 
 import android.content.Context
 import android.content.Intent
@@ -100,7 +100,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_series_details)
+        setContentView(R.layout.activity_serie_details)
 
         // ✅ RECUPERA O NOME DO PERFIL (Para salvar favoritos na conta certa)
         currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"

@@ -47,6 +47,14 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.Job
 import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.tabs.TabLayout
+import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import com.vltv.play.data.AppDatabase
+import com.vltv.play.DownloadHelper
+import com.google.android.material.appbar.AppBarLayout
+import com.google.android.material.tabs.TabLayout
+import java.util.concurrent.TimeUnit
 
 class SeriesDetailsActivity : AppCompatActivity() {
 

@@ -42,7 +42,7 @@
 
                 <Space
                     android:layout_width="match_parent"
-                    android:layout_height="280dp" />
+                    android:layout_height="250dp" />
 
                 <ImageView
                     android:id="@+id/imgTitleLogo"
@@ -58,13 +58,13 @@
                     android:layout_height="wrap_content"
                     android:gravity="center"
                     android:textColor="#FFFFFF"
-                    android:textSize="38sp"
+                    android:textSize="36sp"
                     android:textStyle="bold"
                     android:shadowColor="#000000"
                     android:shadowDx="0"
                     android:shadowDy="0"
                     android:shadowRadius="8"
-                    tools:text="IMPUROS" />
+                    tools:text="NOME DA SÉRIE" />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -87,7 +87,10 @@
                     android:visibility="visible">
                     
                     <TextView android:id="@+id/tvBadge4k" android:text="HD" android:background="#33FFFFFF" android:paddingHorizontal="6dp" android:paddingVertical="2dp" android:layout_marginEnd="6dp" android:textColor="#FFF" android:textSize="11sp" android:textStyle="bold" android:visibility="visible"/>
-                    <TextView android:id="@+id/tvBadge51" android:text="5.1" android:background="#33FFFFFF" android:paddingHorizontal="6dp" android:paddingVertical="2dp" android:layout_marginEnd="6dp" android:textColor="#FFF" android:textSize="11sp" android:textStyle="bold" android:visibility="visible"/>
+                    <TextView android:id="@+id/tvBadgeHdr" android:text="HDR" android:background="#33FFFFFF" android:paddingHorizontal="6dp" android:paddingVertical="2dp" android:layout_marginEnd="6dp" android:textColor="#FFF" android:textSize="11sp" android:textStyle="bold" android:visibility="visible"/>
+                    <TextView android:id="@+id/tvBadgeDolby" android:text="5.1" android:background="#33FFFFFF" android:paddingHorizontal="6dp" android:paddingVertical="2dp" android:layout_marginEnd="6dp" android:textColor="#FFF" android:textSize="11sp" android:textStyle="bold" android:visibility="visible"/>
+                    
+                    <TextView android:id="@+id/tvBadge51" android:text="ATMOS" android:background="#33FFFFFF" android:paddingHorizontal="6dp" android:paddingVertical="2dp" android:layout_marginEnd="6dp" android:textColor="#FFF" android:textSize="11sp" android:textStyle="bold" android:visibility="gone"/>
                     <TextView android:id="@+id/tvBadgeCC" android:text="CC" android:background="#33FFFFFF" android:paddingHorizontal="6dp" android:paddingVertical="2dp" android:layout_marginEnd="6dp" android:textColor="#FFF" android:textSize="11sp" android:textStyle="bold" android:visibility="visible"/>
                     <TextView android:id="@+id/tvBadgeAD" android:text="AD" android:background="#33FFFFFF" android:paddingHorizontal="6dp" android:paddingVertical="2dp" android:textColor="#FFF" android:textSize="11sp" android:textStyle="bold" android:visibility="visible"/>
                 </LinearLayout>
@@ -106,7 +109,7 @@
                         android:textColor="#CCCCCC"
                         android:textSize="12sp"
                         android:textStyle="bold"
-                        tools:text="2018 - 2024"/>
+                        tools:text="2024"/>
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -118,7 +121,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="5 temporadas" 
+                        android:text="Temporadas" 
                         android:textColor="#CCCCCC"
                         android:textSize="12sp"
                         android:textStyle="bold"/>
@@ -137,7 +140,7 @@
                         android:textColor="#CCCCCC"
                         android:textSize="12sp"
                         android:textStyle="bold"
-                        tools:text="Drama, Suspense"/>
+                        tools:text="Gênero"/>
                 </LinearLayout>
 
                 <LinearLayout
@@ -218,7 +221,8 @@
                         android:layout_weight="1"
                         android:clickable="true"
                         android:focusable="true"
-                        android:visibility="visible"> 
+                        android:visibility="visible">
+                        
                         <ImageView
                             android:layout_width="24dp"
                             android:layout_height="24dp"
@@ -259,6 +263,7 @@
                     </LinearLayout>
 
                     <LinearLayout
+                        android:id="@+id/btnFavoriteLayout"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
@@ -426,7 +431,6 @@
 
             <TextView android:id="@+id/tvCreatedBy" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone"/>
             <TextView android:id="@+id/btnCloseSeasonSelectorText" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone"/>
-
             <TextView android:id="@+id/tvRating" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone"/>
 
         </LinearLayout>

@@ -36,7 +36,7 @@ import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.bottomnavigation.BottomNavigationView
 
-// Importante: Certifique-se de que CastAdapter e CastMember estão no projeto
+// Importante: Certifique-se de que CastAdapter e CastMember estÃ£o no projeto
 import com.vltv.play.CastAdapter
 import com.vltv.play.CastMember
 
@@ -56,7 +56,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private var currentProfile: String = "Padrao"
     private var youtubeTrailerKey: String? = null
 
-    // Views Originais
+    // Views
     private lateinit var imgPoster: ImageView
     private lateinit var imgBackground: ImageView
     private lateinit var tvTitle: TextView
@@ -89,7 +89,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private lateinit var tvReleaseDate: TextView
     private lateinit var tvCreatedBy: TextView
 
-    // NOVAS VIEWS (Adicionadas conforme XML de Filmes)
+    // NOVOS COMPONENTES (Replicados do XML de Filmes)
     private lateinit var bottomNavigation: BottomNavigationView
     private var layoutProgress: LinearLayout? = null
     private var progressBarMovie: ProgressBar? = null
@@ -99,7 +99,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private var btnRestartAction: LinearLayout? = null
     private var btnTrailerAction: LinearLayout? = null
     private var btnFavoriteLayout: LinearLayout? = null
-    private var btnDownloadAction: LinearLayout? = null // Mapeado do XML de filmes
+    private var btnDownloadAction: LinearLayout? = null
 
     private var episodesBySeason: Map<String, List<EpisodeStream>> = emptyMap()
     private var sortedSeasons: List<String> = emptyList()
@@ -118,10 +118,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
         // ✅ RECUPERA O NOME DO PERFIL (Para salvar favoritos na conta certa)
         currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
 
-        // MODO IMERSIVO - CORRIGIDO PARA MOSTRAR AS BARRAS E FIXAR O RODAPÉ
+        // MODO IMERSIVO - CORRIGIDO: Usa SHOW para manter a barra de botões do celular visível e fixa
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
-        // Aqui mudamos para SHOW para garantir que a barra de navegação do Android fique visível e não sobreponha
-        windowInsetsController?.show(WindowInsetsCompat.Type.systemBars()) 
+        windowInsetsController?.show(WindowInsetsCompat.Type.systemBars())
 
         seriesId = intent.getIntExtra("series_id", 0)
         seriesName = intent.getStringExtra("name") ?: ""
@@ -192,14 +191,14 @@ class SeriesDetailsActivity : AppCompatActivity() {
         val isFavInicial = getFavSeries(this).contains(seriesId)
         atualizarIconeFavoritoSerie(isFavInicial)
 
-        // Favorito pelo botão original
+        // Listener do botão original
         btnFavoriteSeries.setOnClickListener {
-           executarLogicaFavorito()
+            toggleFavorite()
         }
         
-        // Favorito pelo botão novo do layout
+        // Listener do novo layout de favorito (filmes)
         btnFavoriteLayout?.setOnClickListener {
-            executarLogicaFavorito()
+            toggleFavorite()
         }
 
         // CHAMA A FUNÇÃO TRAZIDA DO ARQUIVO ANTIGO
@@ -222,16 +221,15 @@ class SeriesDetailsActivity : AppCompatActivity() {
             }
         }
         
-        // NOVOS LISTENERS DE AÇÃO (Reiniciar e Trailer)
+        // Novos Listeners de Ação (Filmes)
         btnRestartAction?.setOnClickListener {
             val epInicial = encontrarEpisodioParaAssistir()
             if (epInicial != null) {
-                 AlertDialog.Builder(this)
+                AlertDialog.Builder(this)
                     .setTitle("Reiniciar")
                     .setMessage("Deseja assistir desde o início?")
                     .setPositiveButton("Sim") { _, _ -> abrirPlayer(epInicial, false) }
-                    .setNegativeButton("Não", null)
-                    .show()
+                    .setNegativeButton("Não", null).show()
             }
         }
 
@@ -250,22 +248,13 @@ class SeriesDetailsActivity : AppCompatActivity() {
         carregarSeriesInfo()
         sincronizarDadosTMDB()
         
-        // CONFIGURAÇÃO DO BOTTOM NAVIGATION
+        // Configuração do BottomNavigation
         bottomNavigation.setOnItemSelectedListener { item ->
             when (item.itemId) {
-                R.id.nav_home -> {
-                    finish() // Volta para a tela anterior (Home)
-                    true
-                }
-                R.id.nav_search -> {
-                    // Implementar navegação para busca se desejar
-                    true
-                }
-                R.id.nav_download -> {
-                    true
-                }
-                R.id.nav_profile -> {
-                    true
+                // Ajuste conforme os IDs reais do seu menu bottom_nav_menu.xml
+                R.id.nav_home -> { // Exemplo de ID, se for diferente no menu, o padrão é ignorado
+                    finish()
+                    true 
                 }
                 else -> false
             }
@@ -329,18 +318,15 @@ class SeriesDetailsActivity : AppCompatActivity() {
                         // ✅ CORREÇÃO: Garante visibilidade total das informações
                         rvEpisodes.visibility = View.GONE
                         recyclerSuggestions.visibility = View.GONE
-                        
                         tvPlot.visibility = View.VISIBLE
                         tvCast.visibility = View.VISIBLE
                         recyclerCast.visibility = View.VISIBLE
                         tvReleaseDate.visibility = View.VISIBLE
                         tvCreatedBy.visibility = View.VISIBLE
-                        
                         tvPlot.setTextColor(Color.WHITE)
                         tvCast.setTextColor(Color.WHITE)
                         tvReleaseDate.setTextColor(Color.WHITE)
                         tvCreatedBy.setTextColor(Color.WHITE)
-                        
                         // Foco na aba para não perder navegação
                         tabLayout?.requestFocus()
                     }
@@ -351,7 +337,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         })
     }
     
-    private fun executarLogicaFavorito() {
+    private fun toggleFavorite() {
         val favs = getFavSeries(this)
         if (favs.contains(seriesId)) {
             favs.remove(seriesId)
@@ -396,13 +382,13 @@ class SeriesDetailsActivity : AppCompatActivity() {
         btnFavoriteSeries = findViewById(R.id.btnFavorite)
         btnResume = findViewById(R.id.btnResume)
         
-        // Botão de Download na lista de episódios (original)
+        // Botão de download original
         btnDownloadEpisodeArea = findViewById(R.id.btnDownloadArea)
         imgDownloadEpisodeState = findViewById(R.id.imgDownloadState)
         tvDownloadEpisodeState = findViewById(R.id.tvDownloadState)
         btnDownloadSeason = findViewById(R.id.btnDownloadSeason)
         
-        // NOVOS IDs (Do XML de Filmes para Séries)
+        // NOVOS IDs (Do XML de Filmes)
         bottomNavigation = findViewById(R.id.bottomNavigation)
         layoutProgress = findViewById(R.id.layoutProgress)
         progressBarMovie = findViewById(R.id.progressBarMovie)
@@ -412,7 +398,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         btnRestartAction = findViewById(R.id.btnRestartAction)
         btnTrailerAction = findViewById(R.id.btnTrailerAction)
         btnFavoriteLayout = findViewById(R.id.btnFavoriteLayout)
-        btnDownloadAction = findViewById(R.id.btnDownloadAction) // O do rodapé de ação
+        btnDownloadAction = findViewById(R.id.btnDownloadAction)
     }
 
     private fun verificarTecnologias(nome: String) {
@@ -438,7 +424,6 @@ class SeriesDetailsActivity : AppCompatActivity() {
     }
 
     private fun setupDownloadButtons() {
-        // Ação do botão de download da lista de episódios (ou do header, dependendo do XML)
         val listenerDownload = View.OnClickListener {
             val ep = currentEpisode ?: return@OnClickListener
             // ✅ CORREÇÃO: Lógica segura de download
@@ -669,6 +654,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        // Garante que a barra do sistema apareça sempre que voltar para a activity
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController?.show(WindowInsetsCompat.Type.systemBars())
         restaurarEstadoDownload()
@@ -917,7 +903,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         return null
     }
 
-    // ✅ RESUME ISOLADO POR PERFIL + PROGRESSO DISNEY+
+    // ✅ RESUME ISOLADO POR PERFIL (Função auxiliar)
     private fun verificarResume() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         var temHistorico = false
@@ -932,10 +918,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 val pos = prefs.getLong("${currentProfile}_series_resume_${sid}_pos", 0L)
                 val dur = prefs.getLong("${currentProfile}_series_resume_${sid}_dur", 0L)
                 
-                // Se assistiu mais de 15 segundos, considera histórico
                 if (pos > 15000L) {
                     temHistorico = true
-                    // Guarda o que tiver mais progresso/recente para exibir na barra
+                    // Se achar um com mais progresso ou mais recente, usa ele para o display
                     if (pos > maxPos) {
                         maxPos = pos
                         maxDur = dur
@@ -949,20 +934,20 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 btnPlaySeries.text = "▶  CONTINUAR"
                 btnResume.visibility = View.VISIBLE
                 
-                // Exibe barra de progresso e botões extras se tiver histórico
-                btnRestartAction?.visibility = View.VISIBLE
+                // Exibe componentes de progresso (Disney+)
                 layoutProgress?.visibility = View.VISIBLE
+                btnRestartAction?.visibility = View.VISIBLE
                 
                 if (maxDur > 0) {
-                     progressBarMovie?.progress = ((maxPos.toFloat() / maxDur.toFloat()) * 100).toInt()
-                     val minRestantes = TimeUnit.MILLISECONDS.toMinutes(maxDur - maxPos)
-                     tvTimeRemaining?.text = "Restam ${minRestantes}min"
+                    progressBarMovie?.progress = ((maxPos.toFloat() / maxDur.toFloat()) * 100).toInt()
+                    val min = TimeUnit.MILLISECONDS.toMinutes(maxDur - maxPos)
+                    tvTimeRemaining?.text = "Restam ${min}min"
                 }
             } else {
                 btnPlaySeries.text = "▶  ASSISTIR"
                 btnResume.visibility = View.GONE
-                btnRestartAction?.visibility = View.GONE
                 layoutProgress?.visibility = View.GONE
+                btnRestartAction?.visibility = View.GONE
             }
         }
     }
@@ -983,7 +968,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
             val eid = ep.id.toIntOrNull() ?: continue
             val url = montarUrlEpisodio(ep)
             val nomeEp = "T${currentSeason}E${ep.episode_num}"
-            // ✅ CORREÇÃO: Usa o helper novo
+            // ✅ CORREÇÃO: Usa o helper novo DownloadHelper.iniciarDownload(
             DownloadHelper.iniciarDownload(
                 context = this,
                 url = url,
@@ -1034,14 +1019,12 @@ class SeriesDetailsActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
-    // ADAPTER COM LÓGICA DE BARRA DE PROGRESSO NO ITEM
     inner class EpisodeAdapter(val list: List<EpisodeStream>, private val onClick: (EpisodeStream, Int) -> Unit) : RecyclerView.Adapter<EpisodeAdapter.VH>() {
-        
         inner class VH(v: View) : RecyclerView.ViewHolder(v) {
             val tvTitle: TextView = v.findViewById(R.id.tvEpisodeTitle)
             val imgThumb: ImageView = v.findViewById(R.id.imgEpisodeThumb)
             val tvPlotEp: TextView = v.findViewById(R.id.tvEpisodePlot)
-            // Tenta achar a progressBar no item_episode.xml
+            // Barra de progresso do item
             val pbEpisode: ProgressBar? = v.findViewById(R.id.pbEpisodeProgress)
         }
 
@@ -1053,31 +1036,25 @@ class SeriesDetailsActivity : AppCompatActivity() {
             
             holder.tvTitle.text = "E${ep.episode_num.toString().padStart(2, '0')} - ${ep.title}"
             holder.tvPlotEp.text = ep.info?.plot ?: "Sem descrição disponível."
-            
-            val capaUrl = ep.info?.movie_image ?: ""
             Glide.with(holder.itemView.context)
-                .load(capaUrl)
-                .placeholder(android.R.color.darker_gray)
-                .error(android.R.color.black)
-                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .load(ep.info?.movie_image ?: "")
                 .centerCrop()
                 .into(holder.imgThumb)
 
-            // Lógica de progresso individual do episódio
-            val prefs = holder.itemView.context.getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+            // Lógica de progresso no episódio
+            val pr = holder.itemView.context.getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
             val activity = holder.itemView.context as SeriesDetailsActivity
-            val pos = prefs.getLong("${activity.currentProfile}_series_resume_${sid}_pos", 0L)
-            val dur = prefs.getLong("${activity.currentProfile}_series_resume_${sid}_dur", 0L)
+            val pos = pr.getLong("${activity.currentProfile}_series_resume_${sid}_pos", 0L)
+            val dur = pr.getLong("${activity.currentProfile}_series_resume_${sid}_dur", 0L)
             
             if (pos > 15000L && dur > 0) {
-                 holder.pbEpisode?.visibility = View.VISIBLE
-                 holder.pbEpisode?.progress = ((pos.toFloat() / dur.toFloat()) * 100).toInt()
+                holder.pbEpisode?.visibility = View.VISIBLE
+                holder.pbEpisode?.progress = ((pos.toFloat() / dur.toFloat()) * 100).toInt()
             } else {
-                 holder.pbEpisode?.visibility = View.GONE
+                holder.pbEpisode?.visibility = View.GONE
             }
 
             holder.itemView.setOnClickListener { onClick(ep, position) }
-            
             holder.itemView.setOnFocusChangeListener { view, hasFocus ->
                 holder.tvTitle.setTextColor(if (hasFocus) Color.YELLOW else Color.WHITE)
                 if (hasFocus) {

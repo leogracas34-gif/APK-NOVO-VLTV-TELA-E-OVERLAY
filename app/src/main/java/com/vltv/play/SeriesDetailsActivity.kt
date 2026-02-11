@@ -36,7 +36,7 @@ import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.bottomnavigation.BottomNavigationView
 
-// Importante: Certifique-se de que CastAdapter e CastMember estÃ£o no projeto
+// Importante: Certifique-se de que CastAdapter e CastMember estão no projeto
 import com.vltv.play.CastAdapter
 import com.vltv.play.CastMember
 
@@ -56,7 +56,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private var currentProfile: String = "Padrao"
     private var youtubeTrailerKey: String? = null
 
-    // Views
+    // Views Originais
     private lateinit var imgPoster: ImageView
     private lateinit var imgBackground: ImageView
     private lateinit var tvTitle: TextView
@@ -89,7 +89,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private lateinit var tvReleaseDate: TextView
     private lateinit var tvCreatedBy: TextView
 
-    // NOVOS COMPONENTES (Replicados do XML de Filmes)
+    // NOVOS COMPONENTES (Mapeados do XML de Filmes para Séries)
     private lateinit var bottomNavigation: BottomNavigationView
     private var layoutProgress: LinearLayout? = null
     private var progressBarMovie: ProgressBar? = null
@@ -119,6 +119,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
 
         // MODO IMERSIVO - CORRIGIDO: Usa SHOW para manter a barra de botões do celular visível e fixa
+        // Isso impede que você precise "passar a mão" para ver os botões
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController?.show(WindowInsetsCompat.Type.systemBars())
 
@@ -191,12 +192,12 @@ class SeriesDetailsActivity : AppCompatActivity() {
         val isFavInicial = getFavSeries(this).contains(seriesId)
         atualizarIconeFavoritoSerie(isFavInicial)
 
-        // Listener do botão original
+        // Listener do botão de favorito original
         btnFavoriteSeries.setOnClickListener {
             toggleFavorite()
         }
         
-        // Listener do novo layout de favorito (filmes)
+        // Listener do novo layout de favorito (idêntico ao de filmes)
         btnFavoriteLayout?.setOnClickListener {
             toggleFavorite()
         }
@@ -248,14 +249,17 @@ class SeriesDetailsActivity : AppCompatActivity() {
         carregarSeriesInfo()
         sincronizarDadosTMDB()
         
-        // Configuração do BottomNavigation
+        // Configuração do BottomNavigation (Rodapé Fixo)
         bottomNavigation.setOnItemSelectedListener { item ->
             when (item.itemId) {
-                // Ajuste conforme os IDs reais do seu menu bottom_nav_menu.xml
-                R.id.nav_home -> { // Exemplo de ID, se for diferente no menu, o padrão é ignorado
-                    finish()
+                // Ajuste os IDs aqui se o seu menu usar nomes diferentes (ex: nav_home, nav_inicio)
+                R.id.nav_home -> { 
+                    finish() // Volta para a Home
                     true 
                 }
+                R.id.nav_search -> true
+                R.id.nav_download -> true
+                R.id.nav_profile -> true
                 else -> false
             }
         }
@@ -654,7 +658,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Garante que a barra do sistema apareça sempre que voltar para a activity
+        // Garante que a barra do sistema apareça sempre que voltar para a activity (CORRIGIDO PARA SHOW)
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController?.show(WindowInsetsCompat.Type.systemBars())
         restaurarEstadoDownload()
@@ -1024,7 +1028,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
             val tvTitle: TextView = v.findViewById(R.id.tvEpisodeTitle)
             val imgThumb: ImageView = v.findViewById(R.id.imgEpisodeThumb)
             val tvPlotEp: TextView = v.findViewById(R.id.tvEpisodePlot)
-            // Barra de progresso do item
+            // Barra de progresso do item (se existir no item_episode.xml)
             val pbEpisode: ProgressBar? = v.findViewById(R.id.pbEpisodeProgress)
         }
 

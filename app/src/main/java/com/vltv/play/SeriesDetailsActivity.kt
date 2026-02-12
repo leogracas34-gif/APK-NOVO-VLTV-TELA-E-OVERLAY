@@ -863,8 +863,12 @@ class SeriesDetailsActivity : AppCompatActivity() {
         // ✅ CORREÇÃO CRÍTICA: Pegando o DNS real que está salvo no app (Dynamic DNS)
         val server = prefs.getString("dns", "") ?: ""
         val eid = ep.id.toIntOrNull() ?: 0
+        // Usa a extensão real ou mp4 como padrão
         val ext = ep.container_extension ?: "mp4"
-        return "$server/get.php?username=$user&password=$pass&type=series&output=$ext&id=$eid"
+        
+        // 🔴 ANTES (Errado para Download): "$server/get.php?username=..."
+        // 🟢 AGORA (Certo - Link Direto): "$server/series/user/pass/id.ext"
+        return "$server/series/$user/$pass/$eid.$ext"
     }
 
     private fun baixarTemporadaAtual(lista: List<EpisodeStream>) {

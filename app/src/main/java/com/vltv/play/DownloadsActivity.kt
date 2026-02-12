@@ -10,7 +10,6 @@ import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
-import android.widget.LinearLayout
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
@@ -32,7 +31,7 @@ import java.io.File
 class DownloadsActivity : AppCompatActivity() {
 
     private lateinit var rvDownloads: RecyclerView
-    private lateinit var llEmptyState: LinearLayout // Alterado para o container do estado vazio
+    private lateinit var tvEmpty: TextView
     private lateinit var adapter: DownloadsAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,18 +45,27 @@ class DownloadsActivity : AppCompatActivity() {
         setContentView(R.layout.activity_downloads)
 
         rvDownloads = findViewById(R.id.rvDownloads)
-        // Certifique-se de que no seu layout activity_downloads.xml o id seja llEmptyState ou ajuste aqui
-        llEmptyState = findViewById(R.id.llEmptyState) 
+        tvEmpty = findViewById(R.id.tvEmptyDownloads)
 
         rvDownloads.layoutManager = LinearLayoutManager(this)
         
         // Inicializa o Adapter
+        // ✅ ATUALIZAÇÃO: Lógica de clique inteligente para diferenciar Filme de Grupo de Série
         adapter = DownloadsAdapter(emptyList(), 
             onClick = { item -> 
-                if (item.type == "series" && !item.isEpisodeExtra) {
-                    mostrarEpisodiosDaSerie(item.name)
-                } else {
-                    abrirPlayerOffline(item)
+                val dao = AppDatabase.getDatabase(this).streamDao()
+                // Verificamos se existem mais episódios com o mesmo nome para agrupar
+                CoroutineScope(Dispatchers.IO).launch {
+                    val todos = dao.getAllDownloadsList() // Busca lista direta para checagem rápida
+                    val episodios = todos.filter { it.name == item.name && it.type == "series" }
+                    
+                    withContext(Dispatchers.Main) {
+                        if (episodios.size > 1) {
+                            mostrarSeletorEpisodios(item.name, episodios)
+                        } else {
+                            abrirPlayerOffline(item)
+                        }
+                    }
                 }
             },
             onLongClick = { item -> confirmarExclusao(item) }
@@ -67,55 +75,33 @@ class DownloadsActivity : AppCompatActivity() {
         observarBancoDeDados()
     }
 
+    // ✅ NOVA FUNÇÃO: Abre a lista de episódios da série agrupada
+    private fun mostrarSeletorEpisodios(nomeSerie: String, lista: List<DownloadEntity>) {
+        val nomes = lista.map { it.episode_name ?: "Episódio" }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle(nomeSerie)
+            .setItems(nomes) { _, which ->
+                abrirPlayerOffline(lista[which])
+            }
+            .show()
+    }
+
     private fun observarBancoDeDados() {
         val dao = AppDatabase.getDatabase(this).streamDao()
         
         dao.getAllDownloads().observe(this, Observer { lista ->
             if (lista.isNullOrEmpty()) {
-                llEmptyState.visibility = View.VISIBLE
+                tvEmpty.visibility = View.VISIBLE
                 rvDownloads.visibility = View.GONE
             } else {
-                llEmptyState.visibility = View.GONE
+                tvEmpty.visibility = View.GONE
                 rvDownloads.visibility = View.VISIBLE
                 
-                // ✅ LÓGICA DE AGRUPAMENTO: Agrupa episódios de série para não ficarem soltos
-                val listaAgrupada = lista.groupBy { it.name }.map { entry ->
-                    val itensDaSerie = entry.value
-                    if (itensDaSerie.size > 1 && itensDaSerie.any { it.type == "series" }) {
-                        // Cria um "header" da série
-                        val header = itensDaSerie[0].copy()
-                        header.isEpisodeExtra = false // Flag para identificar que é o grupo
-                        header.totalEpisodesDownloaded = itensDaSerie.size
-                        header
-                    } else {
-                        val item = itensDaSerie[0]
-                        item.isEpisodeExtra = true // Item individual (filme ou ep único)
-                        item
-                    }
+                // ✅ ATUALIZAÇÃO: Agrupa séries pelo nome para não poluir a tela principal
+                val listaAgrupada = lista.distinctBy { 
+                    if (it.type == "series") it.name else it.id.toString() 
                 }
                 adapter.atualizarLista(listaAgrupada)
-            }
-        })
-    }
-
-    private fun mostrarEpisodiosDaSerie(nomeSerie: String) {
-        val dao = AppDatabase.getDatabase(this).streamDao()
-        dao.getAllDownloads().observe(this, object : Observer<List<DownloadEntity>> {
-            override fun onChanged(lista: List<DownloadEntity>) {
-                val episodios = lista.filter { it.name == nomeSerie }
-                
-                // Aqui você pode abrir um Dialog ou outra Activity para listar os episódios
-                // Para manter simples e funcional agora, vamos usar um AlertDialog com a lista
-                val nomesEpisodios = episodios.map { it.episode_name ?: "Episódio" }.toTypedArray()
-                
-                AlertDialog.Builder(this@DownloadsActivity)
-                    .setTitle(nomeSerie)
-                    .setItems(nomesEpisodios) { _, which ->
-                        abrirPlayerOffline(episodios[which])
-                    }
-                    .show()
-                
-                dao.getAllDownloads().removeObserver(this)
             }
         })
     }
@@ -159,6 +145,8 @@ class DownloadsActivity : AppCompatActivity() {
 
                 // 2. Apaga do Banco de Dados
                 val db = AppDatabase.getDatabase(applicationContext).streamDao()
+                
+                // ✅ CORREÇÃO AQUI: Usando item.id (Int) em vez de android_download_id (Long)
                 db.deleteDownload(item.id)
 
                 withContext(Dispatchers.Main) {
@@ -186,7 +174,6 @@ class DownloadsActivity : AppCompatActivity() {
             val tvName: TextView = v.findViewById(R.id.tvDownloadName)
             val tvStatus: TextView = v.findViewById(R.id.tvDownloadPath)
             val imgCapa: ImageView? = v.findViewById(R.id.imgPoster)
-            val imgDeviceIcon: ImageView? = v.findViewById(R.id.imgDeviceIcon) // Ícone do telefone no XML
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
@@ -198,32 +185,29 @@ class DownloadsActivity : AppCompatActivity() {
         override fun onBindViewHolder(holder: VH, position: Int) {
             val item = items[position]
             
-            // Lógica de Nome e Agrupamento
-            if (item.type == "series" && !item.isEpisodeExtra) {
+            // ✅ ATUALIZAÇÃO: Se for grupo de série, mostra apenas o Nome Principal
+            if (item.type == "series") {
                 holder.tvName.text = item.name
-                holder.tvStatus.text = "${item.totalEpisodesDownloaded} episódios"
+            } else if (item.episode_name != null) {
+                holder.tvName.text = "${item.name}\n${item.episode_name}"
             } else {
-                holder.tvName.text = if (item.episode_name != null) "${item.name}\n${item.episode_name}" else item.name
+                holder.tvName.text = item.name
             }
 
-            // ✅ ATUALIZAÇÃO: Troca de texto por ícone de dispositivo
             if (item.status == "BAIXANDO" || item.status == "DOWNLOADING") {
                 holder.tvStatus.text = "Baixando... ${item.progress}%"
                 holder.tvStatus.setTextColor(android.graphics.Color.YELLOW)
-                holder.imgDeviceIcon?.visibility = View.GONE
                 holder.itemView.isEnabled = false
                 holder.itemView.alpha = 0.5f
             } else if (item.status == "BAIXADO" || item.status == "COMPLETED") {
-                // Remove o texto "Toque para assistir" e mostra o ícone do celular
-                holder.tvStatus.text = if (item.type == "series" && !item.isEpisodeExtra) "${item.totalEpisodesDownloaded} episódios" else "Baixado"
+                // ✅ ATUALIZAÇÃO: Texto alterado para mostrar ícone do telefone e status limpo
+                holder.tvStatus.text = "📱 No dispositivo" 
                 holder.tvStatus.setTextColor(android.graphics.Color.parseColor("#A6FFFFFF"))
-                holder.imgDeviceIcon?.visibility = View.VISIBLE
                 holder.itemView.isEnabled = true
                 holder.itemView.alpha = 1.0f
             } else {
                 holder.tvStatus.text = "Falha no download"
                 holder.tvStatus.setTextColor(android.graphics.Color.RED)
-                holder.imgDeviceIcon?.visibility = View.GONE
                 holder.itemView.isEnabled = true
             }
 
@@ -256,7 +240,3 @@ class DownloadsActivity : AppCompatActivity() {
         override fun getItemCount(): Int = items.size
     }
 }
-
-// Nota: Adicione essas variáveis na sua classe DownloadEntity no arquivo DownloadEntity.kt:
-// var isEpisodeExtra: Boolean = true
-// var totalEpisodesDownloaded: Int = 0

@@ -102,10 +102,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
         // ✅ RECUPERA O NOME DO PERFIL (Para salvar favoritos na conta certa)
         currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
 
-        // MODO IMERSIVO
+        // BARRA DO SISTEMA FIXA (Botões de Voltar/Home do Celular)
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
-        windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
+        windowInsetsController?.show(WindowInsetsCompat.Type.systemBars())
 
         seriesId = intent.getIntExtra("series_id", 0)
         seriesName = intent.getStringExtra("name") ?: ""
@@ -530,10 +529,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
                     val castArray = credits?.optJSONArray("cast")
                     val castNames = mutableListOf<String>()
                     if (castArray != null) {
-                        val limit = if (castArray.length() > 10) 10 else castArray.length()
-                        for (i in 0 until limit) {
-                            castNames.add(castArray.getJSONObject(i).getString("name"))
-                        }
+                        val limit = if (castArray.length() > 10) 10 else castArray.length() for (i in 0 until limit) { castNames.add(castArray.getJSONObject(i).getString("name")) }
                     }
                     // DADOS EXTRAS (DATA E CRIADOR)
                     val firstAirDate = d.optString("first_air_date", "")
@@ -587,9 +583,10 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        // BARRA DO SISTEMA FIXA
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
-        windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
+        windowInsetsController?.show(WindowInsetsCompat.Type.systemBars())
+        
         restaurarEstadoDownload()
         // ✅ CORREÇÃO: Garante que o botão continuar apareça imediatamente ao voltar
         verificarResume()

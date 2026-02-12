@@ -529,7 +529,8 @@ class SeriesDetailsActivity : AppCompatActivity() {
                     val castArray = credits?.optJSONArray("cast")
                     val castNames = mutableListOf<String>()
                     if (castArray != null) {
-                        val limit = if (castArray.length() > 10) 10 else castArray.length() for (i in 0 until limit) { castNames.add(castArray.getJSONObject(i).getString("name")) }
+                        val limit = if (castArray.length() > 10) 10 else castArray.length() 
+                        for (i in 0 until limit) { castNames.add(castArray.getJSONObject(i).getString("name")) }
                     }
                     // DADOS EXTRAS (DATA E CRIADOR)
                     val firstAirDate = d.optString("first_air_date", "")

@@ -37,7 +37,6 @@ class DownloadsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // MODO IMERSIVO
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
@@ -49,8 +48,6 @@ class DownloadsActivity : AppCompatActivity() {
 
         rvDownloads.layoutManager = LinearLayoutManager(this)
         
-        // Inicializa o Adapter
-        // ✅ ATUALIZAÇÃO: Clique agora diferencia série (abre lista) de filme (abre player)
         adapter = DownloadsAdapter(emptyList(), 
             onClick = { item -> 
                 if (item.type == "series") {
@@ -69,41 +66,40 @@ class DownloadsActivity : AppCompatActivity() {
     private fun observarBancoDeDados() {
         val dao = AppDatabase.getDatabase(this).streamDao()
         
-        dao.getAllDownloads().observe(this, Observer { lista ->
+        dao.getAllDownloads().observe(this) { lista ->
             if (lista.isNullOrEmpty()) {
                 tvEmpty.visibility = View.VISIBLE
                 rvDownloads.visibility = View.GONE
             } else {
                 tvEmpty.visibility = View.GONE
                 rvDownloads.visibility = View.VISIBLE
-                
-                // ✅ ATUALIZAÇÃO: Agrupa itens pelo nome para mostrar apenas uma entrada por série
                 val listaExibicao = lista.distinctBy { it.name }
                 adapter.atualizarLista(listaExibicao)
             }
-        })
+        }
     }
 
-    // ✅ NOVA FUNÇÃO: Lista os episódios baixados da série selecionada
     private fun mostrarEpisodiosDaSerie(nomeSerie: String) {
         val dao = AppDatabase.getDatabase(this).streamDao()
-        // Observa uma única vez para pegar os episódios e mostrar o seletor
-        dao.getAllDownloads().observe(this, object : Observer<List<DownloadEntity>> {
-            override fun onChanged(t: List<DownloadEntity>?) {
-                val episodios = t?.filter { it.name == nomeSerie } ?: emptyList()
+        
+        // ✅ CORREÇÃO AQUI: Usando Lambda { lista -> ... } para evitar erro de compilação onChanged
+        dao.getAllDownloads().observe(this) { listaCompleta ->
+            val episodios = listaCompleta?.filter { it.name == nomeSerie } ?: emptyList()
+            
+            if (episodios.isNotEmpty()) {
                 val nomesEpisodios = episodios.map { it.episode_name ?: "Episódio" }.toTypedArray()
 
-                AlertDialog.Builder(this@DownloadsActivity)
+                AlertDialog.Builder(this)
                     .setTitle(nomeSerie)
                     .setItems(nomesEpisodios) { _, which ->
                         abrirPlayerOffline(episodios[which])
                     }
                     .show()
-                
-                // Remove o observer para não ficar abrindo diálogos em loop
-                dao.getAllDownloads().removeObserver(this)
             }
-        })
+            
+            // Remove para não disparar novamente ao abrir o player
+            dao.getAllDownloads().removeObservers(this)
+        }
     }
 
     private fun abrirPlayerOffline(item: DownloadEntity) {
@@ -137,16 +133,12 @@ class DownloadsActivity : AppCompatActivity() {
     private fun deletarArquivo(item: DownloadEntity) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // 1. Apaga o arquivo físico
                 val file = File(item.file_path)
                 if (file.exists()) {
                     file.delete()
                 }
 
-                // 2. Apaga do Banco de Dados
                 val db = AppDatabase.getDatabase(applicationContext).streamDao()
-                
-                // ✅ CORREÇÃO: Usando item.id (Int) em vez de android_download_id (Long)
                 db.deleteDownload(item.id)
 
                 withContext(Dispatchers.Main) {
@@ -158,7 +150,6 @@ class DownloadsActivity : AppCompatActivity() {
         }
     }
 
-    // --- ADAPTER INTERNO ---
     class DownloadsAdapter(
         private var items: List<DownloadEntity>,
         private val onClick: (DownloadEntity) -> Unit,
@@ -184,8 +175,6 @@ class DownloadsActivity : AppCompatActivity() {
 
         override fun onBindViewHolder(holder: VH, position: Int) {
             val item = items[position]
-            
-            // Mantém apenas o nome principal na lista agrupada
             holder.tvName.text = item.name
 
             if (item.status == "BAIXANDO" || item.status == "DOWNLOADING") {
@@ -194,7 +183,6 @@ class DownloadsActivity : AppCompatActivity() {
                 holder.itemView.isEnabled = false
                 holder.itemView.alpha = 0.5f
             } else if (item.status == "BAIXADO" || item.status == "COMPLETED") {
-                // ✅ ATUALIZAÇÃO: Visual limpo com ícone de celular
                 holder.tvStatus.text = "📱 No dispositivo"
                 holder.tvStatus.setTextColor(android.graphics.Color.parseColor("#A6FFFFFF"))
                 holder.itemView.isEnabled = true

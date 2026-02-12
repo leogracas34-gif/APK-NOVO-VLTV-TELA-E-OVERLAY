@@ -455,7 +455,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
                                 val backdropPath = show.optString("backdrop_path")
                                 if (backdropPath.isNotEmpty() && imgBackground != imgPoster) {
                                     Glide.with(this@SeriesDetailsActivity)
-                                        .load("https://image.tm org/t/p/w1280$backdropPath")
+                                        .load("https://image.tmdb.org/t/p/w1280$backdropPath")
                                         .centerCrop().into(imgBackground)
                                 }
                                 Glide.with(this@SeriesDetailsActivity).load(seriesIcon).placeholder(R.mipmap.ic_launcher).centerCrop().into(imgPoster)
@@ -931,7 +931,8 @@ class SeriesDetailsActivity : AppCompatActivity() {
             val tvTitle: TextView = v.findViewById(R.id.tvEpisodeTitle)
             val imgThumb: ImageView = v.findViewById(R.id.imgEpisodeThumb)
             val tvPlotEp: TextView = v.findViewById(R.id.tvEpisodePlot)
-            val btnDownloadItem: ImageView? = v.findViewById(R.id.imgDownloadState)
+            // IDs ATUALIZADOS CONFORME SEU item_episode.xml
+            val btnDownloadItem: LinearLayout = v.findViewById(R.id.btnDownloadEpisode)
         }
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = VH(LayoutInflater.from(parent.context).inflate(R.layout.item_episode, parent, false))
         override fun onBindViewHolder(holder: VH, position: Int) {
@@ -947,10 +948,10 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 .centerCrop()
                 .into(holder.imgThumb)
                 
-            // ✅ CLICK DO BOTÃO DE DOWNLOAD DO EPISÓDIO
-            holder.btnDownloadItem?.setOnClickListener {
+            // ✅ CLICK DO BOTÃO DE DOWNLOAD DO EPISÓDIO CONECTADO AO DOWNLOADHELPER
+            holder.btnDownloadItem.setOnClickListener {
                 val url = activity.montarUrlEpisodio(ep)
-                val nomeEp = "T${activity.currentSeason}E${ep.episode_num}"
+                val nomeEp = "T${activity.currentSeason}E${ep.episode_num.toString().padStart(2, '0')}"
                 DownloadHelper.iniciarDownload(
                     context = holder.itemView.context,
                     url = url,
@@ -960,7 +961,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
                     imagemUrl = activity.seriesIcon,
                     isSeries = true
                 )
-                Toast.makeText(holder.itemView.context, "Iniciando download de $nomeEp", Toast.LENGTH_SHORT).show()
+                Toast.makeText(holder.itemView.context, "Iniciando download: $nomeEp", Toast.LENGTH_SHORT).show()
             }
 
             holder.itemView.setOnClickListener { onClick(ep, position) }
@@ -968,12 +969,10 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 holder.tvTitle.setTextColor(if (hasFocus) Color.YELLOW else Color.WHITE)
                 if (hasFocus) {
                     view.setBackgroundResource(R.drawable.bg_focus_neon)
-                    view.animate().scaleX(1.10f).scaleY(1.10f).setDuration(200).start()
-                    view.elevation = 15f
+                    view.animate().scaleX(1.05f).scaleY(1.05f).setDuration(200).start()
                 } else {
-                    view.setBackgroundResource(R.drawable.bg_episodio_item)
+                    view.setBackgroundResource(0)
                     view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start()
-                    view.elevation = 4f
                 }
             }
         }

@@ -10,6 +10,7 @@ import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.LinearLayout
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
@@ -31,7 +32,7 @@ import java.io.File
 class DownloadsActivity : AppCompatActivity() {
 
     private lateinit var rvDownloads: RecyclerView
-    private lateinit var tvEmpty: TextView
+    private lateinit var llEmptyState: LinearLayout // Alterado para o container do estado vazio
     private lateinit var adapter: DownloadsAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,13 +46,20 @@ class DownloadsActivity : AppCompatActivity() {
         setContentView(R.layout.activity_downloads)
 
         rvDownloads = findViewById(R.id.rvDownloads)
-        tvEmpty = findViewById(R.id.tvEmptyDownloads)
+        // Certifique-se de que no seu layout activity_downloads.xml o id seja llEmptyState ou ajuste aqui
+        llEmptyState = findViewById(R.id.llEmptyState) 
 
         rvDownloads.layoutManager = LinearLayoutManager(this)
         
         // Inicializa o Adapter
         adapter = DownloadsAdapter(emptyList(), 
-            onClick = { item -> abrirPlayerOffline(item) },
+            onClick = { item -> 
+                if (item.type == "series" && !item.isEpisodeExtra) {
+                    mostrarEpisodiosDaSerie(item.name)
+                } else {
+                    abrirPlayerOffline(item)
+                }
+            },
             onLongClick = { item -> confirmarExclusao(item) }
         )
         rvDownloads.adapter = adapter
@@ -64,12 +72,50 @@ class DownloadsActivity : AppCompatActivity() {
         
         dao.getAllDownloads().observe(this, Observer { lista ->
             if (lista.isNullOrEmpty()) {
-                tvEmpty.visibility = View.VISIBLE
+                llEmptyState.visibility = View.VISIBLE
                 rvDownloads.visibility = View.GONE
             } else {
-                tvEmpty.visibility = View.GONE
+                llEmptyState.visibility = View.GONE
                 rvDownloads.visibility = View.VISIBLE
-                adapter.atualizarLista(lista)
+                
+                // ✅ LÓGICA DE AGRUPAMENTO: Agrupa episódios de série para não ficarem soltos
+                val listaAgrupada = lista.groupBy { it.name }.map { entry ->
+                    val itensDaSerie = entry.value
+                    if (itensDaSerie.size > 1 && itensDaSerie.any { it.type == "series" }) {
+                        // Cria um "header" da série
+                        val header = itensDaSerie[0].copy()
+                        header.isEpisodeExtra = false // Flag para identificar que é o grupo
+                        header.totalEpisodesDownloaded = itensDaSerie.size
+                        header
+                    } else {
+                        val item = itensDaSerie[0]
+                        item.isEpisodeExtra = true // Item individual (filme ou ep único)
+                        item
+                    }
+                }
+                adapter.atualizarLista(listaAgrupada)
+            }
+        })
+    }
+
+    private fun mostrarEpisodiosDaSerie(nomeSerie: String) {
+        val dao = AppDatabase.getDatabase(this).streamDao()
+        dao.getAllDownloads().observe(this, object : Observer<List<DownloadEntity>> {
+            override fun onChanged(lista: List<DownloadEntity>) {
+                val episodios = lista.filter { it.name == nomeSerie }
+                
+                // Aqui você pode abrir um Dialog ou outra Activity para listar os episódios
+                // Para manter simples e funcional agora, vamos usar um AlertDialog com a lista
+                val nomesEpisodios = episodios.map { it.episode_name ?: "Episódio" }.toTypedArray()
+                
+                AlertDialog.Builder(this@DownloadsActivity)
+                    .setTitle(nomeSerie)
+                    .setItems(nomesEpisodios) { _, which ->
+                        abrirPlayerOffline(episodios[which])
+                    }
+                    .show()
+                
+                dao.getAllDownloads().removeObserver(this)
             }
         })
     }
@@ -113,8 +159,6 @@ class DownloadsActivity : AppCompatActivity() {
 
                 // 2. Apaga do Banco de Dados
                 val db = AppDatabase.getDatabase(applicationContext).streamDao()
-                
-                // ✅ CORREÇÃO AQUI: Usando item.id (Int) em vez de android_download_id (Long)
                 db.deleteDownload(item.id)
 
                 withContext(Dispatchers.Main) {
@@ -142,6 +186,7 @@ class DownloadsActivity : AppCompatActivity() {
             val tvName: TextView = v.findViewById(R.id.tvDownloadName)
             val tvStatus: TextView = v.findViewById(R.id.tvDownloadPath)
             val imgCapa: ImageView? = v.findViewById(R.id.imgPoster)
+            val imgDeviceIcon: ImageView? = v.findViewById(R.id.imgDeviceIcon) // Ícone do telefone no XML
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
@@ -153,25 +198,32 @@ class DownloadsActivity : AppCompatActivity() {
         override fun onBindViewHolder(holder: VH, position: Int) {
             val item = items[position]
             
-            if (item.episode_name != null) {
-                holder.tvName.text = "${item.name}\n${item.episode_name}"
-            } else {
+            // Lógica de Nome e Agrupamento
+            if (item.type == "series" && !item.isEpisodeExtra) {
                 holder.tvName.text = item.name
+                holder.tvStatus.text = "${item.totalEpisodesDownloaded} episódios"
+            } else {
+                holder.tvName.text = if (item.episode_name != null) "${item.name}\n${item.episode_name}" else item.name
             }
 
+            // ✅ ATUALIZAÇÃO: Troca de texto por ícone de dispositivo
             if (item.status == "BAIXANDO" || item.status == "DOWNLOADING") {
                 holder.tvStatus.text = "Baixando... ${item.progress}%"
                 holder.tvStatus.setTextColor(android.graphics.Color.YELLOW)
+                holder.imgDeviceIcon?.visibility = View.GONE
                 holder.itemView.isEnabled = false
                 holder.itemView.alpha = 0.5f
             } else if (item.status == "BAIXADO" || item.status == "COMPLETED") {
-                holder.tvStatus.text = "Completo • Toque para assistir"
-                holder.tvStatus.setTextColor(android.graphics.Color.GREEN)
+                // Remove o texto "Toque para assistir" e mostra o ícone do celular
+                holder.tvStatus.text = if (item.type == "series" && !item.isEpisodeExtra) "${item.totalEpisodesDownloaded} episódios" else "Baixado"
+                holder.tvStatus.setTextColor(android.graphics.Color.parseColor("#A6FFFFFF"))
+                holder.imgDeviceIcon?.visibility = View.VISIBLE
                 holder.itemView.isEnabled = true
                 holder.itemView.alpha = 1.0f
             } else {
                 holder.tvStatus.text = "Falha no download"
                 holder.tvStatus.setTextColor(android.graphics.Color.RED)
+                holder.imgDeviceIcon?.visibility = View.GONE
                 holder.itemView.isEnabled = true
             }
 
@@ -204,3 +256,7 @@ class DownloadsActivity : AppCompatActivity() {
         override fun getItemCount(): Int = items.size
     }
 }
+
+// Nota: Adicione essas variáveis na sua classe DownloadEntity no arquivo DownloadEntity.kt:
+// var isEpisodeExtra: Boolean = true
+// var totalEpisodesDownloaded: Int = 0

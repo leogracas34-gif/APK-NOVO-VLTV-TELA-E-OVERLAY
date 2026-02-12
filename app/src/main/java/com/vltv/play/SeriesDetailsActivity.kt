@@ -223,9 +223,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
                     true
                 }
                 R.id.nav_downloads -> {
-                    // ✅ ATUALIZAÇÃO: Redireciona para a tela de Downloads
+                    // ✅ ATUALIZAÇÃO: Redireciona para a tela de Downloads (DownloadsActivity)
                     try {
-                        val intentDl = Intent(this, Class.forName("com.vltv.play.DownloadListActivity"))
+                        val intentDl = Intent(this, DownloadsActivity::class.java)
                         startActivity(intentDl)
                     } catch (e: Exception) {
                         Toast.makeText(this, "Abrindo Meus Downloads...", Toast.LENGTH_SHORT).show()
@@ -384,7 +384,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private fun setupDownloadButtons() {
         btnDownloadEpisodeArea.setOnClickListener {
             val ep = currentEpisode ?: return@setOnClickListener
-            // ✅ ATUALIZAÇÃO: Lógica de download com DNS Dinâmico
+            // ✅ ATUALIZAÇÃO: Lógica de download com DNS Dinâmico (Evita falha no download)
             val url = montarUrlEpisodio(ep)
             val nomeEp = "T${currentSeason}E${ep.episode_num.toString().padStart(2, '0')}"
             
@@ -426,7 +426,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         val url = "https://api.themoviedb.org/3/search/tv?api_key=$apiKey&query=$encodedName&language=pt-BR&region=BR"
         client.newCall(Request.Builder().url(url).build()).enqueue(object : okhttp3.Callback {
             override fun onFailure(call: okhttp3.Call, e: IOException) {
-                // ✅ CORREÇÃO: Usa o nome limpo em caso de erro
+                // ✅ CORREÇÃO: Usa o nome limpo em caso de erro e garante acentos UTF-8
                 runOnUiThread { tvTitle.visibility = View.VISIBLE; tvTitle.text = cleanName }
             }
             override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {

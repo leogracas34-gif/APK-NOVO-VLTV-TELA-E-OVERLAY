@@ -455,7 +455,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
                                 val backdropPath = show.optString("backdrop_path")
                                 if (backdropPath.isNotEmpty() && imgBackground != imgPoster) {
                                     Glide.with(this@SeriesDetailsActivity)
-                                        .load("https://image.tmdb.org/t/p/w1280$backdropPath")
+                                        .load("https://image.tm org/t/p/w1280$backdropPath")
                                         .centerCrop().into(imgBackground)
                                 }
                                 Glide.with(this@SeriesDetailsActivity).load(seriesIcon).placeholder(R.mipmap.ic_launcher).centerCrop().into(imgPoster)
@@ -524,13 +524,19 @@ class SeriesDetailsActivity : AppCompatActivity() {
                     val d = JSONObject(body)
                     val gs = d.optJSONArray("genres")
                     val genresList = mutableListOf<String>()
-                    if (gs != null) for (i in 0 until gs.length()) genresList.add(gs.getJSONObject(i).getString("name"))
+                    if (gs != null) {
+                        for (i in 0 until gs.length()) {
+                            genresList.add(gs.getJSONObject(i).getString("name"))
+                        }
+                    }
                     val credits = d.optJSONObject("credits")
                     val castArray = credits?.optJSONArray("cast")
                     val castNames = mutableListOf<String>()
                     if (castArray != null) {
-                        val limit = if (castArray.length() > 10) 10 else castArray.length() 
-                        for (i in 0 until limit) { castNames.add(castArray.getJSONObject(i).getString("name")) }
+                        val limit = if (castArray.length() > 10) 10 else castArray.length()
+                        for (i in 0 until limit) {
+                            castNames.add(castArray.getJSONObject(i).getString("name"))
+                        }
                     }
                     // DADOS EXTRAS (DATA E CRIADOR)
                     val firstAirDate = d.optString("first_air_date", "")
@@ -749,7 +755,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
             restaurarEstadoDownload()
             verificarResume() // ✅ Verifica resume com chave do perfil
         }
-        rvEpisodes.adapter = EpisodeAdapter(lista) { ep, _ ->
+        rvEpisodes.adapter = EpisodeAdapter(this, lista) { ep, _ ->
             currentEpisode = ep
             restaurarEstadoDownload()
             verificarResume()
@@ -920,11 +926,12 @@ class SeriesDetailsActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
-    class EpisodeAdapter(val list: List<EpisodeStream>, private val onClick: (EpisodeStream, Int) -> Unit) : RecyclerView.Adapter<EpisodeAdapter.VH>() {
+    class EpisodeAdapter(private val activity: SeriesDetailsActivity, val list: List<EpisodeStream>, private val onClick: (EpisodeStream, Int) -> Unit) : RecyclerView.Adapter<EpisodeAdapter.VH>() {
         class VH(v: View) : RecyclerView.ViewHolder(v) {
             val tvTitle: TextView = v.findViewById(R.id.tvEpisodeTitle)
             val imgThumb: ImageView = v.findViewById(R.id.imgEpisodeThumb)
             val tvPlotEp: TextView = v.findViewById(R.id.tvEpisodePlot)
+            val btnDownloadItem: ImageView? = v.findViewById(R.id.imgDownloadState)
         }
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = VH(LayoutInflater.from(parent.context).inflate(R.layout.item_episode, parent, false))
         override fun onBindViewHolder(holder: VH, position: Int) {
@@ -939,6 +946,23 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .centerCrop()
                 .into(holder.imgThumb)
+                
+            // ✅ CLICK DO BOTÃO DE DOWNLOAD DO EPISÓDIO
+            holder.btnDownloadItem?.setOnClickListener {
+                val url = activity.montarUrlEpisodio(ep)
+                val nomeEp = "T${activity.currentSeason}E${ep.episode_num}"
+                DownloadHelper.iniciarDownload(
+                    context = holder.itemView.context,
+                    url = url,
+                    streamId = ep.id.toIntOrNull() ?: 0,
+                    nomePrincipal = activity.seriesName,
+                    nomeEpisodio = nomeEp,
+                    imagemUrl = activity.seriesIcon,
+                    isSeries = true
+                )
+                Toast.makeText(holder.itemView.context, "Iniciando download de $nomeEp", Toast.LENGTH_SHORT).show()
+            }
+
             holder.itemView.setOnClickListener { onClick(ep, position) }
             holder.itemView.setOnFocusChangeListener { view, hasFocus ->
                 holder.tvTitle.setTextColor(if (hasFocus) Color.YELLOW else Color.WHITE)

@@ -223,7 +223,13 @@ class SeriesDetailsActivity : AppCompatActivity() {
                     true
                 }
                 R.id.nav_downloads -> {
-                    Toast.makeText(this, "Abrindo Meus Downloads...", Toast.LENGTH_SHORT).show()
+                    // ✅ ATUALIZAÇÃO: Redireciona para a tela de Downloads
+                    try {
+                        val intentDl = Intent(this, Class.forName("com.vltv.play.DownloadListActivity"))
+                        startActivity(intentDl)
+                    } catch (e: Exception) {
+                        Toast.makeText(this, "Abrindo Meus Downloads...", Toast.LENGTH_SHORT).show()
+                    }
                     true
                 }
                 R.id.nav_profile -> {
@@ -378,34 +384,22 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private fun setupDownloadButtons() {
         btnDownloadEpisodeArea.setOnClickListener {
             val ep = currentEpisode ?: return@setOnClickListener
-            // ✅ CORREÇÃO: Lógica segura de download
-            when (downloadState) {
-                DownloadState.BAIXAR -> {
-                    val eid = ep.id.toIntOrNull() ?: 0
-                    if (eid == 0) return@setOnClickListener
-                    val url = montarUrlEpisodio(ep)
-                    val nomeEp = "T${currentSeason}E${ep.episode_num}"
-                    // Chama o novo helper seguro
-                    DownloadHelper.iniciarDownload(
-                        context = this,
-                        url = url,
-                        streamId = eid,
-                        nomePrincipal = seriesName,
-                        nomeEpisodio = nomeEp,
-                        imagemUrl = seriesIcon,
-                        isSeries = true
-                    )
-                    Toast.makeText(this, "Adicionado aos Downloads!", Toast.LENGTH_SHORT).show()
-                    setDownloadState(DownloadState.BAIXANDO, ep)
-                }
-                DownloadState.BAIXANDO -> {
-                    Toast.makeText(this, "Já está baixando...", Toast.LENGTH_SHORT).show()
-                }
-                DownloadState.BAIXADO -> {
-                    Toast.makeText(this, "Download concluído!", Toast.LENGTH_SHORT).show()
-                }
-            }
+            // ✅ ATUALIZAÇÃO: Lógica de download com DNS Dinâmico
+            val url = montarUrlEpisodio(ep)
+            val nomeEp = "T${currentSeason}E${ep.episode_num.toString().padStart(2, '0')}"
+            
+            DownloadHelper.iniciarDownload(
+                context = this,
+                url = url,
+                streamId = ep.id.toIntOrNull() ?: 0,
+                nomePrincipal = seriesName,
+                nomeEpisodio = nomeEp,
+                imagemUrl = seriesIcon,
+                isSeries = true
+            )
+            Toast.makeText(this, "Adicionado aos Downloads!", Toast.LENGTH_SHORT).show()
         }
+
         btnDownloadSeason.setOnClickListener {
             if (currentSeason.isBlank()) return@setOnClickListener
             val lista = episodesBySeason[currentSeason] ?: emptyList()
@@ -877,8 +871,8 @@ class SeriesDetailsActivity : AppCompatActivity() {
         for (ep in lista) {
             val eid = ep.id.toIntOrNull() ?: continue
             val url = montarUrlEpisodio(ep)
-            val nomeEp = "T${currentSeason}E${ep.episode_num}"
-            // ✅ CORREÇÃO: Usa o helper novo DownloadHelper.iniciarDownload(
+            val nomeEp = "T${currentSeason}E${ep.episode_num.toString().padStart(2, '0')}"
+            // ✅ ATUALIZAÇÃO: Chama o download via DownloadHelper
             DownloadHelper.iniciarDownload(
                 context = this,
                 url = url,
@@ -931,8 +925,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
             val tvTitle: TextView = v.findViewById(R.id.tvEpisodeTitle)
             val imgThumb: ImageView = v.findViewById(R.id.imgEpisodeThumb)
             val tvPlotEp: TextView = v.findViewById(R.id.tvEpisodePlot)
-            // IDs ATUALIZADOS CONFORME SEU item_episode.xml
+            // ✅ ATUALIZAÇÃO: IDs conforme seu item_episode.xml (Celular)
             val btnDownloadItem: LinearLayout = v.findViewById(R.id.btnDownloadEpisode)
+            val imgDownloadIcon: ImageView = v.findViewById(R.id.imgDownloadIcon)
         }
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = VH(LayoutInflater.from(parent.context).inflate(R.layout.item_episode, parent, false))
         override fun onBindViewHolder(holder: VH, position: Int) {
@@ -948,7 +943,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 .centerCrop()
                 .into(holder.imgThumb)
                 
-            // ✅ CLICK DO BOTÃO DE DOWNLOAD DO EPISÓDIO CONECTADO AO DOWNLOADHELPER
+            // ✅ ATUALIZAÇÃO: Clique no download do episódio na lista
             holder.btnDownloadItem.setOnClickListener {
                 val url = activity.montarUrlEpisodio(ep)
                 val nomeEp = "T${activity.currentSeason}E${ep.episode_num.toString().padStart(2, '0')}"
@@ -961,7 +956,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
                     imagemUrl = activity.seriesIcon,
                     isSeries = true
                 )
-                Toast.makeText(holder.itemView.context, "Iniciando download: $nomeEp", Toast.LENGTH_SHORT).show()
+                Toast.makeText(holder.itemView.context, "Iniciando download de $nomeEp", Toast.LENGTH_SHORT).show()
             }
 
             holder.itemView.setOnClickListener { onClick(ep, position) }

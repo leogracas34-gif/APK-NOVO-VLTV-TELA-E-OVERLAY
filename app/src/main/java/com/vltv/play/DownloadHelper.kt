@@ -46,6 +46,7 @@ object DownloadHelper {
 
                 val request = DownloadManager.Request(Uri.parse(url))
                     .setTitle(nomePrincipal)
+                    // ✅ ATUALIZAÇÃO: VISIBILITY_VISIBLE faz a notificação sumir sozinha após o 100%
                     .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
                     .setVisibleInDownloadsUi(false)
                     .setAllowedOverMetered(true)
@@ -76,7 +77,7 @@ object DownloadHelper {
                     Toast.makeText(context, "Download iniciado...", Toast.LENGTH_SHORT).show()
                 }
 
-                // ✅ 4. INICIA O MONITORAMENTO DE PROGRESSO
+                // ✅ 4. INICIA O MONITORAMENTO DE PROGRESSO (Funciona para Filmes e Séries)
                 iniciarMonitoramento(context)
 
             } catch (e: Exception) {
@@ -85,7 +86,7 @@ object DownloadHelper {
         }
     }
 
-    // ✅ NOVA FUNÇÃO: Atualiza a % no banco a cada 1 segundo
+    // ✅ NOVA FUNÇÃO: Atualiza a % no banco a cada 1.5 segundos
     private fun iniciarMonitoramento(context: Context) {
         if (progressJob?.isActive == true) return // Já está rodando
 

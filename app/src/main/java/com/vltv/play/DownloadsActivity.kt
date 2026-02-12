@@ -50,40 +50,13 @@ class DownloadsActivity : AppCompatActivity() {
         rvDownloads.layoutManager = LinearLayoutManager(this)
         
         // Inicializa o Adapter
-        // ✅ ATUALIZAÇÃO: Lógica de clique inteligente para diferenciar Filme de Grupo de Série
         adapter = DownloadsAdapter(emptyList(), 
-            onClick = { item -> 
-                val dao = AppDatabase.getDatabase(this).streamDao()
-                // Verificamos se existem mais episódios com o mesmo nome para agrupar
-                CoroutineScope(Dispatchers.IO).launch {
-                    val todos = dao.getAllDownloadsList() // Busca lista direta para checagem rápida
-                    val episodios = todos.filter { it.name == item.name && it.type == "series" }
-                    
-                    withContext(Dispatchers.Main) {
-                        if (episodios.size > 1) {
-                            mostrarSeletorEpisodios(item.name, episodios)
-                        } else {
-                            abrirPlayerOffline(item)
-                        }
-                    }
-                }
-            },
+            onClick = { item -> abrirPlayerOffline(item) },
             onLongClick = { item -> confirmarExclusao(item) }
         )
         rvDownloads.adapter = adapter
 
         observarBancoDeDados()
-    }
-
-    // ✅ NOVA FUNÇÃO: Abre a lista de episódios da série agrupada
-    private fun mostrarSeletorEpisodios(nomeSerie: String, lista: List<DownloadEntity>) {
-        val nomes = lista.map { it.episode_name ?: "Episódio" }.toTypedArray()
-        AlertDialog.Builder(this)
-            .setTitle(nomeSerie)
-            .setItems(nomes) { _, which ->
-                abrirPlayerOffline(lista[which])
-            }
-            .show()
     }
 
     private fun observarBancoDeDados() {
@@ -96,12 +69,7 @@ class DownloadsActivity : AppCompatActivity() {
             } else {
                 tvEmpty.visibility = View.GONE
                 rvDownloads.visibility = View.VISIBLE
-                
-                // ✅ ATUALIZAÇÃO: Agrupa séries pelo nome para não poluir a tela principal
-                val listaAgrupada = lista.distinctBy { 
-                    if (it.type == "series") it.name else it.id.toString() 
-                }
-                adapter.atualizarLista(listaAgrupada)
+                adapter.atualizarLista(lista)
             }
         })
     }
@@ -110,7 +78,7 @@ class DownloadsActivity : AppCompatActivity() {
         val file = File(item.file_path)
         
         if (!file.exists()) {
-            Toast.makeText(this, "Arquivo não encontrado! Talvez tenha sido apagado.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Arquivo nÃ£o encontrado! Talvez tenha sido apagado.", Toast.LENGTH_LONG).show()
             return
         }
 
@@ -137,7 +105,7 @@ class DownloadsActivity : AppCompatActivity() {
     private fun deletarArquivo(item: DownloadEntity) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // 1. Apaga o arquivo físico
+                // 1. Apaga o arquivo fÃ­sico
                 val file = File(item.file_path)
                 if (file.exists()) {
                     file.delete()
@@ -146,11 +114,11 @@ class DownloadsActivity : AppCompatActivity() {
                 // 2. Apaga do Banco de Dados
                 val db = AppDatabase.getDatabase(applicationContext).streamDao()
                 
-                // ✅ CORREÇÃO AQUI: Usando item.id (Int) em vez de android_download_id (Long)
+                // âœ… CORREÃ‡ÃƒO AQUI: Usando item.id (Int) em vez de android_download_id (Long)
                 db.deleteDownload(item.id)
 
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(applicationContext, "Download excluído.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(applicationContext, "Download excluÃ­do.", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -185,10 +153,7 @@ class DownloadsActivity : AppCompatActivity() {
         override fun onBindViewHolder(holder: VH, position: Int) {
             val item = items[position]
             
-            // ✅ ATUALIZAÇÃO: Se for grupo de série, mostra apenas o Nome Principal
-            if (item.type == "series") {
-                holder.tvName.text = item.name
-            } else if (item.episode_name != null) {
+            if (item.episode_name != null) {
                 holder.tvName.text = "${item.name}\n${item.episode_name}"
             } else {
                 holder.tvName.text = item.name
@@ -200,9 +165,8 @@ class DownloadsActivity : AppCompatActivity() {
                 holder.itemView.isEnabled = false
                 holder.itemView.alpha = 0.5f
             } else if (item.status == "BAIXADO" || item.status == "COMPLETED") {
-                // ✅ ATUALIZAÇÃO: Texto alterado para mostrar ícone do telefone e status limpo
-                holder.tvStatus.text = "📱 No dispositivo" 
-                holder.tvStatus.setTextColor(android.graphics.Color.parseColor("#A6FFFFFF"))
+                holder.tvStatus.text = "Completo â€¢ Toque para assistir"
+                holder.tvStatus.setTextColor(android.graphics.Color.GREEN)
                 holder.itemView.isEnabled = true
                 holder.itemView.alpha = 1.0f
             } else {

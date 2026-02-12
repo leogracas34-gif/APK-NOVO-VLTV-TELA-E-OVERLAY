@@ -3,6 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
     android:background="#0A0A0A">
 
     <androidx.coordinatorlayout.widget.CoordinatorLayout
@@ -232,13 +233,16 @@
         <androidx.core.widget.NestedScrollView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:clipToPadding="false"
             app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:paddingBottom="100dp"> <RelativeLayout
+                android:paddingBottom="100dp"> 
+                
+                <RelativeLayout
                     android:id="@+id/seasonHeaderContainer"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"

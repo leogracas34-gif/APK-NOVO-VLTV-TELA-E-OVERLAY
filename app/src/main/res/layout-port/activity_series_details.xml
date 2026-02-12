@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#000000">
+    android:background="#0A0A0A">
 
     <androidx.coordinatorlayout.widget.CoordinatorLayout
         android:layout_width="match_parent"
@@ -113,43 +113,10 @@
                         </LinearLayout>
                     </LinearLayout>
 
-                    <LinearLayout
-                        android:id="@+id/layoutProgress"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:layout_marginTop="15dp"
-                        android:visibility="gone">
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:gravity="center_vertical">
-
-                            <ProgressBar
-                                android:id="@+id/progressBarMovie"
-                                style="?android:attr/progressBarStyleHorizontal"
-                                android:layout_width="0dp"
-                                android:layout_height="4dp"
-                                android:layout_weight="1"
-                                android:progressDrawable="@drawable/progress_horizontal_disney" />
-
-                            <TextView
-                                android:id="@+id/tvTimeRemaining"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginStart="8dp"
-                                android:text="Restam 0min"
-                                android:textColor="#BBBBBB"
-                                android:textSize="10sp" />
-                        </LinearLayout>
-                    </LinearLayout>
-
                     <FrameLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp">
+                        android:layout_marginTop="24dp">
                         
                         <Button
                             android:id="@+id/btnPlay"
@@ -181,98 +148,57 @@
                         android:gravity="center">
 
                         <LinearLayout
-                            android:id="@+id/btnRestartAction"
-                            android:layout_width="0dp"
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:gravity="center"
                             android:orientation="vertical"
-                            android:clickable="true"
-                            android:focusable="true"
-                            android:visibility="gone">
-                            <ImageView
-                                android:layout_width="24dp"
-                                android:layout_height="24dp"
-                                android:src="@android:drawable/ic_menu_rotate"
-                                app:tint="#FFFFFF" />
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="REINICIAR"
-                                android:textColor="#FFFFFF"
-                                android:textSize="9sp"
-                                android:layout_marginTop="4dp" />
-                        </LinearLayout>
-
-                        <LinearLayout
-                            android:id="@+id/btnTrailerAction"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
                             android:gravity="center"
-                            android:orientation="vertical"
+                            android:layout_weight="1"
                             android:clickable="true"
                             android:focusable="true">
-                            <ImageView
-                                android:layout_width="24dp"
-                                android:layout_height="24dp"
-                                android:src="@drawable/ic_details_trailer" />
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="TRAILER"
-                                android:textColor="#FFFFFF"
-                                android:textSize="9sp"
-                                android:layout_marginTop="4dp" />
-                        </LinearLayout>
-
-                        <LinearLayout
-                            android:id="@+id/btnFavoriteLayout"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:gravity="center"
-                            android:orientation="vertical"
-                            android:clickable="true"
-                            android:focusable="true">
+                            
                             <ImageButton
                                 android:id="@+id/btnFavorite"
-                                android:layout_width="24dp"
-                                android:layout_height="24dp"
+                                android:layout_width="30dp"
+                                android:layout_height="30dp"
                                 android:background="@android:color/transparent"
-                                android:src="@drawable/ic_details_add"
-                                app:tint="#FFFFFF" />
+                                android:src="@android:drawable/btn_star_big_off"
+                                android:scaleType="fitCenter"/>
+                            
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="MINHA LISTA"
+                                android:text="Minha Lista"
                                 android:textColor="#FFFFFF"
-                                android:textSize="9sp"
+                                android:textSize="10sp"
                                 android:layout_marginTop="4dp"/>
                         </LinearLayout>
 
                         <LinearLayout
-                            android:id="@+id/btnDownloadAction"
-                            android:layout_width="0dp"
+                            android:id="@+id/btnDownloadArea"
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
                             android:orientation="vertical"
                             android:gravity="center"
+                            android:layout_weight="1"
                             android:clickable="true"
-                            android:focusable="true">
+                            android:focusable="true"
+                            android:visibility="visible">
+
                             <ImageView
                                 android:id="@+id/imgDownloadState"
                                 android:layout_width="24dp"
                                 android:layout_height="24dp"
-                                android:src="@drawable/ic_details_download" />
+                                android:src="@android:drawable/stat_sys_download"
+                                app:tint="#FFFFFF" />
+                            
                             <TextView
                                 android:id="@+id/tvDownloadState"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="BAIXAR"
+                                android:text="Baixar"
                                 android:textColor="#FFFFFF"
-                                android:textSize="9sp"
-                                android:layout_marginTop="4dp"/>
+                                android:textSize="10sp"
+                                android:layout_marginTop="8dp"/>
                         </LinearLayout>
                     </LinearLayout>
 
@@ -306,15 +232,13 @@
         <androidx.core.widget.NestedScrollView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:paddingBottom="60dp"
             app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <RelativeLayout
+                android:orientation="vertical"
+                android:paddingBottom="100dp"> <RelativeLayout
                     android:id="@+id/seasonHeaderContainer"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -374,14 +298,12 @@
                     android:id="@+id/recyclerEpisodes"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:paddingBottom="80dp"
                     android:nestedScrollingEnabled="false" />
 
                 <androidx.recyclerview.widget.RecyclerView
                     android:id="@+id/recyclerSuggestions"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:paddingBottom="80dp"
                     android:visibility="gone"
                     android:nestedScrollingEnabled="false" />
 

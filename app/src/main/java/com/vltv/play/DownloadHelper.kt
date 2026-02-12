@@ -25,7 +25,6 @@ object DownloadHelper {
     const val STATE_BAIXADO = "BAIXADO"
     const val STATE_ERRO = "ERRO"
 
-    // ✅ Controle do Loop de Progresso
     private var progressJob: Job? = null
 
     fun iniciarDownload(
@@ -39,14 +38,17 @@ object DownloadHelper {
     ) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // 1. Prepara o nome e caminho
+                // 1. Prepara o nome e caminho (Garantindo compatibilidade com Séries)
                 val nomeSeguro = nomePrincipal.replace(Regex("[^a-zA-Z0-9\\.\\-]"), "_")
                 val tipo = if (isSeries) "series" else "movie"
-                val nomeArquivo = "${tipo}_${streamId}_${nomeSeguro}$EXTENSAO_SEGURA"
+                
+                // ✅ Ajuste no nome do arquivo para evitar erro de "Arquivo não encontrado"
+                val sufixoEp = if (nomeEpisodio != null) "_${nomeEpisodio.replace(" ", "_")}" else ""
+                val nomeArquivo = "${tipo}_${streamId}${sufixoEp}_${nomeSeguro}$EXTENSAO_SEGURA"
 
                 val request = DownloadManager.Request(Uri.parse(url))
-                    .setTitle(nomePrincipal)
-                    // ✅ ATUALIZAÇÃO: VISIBILITY_VISIBLE faz a notificação sumir sozinha após o 100%
+                    .setTitle(if (nomeEpisodio != null) "$nomePrincipal - $nomeEpisodio" else nomePrincipal)
+                    // ✅ VISIBILITY_VISIBLE: Aparece progresso e some ao terminar (Não fica preso)
                     .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
                     .setVisibleInDownloadsUi(false)
                     .setAllowedOverMetered(true)
@@ -55,10 +57,8 @@ object DownloadHelper {
                 val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
                 val downloadId = dm.enqueue(request)
 
-                // 2. Caminho Absoluto do arquivo
                 val file = File(context.getExternalFilesDir(PASTA_OCULTA), nomeArquivo)
 
-                // 3. Salva no Banco (Começa com 0%)
                 val entity = DownloadEntity(
                     android_download_id = downloadId,
                     stream_id = streamId,
@@ -77,18 +77,16 @@ object DownloadHelper {
                     Toast.makeText(context, "Download iniciado...", Toast.LENGTH_SHORT).show()
                 }
 
-                // ✅ 4. INICIA O MONITORAMENTO DE PROGRESSO (Funciona para Filmes e Séries)
                 iniciarMonitoramento(context)
 
             } catch (e: Exception) {
-                Log.e(TAG, "Erro: ${e.message}")
+                Log.e(TAG, "Erro ao iniciar download: ${e.message}")
             }
         }
     }
 
-    // ✅ NOVA FUNÇÃO: Atualiza a % no banco a cada 1.5 segundos
     private fun iniciarMonitoramento(context: Context) {
-        if (progressJob?.isActive == true) return // Já está rodando
+        if (progressJob?.isActive == true) return 
 
         progressJob = CoroutineScope(Dispatchers.IO).launch {
             val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
@@ -96,7 +94,7 @@ object DownloadHelper {
             var downloadsAtivos = true
 
             while (downloadsAtivos) {
-                val cursor = dm.query(DownloadManager.Query()) // Pega todos
+                val cursor = dm.query(DownloadManager.Query())
                 var encontrouAtivo = false
 
                 if (cursor != null && cursor.moveToFirst()) {
@@ -110,12 +108,10 @@ object DownloadHelper {
                             val id = cursor.getLong(idIndex)
                             val status = cursor.getInt(statusIndex)
                             
-                            // Calcula Porcentagem
                             val baixado = cursor.getLong(downloadedIndex)
                             val total = cursor.getLong(totalIndex)
                             val progresso = if (total > 0) ((baixado * 100) / total).toInt() else 0
 
-                            // Atualiza no Banco
                             if (status == DownloadManager.STATUS_RUNNING) {
                                 db.updateDownloadProgress(id, STATE_BAIXANDO, progresso)
                                 encontrouAtivo = true
@@ -130,15 +126,14 @@ object DownloadHelper {
                 }
 
                 if (!encontrouAtivo) {
-                    downloadsAtivos = false // Para o loop se não tiver mais nada baixando
+                    downloadsAtivos = false 
                 }
                 
-                delay(1500) // Espera 1.5s antes de checar de novo
+                delay(1500) 
             }
         }
     }
 
-    // Receiver de Segurança (Caso o loop falhe, isso garante o 100%)
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val id = intent?.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L) ?: return

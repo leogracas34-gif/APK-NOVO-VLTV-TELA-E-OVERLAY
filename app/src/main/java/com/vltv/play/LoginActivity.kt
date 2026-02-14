@@ -47,27 +47,28 @@ class LoginActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // MODO IMERSIVO
-        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
-        windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
-        
-        binding = ActivityLoginBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-
+        // ✅ 1. CHECAGEM SILENCIOSA (Antes de desenhar a tela para evitar a piscada)
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val savedUser = prefs.getString("username", null)
         val savedPass = prefs.getString("password", null)
         val savedDns = prefs.getString("dns", null)
 
-        // Se já tem login salvo
         if (!savedUser.isNullOrBlank() && !savedPass.isNullOrBlank() && !savedDns.isNullOrBlank()) {
-            // Verifica se o banco está vazio. Se estiver, faz o pré-carregamento mesmo no login automático.
+            // Se já está logado, chama a verificação e não executa o resto do onCreate desta tela
             verificarEIniciar(savedDns!!, savedUser!!, savedPass!!)
-            return
-        }
+            // Não colocamos o setContentView aqui para a tela não piscar
+        } else {
+            // ✅ 2. SÓ DESENHA A TELA SE NÃO TIVER LOGIN (Evita carregar recursos à toa)
+            binding = ActivityLoginBinding.inflate(layoutInflater)
+            setContentView(binding.root)
 
-        setupUI()
+            // MODO IMERSIVO
+            val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+            windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
+            
+            setupUI()
+        }
     }
 
     private fun setupUI() {
@@ -106,10 +107,15 @@ class LoginActivity : AppCompatActivity() {
             val temFilmes = db.streamDao().getVodCount() > 0
             
             if (temFilmes) {
+                // Se já tem filmes no banco, entra NA HORA. Não deixa o cliente esperando.
                 withContext(Dispatchers.Main) { abrirHomeDireto() }
             } else {
-                // Se o banco tá vazio (ex: limpou dados), faz o pré-carregamento
+                // Se o banco tá vazio (ex: primeira vez ou limpou dados), aí sim mostra o carregamento
                 withContext(Dispatchers.Main) { 
+                    // Como não chamamos o setContentView no onCreate, precisamos chamar agora 
+                    // apenas se precisarmos mostrar o progresso
+                    binding = ActivityLoginBinding.inflate(layoutInflater)
+                    setContentView(binding.root)
                     binding.progressBar.visibility = View.VISIBLE
                     Toast.makeText(this@LoginActivity, "Atualizando conteúdo...", Toast.LENGTH_SHORT).show()
                 }

@@ -117,8 +117,10 @@ class HomeActivity : AppCompatActivity() {
         setupClicks() 
         setupFirebaseRemoteConfig()
         
-        // ✅ CARREGAMENTO EM PARALELO PARA VELOCIDADE
+        // ✅ CARREGAMENTO OTIMIZADO (Chamada única para evitar pisca-pisca)
         carregarDadosLocaisImediato()
+        
+        // Sincronização e listas extras rodam em background
         sincronizarConteudoSilenciosamente()
         carregarListasDaHome()
 
@@ -332,7 +334,7 @@ class HomeActivity : AppCompatActivity() {
                                     .load("https://image.tmdb.org/t/p/original$backdropPath")
                                     .centerCrop()
                                     .dontAnimate()
-                                    .placeholder(android.R.color.transparent) 
+                                    .placeholder(targetImg.drawable) // ✅ USA A IMAGEM ATUAL PARA NÃO FICAR BRANCO
                                     .into(targetImg)
                             }
                         } catch (e: Exception) {}

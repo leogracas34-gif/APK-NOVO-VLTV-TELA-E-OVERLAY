@@ -117,12 +117,14 @@ class HomeActivity : AppCompatActivity() {
         setupClicks() 
         setupFirebaseRemoteConfig()
         
-        // ✅ CARREGAMENTO OTIMIZADO (Chamada única para evitar pisca-pisca)
-        carregarDadosLocaisImediato()
+        // ✅ CORREÇÃO AQUI: Removemos as chamadas duplicadas que faziam piscar.
+        // A função carregarDadosLocaisImediato() já desenha a tela inteira.
+        // A sincronizarConteudoSilenciosamente() roda em background e atualiza depois.
         
-        // Sincronização e listas extras rodam em background
+        carregarDadosLocaisImediato()
         sincronizarConteudoSilenciosamente()
-        carregarListasDaHome()
+        
+        // REMOVIDO: carregarListasDaHome() -> Isso era duplicado, pois carregarDadosLocaisImediato já faz isso.
 
         // ✅ LÓGICA KIDS
         val isKidsMode = intent.getBooleanExtra("IS_KIDS_MODE", false)
@@ -250,6 +252,9 @@ class HomeActivity : AppCompatActivity() {
                     
                     // 🚀 ATIVA O MODO SUPERSONICO (PRELOAD DAS LISTAS INFERIORES)
                     ativarModoSupersonico(movieItems, seriesItems)
+
+                    // ✅ GARANTE QUE O CONTINUAR ASSISTINDO APAREÇA SEM PISCAR
+                    carregarContinuarAssistindoLocal()
                 }
             } catch (e: Exception) {
                 e.printStackTrace()

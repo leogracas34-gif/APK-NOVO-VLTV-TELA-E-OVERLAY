@@ -5,7 +5,9 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0F1014"> <RelativeLayout
+    android:background="#0F1014">
+
+    <RelativeLayout
         android:id="@+id/headerLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -15,7 +17,9 @@
         app:layout_constraintTop_toTopOf="parent"
         android:elevation="10dp"
         android:translationZ="10dp"
-        android:background="#00000000"> <ImageView
+        android:background="#00000000">
+
+        <ImageView
             android:id="@+id/ivLogo"
             android:layout_width="120dp" 
             android:layout_height="40dp"
@@ -56,12 +60,18 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"/>
 
+                <ImageView
+                    android:id="@+id/imgBanner"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:visibility="gone" />
+
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="250dp"
                     android:layout_gravity="bottom"
                     android:background="@drawable/bg_gradient_bottom_fade"/> 
-                    </FrameLayout>
+            </FrameLayout>
 
             <LinearLayout
                 android:id="@+id/mainButtonsLayout"

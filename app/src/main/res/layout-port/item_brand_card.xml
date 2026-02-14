@@ -1,14 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/cardBrand"
-    android:layout_width="110dp"
+    android:id="@+id/cardBrandRoot"
+    android:layout_width="match_parent" 
     android:layout_height="65dp"
-    android:layout_marginEnd="12dp"
-    android:layout_marginBottom="8dp"
+    android:layout_marginEnd="6dp"
     app:cardCornerRadius="8dp"
     app:cardElevation="4dp"
-    app:cardBackgroundColor="#1A1C29"
+    app:cardBackgroundColor="#2A2D3E" 
     android:clickable="true"
     android:focusable="true"
     android:foreground="?attr/selectableItemBackground">
@@ -18,21 +17,37 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:scaleType="centerCrop"
-        android:src="@drawable/bg_gradient_blue" 
-        android:alpha="0.8"/>
+        android:alpha="0.3"
+        android:background="#000000"/> 
 
-    <ImageView
-        android:id="@+id/imgBrandLogo"
+    <LinearLayout
         android:layout_width="wrap_content"
-        android:layout_height="35dp"
+        android:layout_height="wrap_content"
         android:layout_gravity="center"
-        android:adjustViewBounds="true"
-        android:src="@drawable/ic_movie_white" 
-        app:tint="#FFFFFF"/>
+        android:orientation="vertical"
+        android:gravity="center">
+
+        <ImageView
+            android:id="@+id/imgBrandIcon"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@android:drawable/ic_media_play" 
+            app:tint="#FFFFFF"/>
+
+        <TextView
+            android:id="@+id/tvBrandName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="FILMES"
+            android:textColor="#FFFFFF"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:layout_marginTop="2dp"/>
+    </LinearLayout>
 
     <View
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@drawable/border_brand_selector"/>
+        android:background="@drawable/selector_brand_border"/> 
 
 </androidx.cardview.widget.CardView>

@@ -9,7 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.util.DisplayMetrics // ✅ LINHA QUE FALTAVA ADICIONADA
+import android.util.DisplayMetrics // ✅ Importação corrigida
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
@@ -70,26 +70,24 @@ class HomeActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // 🚨 PROTEÇÃO CONTRA CRASH NO INÍCIO
+        // 🚨 PROTEÇÃO CONTRA CRASH
         try {
-            // 🔥 DETECÇÃO MELHORADA: CELULAR vs TV
             configurarOrientacaoAutomatica()
             
             binding = ActivityHomeBinding.inflate(layoutInflater)
             setContentView(binding.root)
 
-            // ✅ RECUPERA O PERFIL
             currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
 
-            val windowInsetsController =
-                WindowCompat.getInsetsController(window, window.decorView)
-            windowInsetsController?.systemBarsBehavior =
-                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
+            // ✅ CORREÇÃO: BARRA DE NAVEGAÇÃO FIXA (NÃO some mais)
+            // Removemos o código que escondia as barras (systemBars)
+            val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+            windowInsetsController.isAppearanceLightStatusBars = false // Ícones brancos na barra
+            // NÃO chamamos mais o .hide() aqui
 
             DownloadHelper.registerReceiver(this)
 
-            // ✅ SETUP CAST BUTTON (PROTEGIDO)
+            // ✅ SETUP CAST BUTTON
             try {
                 CastContext.getSharedInstance(this)
                 binding.mediaRouteButton?.let { btn ->
@@ -102,11 +100,10 @@ class HomeActivity : AppCompatActivity() {
             // ✅ INICIALIZA O LAYOUT
             setupSingleBanner()
             setupBottomNavigation()
-
             setupClicks() 
             setupFirebaseRemoteConfig()
             
-            // ✅ CARREGAMENTO OTIMIZADO (TURBO)
+            // ✅ CARREGAMENTO TURBO
             carregarDadosLocaisImediato()
             sincronizarConteudoSilenciosamente()
 
@@ -124,7 +121,6 @@ class HomeActivity : AppCompatActivity() {
 
         } catch (e: Exception) {
             e.printStackTrace()
-            // Se der erro grave no onCreate, evita fechar se possível ou loga
         }
     }
 
@@ -162,7 +158,6 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ CONFIGURAÇÃO DO BANNER ESTÁTICO
     private fun setupSingleBanner() {
         bannerAdapter = BannerAdapter(emptyList())
         binding.bannerViewPager?.adapter = bannerAdapter
@@ -194,11 +189,10 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ CARREGA DADOS DO DATABASE (OTIMIZADO PARA PERFORMANCE)
+    // ✅ CARREGA DADOS DO DATABASE (OTIMIZADO)
     private fun carregarDadosLocaisImediato() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // Pega do banco local (Room)
                 val localMovies = database.streamDao().getRecentVods(20)
                 val movieItems = localMovies.map { VodItem(it.stream_id.toString(), it.name, it.stream_icon ?: "") }
 
@@ -207,7 +201,7 @@ class HomeActivity : AppCompatActivity() {
 
                 withContext(Dispatchers.Main) {
                     if (movieItems.isNotEmpty()) {
-                        // 🚀 TURBO: Otimização de RecyclerView
+                        // 🚀 TURBO: Cache de RecyclerView
                         binding.rvRecentlyAdded.setHasFixedSize(true)
                         binding.rvRecentlyAdded.setItemViewCacheSize(20)
                         
@@ -222,7 +216,7 @@ class HomeActivity : AppCompatActivity() {
                         }
                     }
                     if (seriesItems.isNotEmpty()) {
-                        // 🚀 TURBO: Otimização de RecyclerView
+                        // 🚀 TURBO: Cache de RecyclerView
                         binding.rvRecentSeries.setHasFixedSize(true)
                         binding.rvRecentSeries.setItemViewCacheSize(20)
 
@@ -237,14 +231,10 @@ class HomeActivity : AppCompatActivity() {
                         }
                     }
                     
-                    // Salva a lista completa para sortear no onResume
                     listaCompletaParaSorteio = (localMovies + localSeries)
                     sortearBannerUnico()
                     
-                    // 🚀 ATIVA O MODO SUPERSONICO
                     ativarModoSupersonico(movieItems, seriesItems)
-
-                    // ✅ GARANTE QUE O CONTINUAR ASSISTINDO APAREÇA
                     carregarContinuarAssistindoLocal()
                 }
             } catch (e: Exception) {
@@ -253,7 +243,7 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // 🚀 MODO VELOCIDADE DA LUZ: Baixa imagens com cache RGB_565 (Mais leve)
+    // 🚀 MODO VELOCIDADE DA LUZ
     private fun ativarModoSupersonico(filmes: List<VodItem>, series: List<VodItem>) {
         CoroutineScope(Dispatchers.IO).launch {
             val preloadList = filmes.take(20) + series.take(20)
@@ -263,7 +253,7 @@ class HomeActivity : AppCompatActivity() {
                     if (!item.streamIcon.isNullOrEmpty()) {
                         Glide.with(applicationContext)
                             .load(item.streamIcon) 
-                            .format(DecodeFormat.PREFER_RGB_565) // 🚀 Otimização de Memória
+                            .format(DecodeFormat.PREFER_RGB_565) 
                             .diskCacheStrategy(DiskCacheStrategy.ALL)
                             .preload(180, 270) 
                     }
@@ -272,7 +262,6 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ SORTEIO DE BANNER ÚNICO
     private fun sortearBannerUnico() {
         if (listaCompletaParaSorteio.isNotEmpty()) {
             val itemSorteado = listaCompletaParaSorteio.random()
@@ -290,23 +279,18 @@ class HomeActivity : AppCompatActivity() {
                    .take(50)
     }
 
-    // ✅ LÓGICA HÍBRIDA
     private fun buscarImagemBackgroundTMDB(nome: String, isSeries: Boolean, fallback: String, internalId: Int, targetImg: ImageView, targetLogo: ImageView, targetTitle: TextView) {
-        
-        // 🚀 1. CARREGAMENTO INSTANTÂNEO COM GLIDE OTIMIZADO
         try {
             targetImg.scaleType = ImageView.ScaleType.CENTER_CROP
-            
             Glide.with(this@HomeActivity)
                 .load(fallback)
                 .centerCrop()
                 .dontAnimate()
-                .format(DecodeFormat.PREFER_RGB_565) // 🚀 ECONOMIA DE MEMÓRIA
+                .format(DecodeFormat.PREFER_RGB_565) 
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .into(targetImg)
         } catch (e: Exception) {}
 
-        // 🚀 2. BUSCA MELHORIA NO TMDB
         val tipo = if (isSeries) "tv" else "movie"
         val nomeLimpo = limparNomeParaTMDB(nome)
         val query = URLEncoder.encode(nomeLimpo, "UTF-8")
@@ -327,13 +311,12 @@ class HomeActivity : AppCompatActivity() {
                                     .load("https://image.tmdb.org/t/p/original$backdropPath")
                                     .centerCrop()
                                     .dontAnimate()
-                                    .format(DecodeFormat.PREFER_RGB_565) // 🚀 ECONOMIA DE MEMÓRIA
+                                    .format(DecodeFormat.PREFER_RGB_565)
                                     .placeholder(targetImg.drawable)
                                     .into(targetImg)
                             }
                         } catch (e: Exception) {}
                     }
-                    
                     buscarLogoOverlayHome(tmdbId, tipo, internalId, isSeries, targetLogo, targetTitle)
                 }
             } catch (e: Exception) {}
@@ -344,7 +327,6 @@ class HomeActivity : AppCompatActivity() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val imagesUrl = "https://api.themoviedb.org/3/$tipo/$tmdbId/images?api_key=$TMDB_API_KEY&include_image_language=pt,null"
-                
                 val imagesJson = URL(imagesUrl).readText()
                 val imagesObj = JSONObject(imagesJson)
 
@@ -373,13 +355,9 @@ class HomeActivity : AppCompatActivity() {
 
                     if (bestPath != null) {
                         val fullLogoUrl = "https://image.tmdb.org/t/p/w500$bestPath"
-
                         try {
-                            if (isSeries) {
-                                database.streamDao().updateSeriesLogo(internalId, fullLogoUrl)
-                            } else {
-                                database.streamDao().updateVodLogo(internalId, fullLogoUrl)
-                            }
+                            if (isSeries) database.streamDao().updateSeriesLogo(internalId, fullLogoUrl)
+                            else database.streamDao().updateVodLogo(internalId, fullLogoUrl)
                         } catch(e: Exception) {}
 
                         withContext(Dispatchers.Main) {
@@ -400,7 +378,6 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ SINCRONIZAÇÃO OTIMIZADA
     private fun sincronizarConteudoSilenciosamente() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val dns = prefs.getString("dns", "") ?: ""
@@ -410,8 +387,7 @@ class HomeActivity : AppCompatActivity() {
         if (dns.isEmpty() || user.isEmpty()) return
 
         lifecycleScope.launch(Dispatchers.IO) {
-            delay(4000) // Delay para não travar a abertura
-            
+            delay(4000)
             try {
                 // --- 1. FILMES ---
                 val vodUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_vod_streams"
@@ -440,7 +416,6 @@ class HomeActivity : AppCompatActivity() {
                     if (vodBatch.size >= 50) {
                         database.streamDao().insertVodStreams(vodBatch)
                         vodBatch.clear()
-                        
                         if (!firstVodBatchLoaded) {
                             withContext(Dispatchers.Main) { carregarDadosLocaisImediato() }
                             firstVodBatchLoaded = true
@@ -476,7 +451,6 @@ class HomeActivity : AppCompatActivity() {
                     if (seriesBatch.size >= 50) {
                         database.streamDao().insertSeriesStreams(seriesBatch)
                         seriesBatch.clear()
-                        
                         if (!firstSeriesBatchLoaded) {
                             withContext(Dispatchers.Main) { carregarDadosLocaisImediato() }
                             firstSeriesBatchLoaded = true
@@ -522,23 +496,8 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupFirebaseRemoteConfig() {
-        val remoteConfig = Firebase.remoteConfig
-        val configSettings = remoteConfigSettings { 
-            minimumFetchIntervalInSeconds = 60 
-        }
-        remoteConfig.setConfigSettingsAsync(configSettings)
-        
-        remoteConfig.fetchAndActivate().addOnCompleteListener(this) { task ->
-            if (task.isSuccessful) {
-                // Configuração remota carregada
-            }
-        }
-    }
-
     override fun onResume() {
         super.onResume()
-        // 🔥 PROTEÇÃO TAMBÉM NO ONRESUME
         try {
             sortearBannerUnico()
             carregarContinuarAssistindoLocal()
@@ -562,128 +521,22 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun setupClicks() {
-        fun isTelevisionDevice(): Boolean {
-            return packageManager.hasSystemFeature("android.hardware.type.television") ||
-                   packageManager.hasSystemFeature("android.software.leanback") ||
-                   (resources.configuration.uiMode and
-                   Configuration.UI_MODE_TYPE_MASK) ==
-                   Configuration.UI_MODE_TYPE_TELEVISION
-        }
-
-        // --- Configuração dos cliques ---
         val cards = listOf(binding.cardLiveTv, binding.cardMovies, binding.cardSeries, binding.cardKids)
-        
         cards.forEach { card ->
-            card.isFocusable = true
-            card.isClickable = true
-            
-            card.setOnFocusChangeListener { _, hasFocus ->
-                if (hasFocus) {
-                    card.animate().scaleX(1.08f).scaleY(1.08f).translationZ(10f).setDuration(200).start()
-                } else {
-                    card.animate().scaleX(1f).scaleY(1f).translationZ(0f).setDuration(200).start()
-                }
-            }
-            
             card.setOnClickListener {
                 when (card.id) {
-                    R.id.cardLiveTv -> {
-                        val intent = Intent(this, LiveTvActivity::class.java)
-                        intent.putExtra("SHOW_PREVIEW", true)
-                        intent.putExtra("PROFILE_NAME", currentProfile)
-                        startActivity(intent)
-                    }
-                    R.id.cardMovies -> {
-                        val intent = Intent(this, VodActivity::class.java)
-                        intent.putExtra("SHOW_PREVIEW", false)
-                        intent.putExtra("PROFILE_NAME", currentProfile)
-                        startActivity(intent)
-                    }
-                    R.id.cardSeries -> {
-                        val intent = Intent(this, SeriesActivity::class.java)
-                        intent.putExtra("SHOW_PREVIEW", false)
-                        intent.putExtra("PROFILE_NAME", currentProfile)
-                        startActivity(intent)
-                    }
-                    R.id.cardKids -> {
-                        val intent = Intent(this, KidsActivity::class.java)
-                        intent.putExtra("SHOW_PREVIEW", false)
-                        intent.putExtra("PROFILE_NAME", "Kids")
-                        startActivity(intent)
-                    }
+                    R.id.cardLiveTv -> startActivity(Intent(this, LiveTvActivity::class.java).apply { putExtra("PROFILE_NAME", currentProfile) })
+                    R.id.cardMovies -> startActivity(Intent(this, VodActivity::class.java).apply { putExtra("PROFILE_NAME", currentProfile) })
+                    R.id.cardSeries -> startActivity(Intent(this, SeriesActivity::class.java).apply { putExtra("PROFILE_NAME", currentProfile) })
+                    R.id.cardKids -> startActivity(Intent(this, KidsActivity::class.java).apply { putExtra("PROFILE_NAME", "Kids") })
                 }
             }
         }
-        
-        if (isTelevisionDevice()) {
-            // Lógica de D-PAD para TV
-            binding.cardLiveTv.setOnKeyListener { _, keyCode, event ->
-                if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && event.action == KeyEvent.ACTION_DOWN) {
-                    binding.cardMovies.requestFocus()
-                    true
-                } else if (keyCode == KeyEvent.KEYCODE_DPAD_UP && event.action == KeyEvent.ACTION_DOWN) {
-                    binding.bannerViewPager?.requestFocus() 
-                    true
-                } else false
-            }
-            binding.cardMovies.setOnKeyListener { _, keyCode, event ->
-                if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && event.action == KeyEvent.ACTION_DOWN) {
-                    binding.cardLiveTv.requestFocus()
-                    true
-                } else if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && event.action == KeyEvent.ACTION_DOWN) {
-                    binding.cardSeries.requestFocus()
-                    true
-                } else if (keyCode == KeyEvent.KEYCODE_DPAD_UP && event.action == KeyEvent.ACTION_DOWN) {
-                    binding.bannerViewPager?.requestFocus()
-                    true
-                } else false
-            }
-            binding.cardSeries.setOnKeyListener { _, keyCode, event ->
-                if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && event.action == KeyEvent.ACTION_DOWN) {
-                    binding.cardMovies.requestFocus()
-                    true
-                } else if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && event.action == KeyEvent.ACTION_DOWN) {
-                    binding.cardKids.requestFocus()
-                    true
-                } else if (keyCode == KeyEvent.KEYCODE_DPAD_UP && event.action == KeyEvent.ACTION_DOWN) {
-                    binding.bannerViewPager?.requestFocus()
-                    true
-                } else false
-            }
-            binding.cardKids.setOnKeyListener { _, keyCode, event ->
-                if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && event.action == KeyEvent.ACTION_DOWN) {
-                    binding.cardSeries.requestFocus()
-                    true
-                } else if (keyCode == KeyEvent.KEYCODE_DPAD_UP && event.action == KeyEvent.ACTION_DOWN) {
-                    binding.bannerViewPager?.requestFocus()
-                    true
-                } else false
-            }
-        }
     }
 
-    private fun mostrarDialogoSair() {
-        AlertDialog.Builder(this)
-            .setTitle("Sair")
-            .setMessage("Deseja realmente sair e desconectar?")
-            .setPositiveButton("Sim") { _, _ ->
-                val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
-                prefs.edit().clear().apply()
-
-                val intent = Intent(this, LoginActivity::class.java)
-                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                startActivity(intent)
-                finish()
-            }
-            .setNegativeButton("Não", null)
-            .show()
-    }
-
-    // ✅ FUNÇÃO COM PROTEÇÃO ANTI-CRASH E OTIMIZAÇÃO
     private fun carregarBannerAlternado() {
         val prefs = getSharedPreferences("vltv_home_prefs", Context.MODE_PRIVATE)
-        val ultimoTipo = prefs.getString("ultimo_tipo_banner", "tv") ?: "tv"
-        val tipoAtual = if (ultimoTipo == "tv") "movie" else "tv"
+        val tipoAtual = if (prefs.getString("ultimo_tipo_banner", "tv") == "tv") "movie" else "tv"
         prefs.edit().putString("ultimo_tipo_banner", tipoAtual).apply()
 
         val urlString = "https://api.themoviedb.org/3/trending/$tipoAtual/day?api_key=$TMDB_API_KEY&language=pt-BR&region=BR"
@@ -695,23 +548,14 @@ class HomeActivity : AppCompatActivity() {
                 val results = json.getJSONArray("results")
 
                 if (results.length() > 0) {
-                    val randomIndex = Random.nextInt(results.length())
-                    val item = results.getJSONObject(randomIndex)
+                    val item = results.getJSONObject(Random.nextInt(results.length()))
+                    val backdropPath = item.optString("backdrop_path")
 
-                    val tituloOriginal = if (item.has("title")) item.getString("title")
-                    else if (item.has("name")) item.getString("name")
-                    else "Destaque"
-
-                    val backdropPath = item.getString("backdrop_path")
-                    val tmdbId = item.getString("id")
-
-                    if (backdropPath != "null" && backdropPath.isNotBlank()) {
+                    if (backdropPath != "null" && backdropPath.isNotEmpty()) {
                         val imageUrl = "https://image.tmdb.org/t/p/original$backdropPath"
                         withContext(Dispatchers.Main) {
                             try {
-                                // 🔴 FIX: Busca segura pelo ID do Banner
                                 val imgBannerView = binding.root.findViewById<ImageView>(R.id.imgBanner)
-                                
                                 if (imgBannerView != null) {
                                     Glide.with(this@HomeActivity)
                                         .load(imageUrl)
@@ -731,21 +575,13 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_BACK) {
-            mostrarDialogoSair()
-            return true
-        }
-        return super.onKeyDown(keyCode, event)
-    }
-
-    // ✅ FIX CORRETO: LÓGICA CONTINUAR ASSISTINDO
+    // ✅ FIX CORRETO: LÓGICA CONTINUAR ASSISTINDO + PROTEÇÃO CAPA VAZIA
     private fun carregarContinuarAssistindoLocal() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // Busca o histórico do Room Database
                 val historyList = database.streamDao().getWatchHistory(currentProfile, 20)
                 
+                // Mapeia para VodItem (visual)
                 val vodItems = historyList.map { 
                     VodItem(
                         id = it.stream_id.toString(), 
@@ -754,6 +590,7 @@ class HomeActivity : AppCompatActivity() {
                     ) 
                 }
 
+                // Mapa auxiliar
                 val seriesMap = historyList.associate { it.stream_id.toString() to it.is_series }
 
                 withContext(Dispatchers.Main) {
@@ -764,7 +601,11 @@ class HomeActivity : AppCompatActivity() {
                         binding.rvContinueWatching.visibility = View.VISIBLE
                         
                         binding.rvContinueWatching.adapter = HomeRowAdapter(vodItems) { selected ->
+                            
                             val isSeries = seriesMap[selected.id] ?: false
+                            
+                            // 🔥 CORREÇÃO LÓGICA PARA SÉRIES 🔥
+                            // Se for série, a gente tenta enviar o ID correto.
                             val intent = if (isSeries) {
                                 Intent(this@HomeActivity, SeriesDetailsActivity::class.java).apply {
                                     putExtra("series_id", selected.id.toIntOrNull() ?: 0)
@@ -774,6 +615,7 @@ class HomeActivity : AppCompatActivity() {
                                     putExtra("stream_id", selected.id.toIntOrNull() ?: 0)
                                 }
                             }
+                            
                             intent.putExtra("name", selected.name)
                             intent.putExtra("icon", selected.streamIcon)
                             intent.putExtra("PROFILE_NAME", currentProfile)
@@ -790,27 +632,38 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ ADAPTER DO BANNER
-    inner class BannerAdapter(private var items: List<Any>) : RecyclerView.Adapter<BannerAdapter.BannerViewHolder>() {
+    private fun mostrarDialogoSair() {
+        AlertDialog.Builder(this)
+            .setTitle("Sair")
+            .setMessage("Deseja realmente sair?")
+            .setPositiveButton("Sim") { _, _ -> finish() }
+            .setNegativeButton("Não", null)
+            .show()
+    }
 
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            mostrarDialogoSair()
+            return true
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
+    inner class BannerAdapter(private var items: List<Any>) : RecyclerView.Adapter<BannerAdapter.BannerViewHolder>() {
         fun updateList(newItems: List<Any>) {
             items = newItems
             notifyDataSetChanged()
         }
-
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): BannerViewHolder {
             val view = LayoutInflater.from(parent.context).inflate(R.layout.item_banner_home, parent, false)
             return BannerViewHolder(view)
         }
-
         override fun onBindViewHolder(holder: BannerViewHolder, position: Int) {
             if (items.isNotEmpty()) {
                 holder.bind(items[0])
             }
         }
-
         override fun getItemCount(): Int = items.size
-
         inner class BannerViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
             private val imgBanner: ImageView = itemView.findViewById(R.id.imgBanner)
             private val tvTitle: TextView = itemView.findViewById(R.id.tvBannerTitle)
@@ -818,21 +671,11 @@ class HomeActivity : AppCompatActivity() {
             private val btnPlay: View = itemView.findViewById(R.id.btnBannerPlay)
 
             fun bind(item: Any) {
-                var title = ""
-                var icon = ""
-                var id = 0
-                var isSeries = false
-                var logoSalva: String? = null
+                var title = ""; var icon = ""; var id = 0; var isSeries = false; var logoSalva: String? = null
+                if (item is VodEntity) { title = item.name; icon = item.stream_icon ?: ""; id = item.stream_id; isSeries = false; logoSalva = item.logo_url }
+                else if (item is SeriesEntity) { title = item.name; icon = item.cover ?: ""; id = item.series_id; isSeries = true; logoSalva = item.logo_url }
 
-                if (item is VodEntity) {
-                    title = item.name; icon = item.stream_icon ?: ""; id = item.stream_id; isSeries = false; logoSalva = item.logo_url
-                } else if (item is SeriesEntity) {
-                    title = item.name; icon = item.cover ?: ""; id = item.series_id; isSeries = true; logoSalva = item.logo_url
-                }
-
-                val cleanTitle = limparNomeParaTMDB(title)
-                
-                tvTitle.text = cleanTitle
+                tvTitle.text = limparNomeParaTMDB(title)
                 tvTitle.visibility = View.VISIBLE
                 imgLogo.visibility = View.GONE
 
@@ -844,7 +687,7 @@ class HomeActivity : AppCompatActivity() {
                     } catch (e: Exception) {}
                 }
 
-                buscarImagemBackgroundTMDB(cleanTitle, isSeries, icon, id, imgBanner, imgLogo, tvTitle)
+                buscarImagemBackgroundTMDB(limparNomeParaTMDB(title), isSeries, icon, id, imgBanner, imgLogo, tvTitle)
 
                 btnPlay.setOnClickListener {
                      val intent = if (isSeries) Intent(this@HomeActivity, SeriesDetailsActivity::class.java).apply { putExtra("series_id", id) }

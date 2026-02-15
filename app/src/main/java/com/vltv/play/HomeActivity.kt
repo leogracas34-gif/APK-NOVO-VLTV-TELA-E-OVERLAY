@@ -5,22 +5,14 @@ import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.content.res.Configuration
-import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.util.DisplayMetrics
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.view.inputmethod.EditorInfo
-import android.view.inputmethod.InputMethodManager
-import android.graphics.Point
-import android.hardware.display.DisplayManager
-import android.view.Display
 import android.widget.ImageView
-import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -30,9 +22,6 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.RecyclerView
-import androidx.viewpager2.widget.ViewPager2
-import androidx.viewpager2.widget.CompositePageTransformer
-import androidx.viewpager2.widget.MarginPageTransformer
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.DecodeFormat
 import com.bumptech.glide.load.engine.DiskCacheStrategy
@@ -42,17 +31,14 @@ import com.vltv.play.data.AppDatabase
 import com.vltv.play.data.LiveStreamEntity
 import com.vltv.play.data.VodEntity
 import com.vltv.play.data.SeriesEntity
-import com.google.android.material.bottomnavigation.BottomNavigationView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.URL
 import java.net.URLEncoder
-import kotlin.math.abs
 import kotlin.random.Random
 
 // ✅ IMPORTAÇÕES CAST
@@ -76,7 +62,6 @@ class HomeActivity : AppCompatActivity() {
     private val database by lazy { AppDatabase.getDatabase(this) }
 
     // --- VARIÁVEIS DO BANNER ---
-    // Agora armazena a lista completa, mas exibe um por vez
     private var listaCompletaParaSorteio: List<Any> = emptyList()
     private lateinit var bannerAdapter: BannerAdapter 
 
@@ -111,18 +96,15 @@ class HomeActivity : AppCompatActivity() {
         }
 
         // ✅ INICIALIZA O LAYOUT
-        setupSingleBanner() // Mudamos para Single Banner
+        setupSingleBanner()
         setupBottomNavigation()
 
         setupClicks() 
         setupFirebaseRemoteConfig()
         
-        // ✅ CARREGAMENTO OTIMIZADO (Chamada única para evitar pisca-pisca)
+        // ✅ CARREGAMENTO OTIMIZADO (TURBO)
         carregarDadosLocaisImediato()
-        
-        // Sincronização e listas extras rodam em background
         sincronizarConteudoSilenciosamente()
-        carregarListasDaHome()
 
         // ✅ LÓGICA KIDS
         val isKidsMode = intent.getBooleanExtra("IS_KIDS_MODE", false)
@@ -171,16 +153,11 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ CONFIGURAÇÃO DO BANNER ESTÁTICO (Um item por vez, aleatório)
+    // ✅ CONFIGURAÇÃO DO BANNER ESTÁTICO
     private fun setupSingleBanner() {
         bannerAdapter = BannerAdapter(emptyList())
         binding.bannerViewPager?.adapter = bannerAdapter
-        
-        // Desabilita o swipe manual para parecer um banner fixo (opcional, mas elegante)
         binding.bannerViewPager?.isUserInputEnabled = false
-        
-        // Removemos todos os Transformers de Zoom que causavam distorção
-        // O banner agora é uma imagem estática limpa
     }
 
     private fun setupBottomNavigation() {
@@ -193,7 +170,6 @@ class HomeActivity : AppCompatActivity() {
                     startActivity(intent)
                     false 
                 }
-                // ✅ BOTÃO DOWNLOADS (Igual Disney+)
                 R.id.nav_downloads -> {
                     startActivity(Intent(this, DownloadsActivity::class.java))
                     false
@@ -209,7 +185,7 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ CARREGA DADOS DO DATABASE IMEDIATAMENTE
+    // ✅ CARREGA DADOS DO DATABASE (OTIMIZADO PARA PERFORMANCE)
     private fun carregarDadosLocaisImediato() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
@@ -222,6 +198,10 @@ class HomeActivity : AppCompatActivity() {
 
                 withContext(Dispatchers.Main) {
                     if (movieItems.isNotEmpty()) {
+                        // 🚀 TURBO: Otimização de RecyclerView
+                        binding.rvRecentlyAdded.setHasFixedSize(true)
+                        binding.rvRecentlyAdded.setItemViewCacheSize(20)
+                        
                         binding.rvRecentlyAdded.adapter = HomeRowAdapter(movieItems) { selectedItem ->
                             val intent = Intent(this@HomeActivity, DetailsActivity::class.java)
                             intent.putExtra("stream_id", selectedItem.id.toIntOrNull() ?: 0)
@@ -233,6 +213,10 @@ class HomeActivity : AppCompatActivity() {
                         }
                     }
                     if (seriesItems.isNotEmpty()) {
+                        // 🚀 TURBO: Otimização de RecyclerView
+                        binding.rvRecentSeries.setHasFixedSize(true)
+                        binding.rvRecentSeries.setItemViewCacheSize(20)
+
                         binding.rvRecentSeries.adapter = HomeRowAdapter(seriesItems) { selectedItem ->
                             val intent = Intent(this@HomeActivity, SeriesDetailsActivity::class.java)
                             intent.putExtra("series_id", selectedItem.id.toIntOrNull() ?: 0)
@@ -248,8 +232,11 @@ class HomeActivity : AppCompatActivity() {
                     listaCompletaParaSorteio = (localMovies + localSeries)
                     sortearBannerUnico()
                     
-                    // 🚀 ATIVA O MODO SUPERSONICO (PRELOAD DAS LISTAS INFERIORES)
+                    // 🚀 ATIVA O MODO SUPERSONICO
                     ativarModoSupersonico(movieItems, seriesItems)
+
+                    // ✅ GARANTE QUE O CONTINUAR ASSISTINDO APAREÇA
+                    carregarContinuarAssistindoLocal()
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -257,18 +244,17 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // 🚀 MODO VELOCIDADE DA LUZ: Baixa as imagens das listas inferiores silenciosamente
+    // 🚀 MODO VELOCIDADE DA LUZ: Baixa imagens com cache RGB_565 (Mais leve)
     private fun ativarModoSupersonico(filmes: List<VodItem>, series: List<VodItem>) {
         CoroutineScope(Dispatchers.IO).launch {
-            // Pega os primeiros 15 filmes e 15 séries para deixar na memória RAM
-            val preloadList = filmes.take(15) + series.take(15)
+            val preloadList = filmes.take(20) + series.take(20)
             
             for (item in preloadList) {
                 try {
-                    // O Glide baixa a imagem do DATABASE para a memória antes de você ver
                     if (!item.streamIcon.isNullOrEmpty()) {
                         Glide.with(applicationContext)
                             .load(item.streamIcon) 
+                            .format(DecodeFormat.PREFER_RGB_565) // 🚀 Otimização de Memória
                             .diskCacheStrategy(DiskCacheStrategy.ALL)
                             .preload(180, 270) 
                     }
@@ -277,14 +263,12 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ SORTEIO DE BANNER ÚNICO (Executa ao abrir ou voltar para a tela)
+    // ✅ SORTEIO DE BANNER ÚNICO
     private fun sortearBannerUnico() {
         if (listaCompletaParaSorteio.isNotEmpty()) {
             val itemSorteado = listaCompletaParaSorteio.random()
-            // Atualiza o adapter com APENAS 1 item
             bannerAdapter.updateList(listOf(itemSorteado))
         } else {
-            // Se o banco estiver vazio, tenta o online
             carregarBannerAlternado() 
         }
     }
@@ -297,18 +281,18 @@ class HomeActivity : AppCompatActivity() {
                    .take(50)
     }
 
-    // ✅ LÓGICA HÍBRIDA: ESTABILIZADA PARA NÃO DISTORCER
+    // ✅ LÓGICA HÍBRIDA
     private fun buscarImagemBackgroundTMDB(nome: String, isSeries: Boolean, fallback: String, internalId: Int, targetImg: ImageView, targetLogo: ImageView, targetTitle: TextView) {
         
-        // 🚀 1. CARREGAMENTO INSTANTÂNEO
+        // 🚀 1. CARREGAMENTO INSTANTÂNEO COM GLIDE OTIMIZADO
         try {
             targetImg.scaleType = ImageView.ScaleType.CENTER_CROP
             
             Glide.with(this@HomeActivity)
                 .load(fallback)
                 .centerCrop()
-                .dontAnimate() // 🚫 REMOVE ANIMAÇÃO QUE CAUSA PULO/DISTORÇÃO
-                .format(DecodeFormat.PREFER_RGB_565) 
+                .dontAnimate()
+                .format(DecodeFormat.PREFER_RGB_565) // 🚀 ECONOMIA DE MEMÓRIA
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .into(targetImg)
         } catch (e: Exception) {}
@@ -334,7 +318,8 @@ class HomeActivity : AppCompatActivity() {
                                     .load("https://image.tmdb.org/t/p/original$backdropPath")
                                     .centerCrop()
                                     .dontAnimate()
-                                    .placeholder(targetImg.drawable) // ✅ USA A IMAGEM ATUAL PARA NÃO FICAR BRANCO
+                                    .format(DecodeFormat.PREFER_RGB_565) // 🚀 ECONOMIA DE MEMÓRIA
+                                    .placeholder(targetImg.drawable)
                                     .into(targetImg)
                             }
                         } catch (e: Exception) {}
@@ -349,7 +334,6 @@ class HomeActivity : AppCompatActivity() {
     private fun buscarLogoOverlayHome(tmdbId: String, tipo: String, internalId: Int, isSeries: Boolean, targetLogo: ImageView, targetTitle: TextView) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // ✅ CORREÇÃO: Busca PT e NULL
                 val imagesUrl = "https://api.themoviedb.org/3/$tipo/$tmdbId/images?api_key=$TMDB_API_KEY&include_image_language=pt,null"
                 
                 val imagesJson = URL(imagesUrl).readText()
@@ -357,10 +341,8 @@ class HomeActivity : AppCompatActivity() {
 
                 if (imagesObj.has("logos") && imagesObj.getJSONArray("logos").length() > 0) {
                     val logos = imagesObj.getJSONArray("logos")
-                    
                     var bestPath: String? = null
                     
-                    // 1. Tenta achar PT
                     for (i in 0 until logos.length()) {
                         val logo = logos.getJSONObject(i)
                         if (logo.optString("iso_639_1") == "pt") {
@@ -369,7 +351,6 @@ class HomeActivity : AppCompatActivity() {
                         }
                     }
                     
-                    // 2. Se não achou PT, tenta NULL (Símbolo/Sem Idioma)
                     if (bestPath == null) {
                         for (i in 0 until logos.length()) {
                             val logo = logos.getJSONObject(i)
@@ -410,7 +391,7 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ SINCRONIZAÇÃO OTIMIZADA: Com DELAY inicial para não travar a abertura
+    // ✅ SINCRONIZAÇÃO OTIMIZADA
     private fun sincronizarConteudoSilenciosamente() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val dns = prefs.getString("dns", "") ?: ""
@@ -420,11 +401,10 @@ class HomeActivity : AppCompatActivity() {
         if (dns.isEmpty() || user.isEmpty()) return
 
         lifecycleScope.launch(Dispatchers.IO) {
-            // ✅ CORREÇÃO: Espera 4 segundos para o app abrir liso antes de baixar coisas
-            delay(4000)
+            delay(4000) // Delay para não travar a abertura
             
             try {
-                // --- 1. FILMES (Salva a cada 50) ---
+                // --- 1. FILMES ---
                 val vodUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_vod_streams"
                 val vodResponse = URL(vodUrl).readText()
                 val vodArray = org.json.JSONArray(vodResponse)
@@ -448,26 +428,22 @@ class HomeActivity : AppCompatActivity() {
                         ))
                     }
                     
-                    // ⚡ TRUQUE: A cada 50 filmes, salva e atualiza a tela
                     if (vodBatch.size >= 50) {
                         database.streamDao().insertVodStreams(vodBatch)
                         vodBatch.clear()
                         
-                        // Só chama a atualização de tela no PRIMEIRO lote para ser instantâneo
                         if (!firstVodBatchLoaded) {
                             withContext(Dispatchers.Main) { carregarDadosLocaisImediato() }
                             firstVodBatchLoaded = true
                         }
                     }
                 }
-                // Salva o restante
                 if (vodBatch.isNotEmpty()) {
                     database.streamDao().insertVodStreams(vodBatch)
                 }
-                // Atualiza tela ao final dos filmes
                 withContext(Dispatchers.Main) { carregarDadosLocaisImediato() }
 
-                // --- 2. SÉRIES (Salva a cada 50) ---
+                // --- 2. SÉRIES ---
                 val seriesUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_series"
                 val seriesResponse = URL(seriesUrl).readText()
                 val seriesArray = org.json.JSONArray(seriesResponse)
@@ -488,12 +464,10 @@ class HomeActivity : AppCompatActivity() {
                         ))
                     }
 
-                    // ⚡ TRUQUE: A cada 50 séries, salva
                     if (seriesBatch.size >= 50) {
                         database.streamDao().insertSeriesStreams(seriesBatch)
                         seriesBatch.clear()
                         
-                        // Atualiza a tela rápido se for o primeiro lote
                         if (!firstSeriesBatchLoaded) {
                             withContext(Dispatchers.Main) { carregarDadosLocaisImediato() }
                             firstSeriesBatchLoaded = true
@@ -505,7 +479,7 @@ class HomeActivity : AppCompatActivity() {
                 }
                 withContext(Dispatchers.Main) { carregarDadosLocaisImediato() }
 
-                // --- 3. LIVE (Canais) ---
+                // --- 3. LIVE ---
                 val liveUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_live_streams"
                 val liveResponse = URL(liveUrl).readText()
                 val liveArray = org.json.JSONArray(liveResponse)
@@ -553,23 +527,13 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ ATUALIZAÇÃO DO BANNER AO VOLTAR PARA A HOME
     override fun onResume() {
         super.onResume()
-        // Toda vez que a tela resume (volta de um filme, etc), sorteia um novo
         sortearBannerUnico()
-        
         carregarContinuarAssistindoLocal()
-        atualizarNotificacaoDownload() // Atualiza o "1" na bolinha se tiver
-        
-        try {
-             // Try catch original mantido
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        atualizarNotificacaoDownload()
     }
     
-    // ✅ CORREÇÃO AQUI: Adicionado o operador seguro (?.)
     private fun atualizarNotificacaoDownload() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val count = prefs.getInt("active_downloads_count", 0)
@@ -592,7 +556,7 @@ class HomeActivity : AppCompatActivity() {
                    Configuration.UI_MODE_TYPE_TELEVISION
         }
 
-        // --- Configuração dos cliques dos cards de Categoria ---
+        // --- Configuração dos cliques ---
         val cards = listOf(binding.cardLiveTv, binding.cardMovies, binding.cardSeries, binding.cardKids)
         
         cards.forEach { card ->
@@ -637,8 +601,8 @@ class HomeActivity : AppCompatActivity() {
             }
         }
         
-        // --- Lógica de Navegação TV (D-PAD) ---
         if (isTelevisionDevice()) {
+            // Lógica de D-PAD para TV (Mantida original)
             binding.cardLiveTv.setOnKeyListener { _, keyCode, event ->
                 if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && event.action == KeyEvent.ACTION_DOWN) {
                     binding.cardMovies.requestFocus()
@@ -648,7 +612,6 @@ class HomeActivity : AppCompatActivity() {
                     true
                 } else false
             }
-            
             binding.cardMovies.setOnKeyListener { _, keyCode, event ->
                 if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && event.action == KeyEvent.ACTION_DOWN) {
                     binding.cardLiveTv.requestFocus()
@@ -661,7 +624,6 @@ class HomeActivity : AppCompatActivity() {
                     true
                 } else false
             }
-            
             binding.cardSeries.setOnKeyListener { _, keyCode, event ->
                 if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && event.action == KeyEvent.ACTION_DOWN) {
                     binding.cardMovies.requestFocus()
@@ -674,7 +636,6 @@ class HomeActivity : AppCompatActivity() {
                     true
                 } else false
             }
-
             binding.cardKids.setOnKeyListener { _, keyCode, event ->
                 if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && event.action == KeyEvent.ACTION_DOWN) {
                     binding.cardSeries.requestFocus()
@@ -704,7 +665,7 @@ class HomeActivity : AppCompatActivity() {
             .show()
     }
 
-    // ✅ FUNÇÃO RECUPERADA (Trending TMDB caso banco vazio)
+    // ✅ FUNÇÃO COM PROTEÇÃO ANTI-CRASH
     private fun carregarBannerAlternado() {
         val prefs = getSharedPreferences("vltv_home_prefs", Context.MODE_PRIVATE)
         val ultimoTipo = prefs.getString("ultimo_tipo_banner", "tv") ?: "tv"
@@ -727,20 +688,25 @@ class HomeActivity : AppCompatActivity() {
                     else if (item.has("name")) item.getString("name")
                     else "Destaque"
 
-                    val overview = if (item.has("overview")) item.getString("overview") else ""
                     val backdropPath = item.getString("backdrop_path")
-                    val prefixo = if (tipoAtual == "movie") "Filme em Alta: " else "Série em Alta: "
                     val tmdbId = item.getString("id")
 
                     if (backdropPath != "null" && backdropPath.isNotBlank()) {
                         val imageUrl = "https://image.tmdb.org/t/p/original$backdropPath"
                         withContext(Dispatchers.Main) {
                             try {
-                                Glide.with(this@HomeActivity)
-                                    .load(imageUrl)
-                                    .centerCrop()
-                                    .dontAnimate()
-                                    .into(binding.root.findViewById<ImageView>(R.id.imgBanner) ?: return@withContext)
+                                // 🔴 FIX: Busca segura pelo ID do Banner
+                                val imgBannerView = binding.root.findViewById<ImageView>(R.id.imgBanner)
+                                
+                                if (imgBannerView != null) {
+                                    Glide.with(this@HomeActivity)
+                                        .load(imageUrl)
+                                        .centerCrop()
+                                        .dontAnimate()
+                                        .format(DecodeFormat.PREFER_RGB_565)
+                                        .into(imgBannerView)
+                                    imgBannerView.visibility = View.VISIBLE
+                                }
                             } catch (e: Exception) {}
                         }
                     }
@@ -759,62 +725,13 @@ class HomeActivity : AppCompatActivity() {
         return super.onKeyDown(keyCode, event)
     }
 
-    private fun carregarListasDaHome() {
-        carregarContinuarAssistindoLocal()
-        carregarFilmesRecentes()
-        carregarSeriesRecentes()
-    }
-
-    private fun carregarFilmesRecentes() {
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val list = database.streamDao().getRecentVods(20).map { VodItem(it.stream_id.toString(), it.name, it.stream_icon ?: "") }
-                withContext(Dispatchers.Main) {
-                    binding.rvRecentlyAdded.adapter = HomeRowAdapter(list) { selectedItem ->
-                        val intent = Intent(this@HomeActivity, DetailsActivity::class.java)
-                        intent.putExtra("stream_id", selectedItem.id.toIntOrNull() ?: 0)
-                        intent.putExtra("name", selectedItem.name)
-                        intent.putExtra("icon", selectedItem.streamIcon)
-                        intent.putExtra("PROFILE_NAME", currentProfile)
-                        intent.putExtra("is_series", false)
-                        startActivity(intent)
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
-
-    private fun carregarSeriesRecentes() {
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val list = database.streamDao().getRecentSeries(20).map { VodItem(it.series_id.toString(), it.name, it.cover ?: "") }
-                withContext(Dispatchers.Main) {
-                    binding.rvRecentSeries.adapter = HomeRowAdapter(list) { selectedItem ->
-                        val intent = Intent(this@HomeActivity, SeriesDetailsActivity::class.java)
-                        intent.putExtra("series_id", selectedItem.id.toIntOrNull() ?: 0)
-                        intent.putExtra("name", selectedItem.name)
-                        intent.putExtra("icon", selectedItem.streamIcon)
-                        intent.putExtra("PROFILE_NAME", currentProfile)
-                        intent.putExtra("is_series", true)
-                        startActivity(intent)
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
-
-    // ✅ FIX CORRETO: LÓGICA CONTINUAR ASSISTINDO COM VISIBILIDADE DINÂMICA DO TÍTULO
+    // ✅ FIX CORRETO: LÓGICA CONTINUAR ASSISTINDO
     private fun carregarContinuarAssistindoLocal() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // Busca o histórico do Room Database (tem o campo is_series)
+                // Busca o histórico do Room Database
                 val historyList = database.streamDao().getWatchHistory(currentProfile, 20)
                 
-                // Mapeia para VodItem (visual)
                 val vodItems = historyList.map { 
                     VodItem(
                         id = it.stream_id.toString(), 
@@ -823,21 +740,17 @@ class HomeActivity : AppCompatActivity() {
                     ) 
                 }
 
-                // Mapa auxiliar para saber o tipo no clique
                 val seriesMap = historyList.associate { it.stream_id.toString() to it.is_series }
 
                 withContext(Dispatchers.Main) {
                     val tvTitle = binding.root.findViewById<TextView>(R.id.tvContinueWatching)
                     
                     if (vodItems.isNotEmpty()) {
-                        // ✅ SE TEM ITENS: MOSTRA A LISTA E O TÍTULO
                         tvTitle?.visibility = View.VISIBLE
                         binding.rvContinueWatching.visibility = View.VISIBLE
                         
                         binding.rvContinueWatching.adapter = HomeRowAdapter(vodItems) { selected ->
-                            
                             val isSeries = seriesMap[selected.id] ?: false
-                            
                             val intent = if (isSeries) {
                                 Intent(this@HomeActivity, SeriesDetailsActivity::class.java).apply {
                                     putExtra("series_id", selected.id.toIntOrNull() ?: 0)
@@ -847,14 +760,12 @@ class HomeActivity : AppCompatActivity() {
                                     putExtra("stream_id", selected.id.toIntOrNull() ?: 0)
                                 }
                             }
-                            
                             intent.putExtra("name", selected.name)
                             intent.putExtra("icon", selected.streamIcon)
                             intent.putExtra("PROFILE_NAME", currentProfile)
                             startActivity(intent)
                         }
                     } else {
-                        // ❌ SE NÃO TEM NADA: ESCONDE O TÍTULO E A LISTA
                         tvTitle?.visibility = View.GONE
                         binding.rvContinueWatching.visibility = View.GONE
                     }
@@ -865,7 +776,7 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ CLASSE INTERNA: ADAPTER DO BANNER (COM LOOP INFINITO)
+    // ✅ ADAPTER DO BANNER
     inner class BannerAdapter(private var items: List<Any>) : RecyclerView.Adapter<BannerAdapter.BannerViewHolder>() {
 
         fun updateList(newItems: List<Any>) {
@@ -879,7 +790,6 @@ class HomeActivity : AppCompatActivity() {
         }
 
         override fun onBindViewHolder(holder: BannerViewHolder, position: Int) {
-            // Se tivermos itens, mostramos o primeiro (já que a lista é unitária agora)
             if (items.isNotEmpty()) {
                 holder.bind(items[0])
             }
@@ -901,21 +811,17 @@ class HomeActivity : AppCompatActivity() {
                 var logoSalva: String? = null
 
                 if (item is VodEntity) {
-                    // Mapeamento correto: stream_icon para filmes
                     title = item.name; icon = item.stream_icon ?: ""; id = item.stream_id; isSeries = false; logoSalva = item.logo_url
                 } else if (item is SeriesEntity) {
-                    // Mapeamento correto: cover para séries
                     title = item.name; icon = item.cover ?: ""; id = item.series_id; isSeries = true; logoSalva = item.logo_url
                 }
 
                 val cleanTitle = limparNomeParaTMDB(title)
                 
-                // Configuração inicial (Texto visível)
                 tvTitle.text = cleanTitle
                 tvTitle.visibility = View.VISIBLE
                 imgLogo.visibility = View.GONE
 
-                // ✅ SE JÁ TEM LOGO NO DATABASE, MOSTRA AGORA (ZERO DELAY)
                 if (!logoSalva.isNullOrEmpty()) {
                     tvTitle.visibility = View.GONE
                     imgLogo.visibility = View.VISIBLE
@@ -924,10 +830,8 @@ class HomeActivity : AppCompatActivity() {
                     } catch (e: Exception) {}
                 }
 
-                // ✅ CARREGA A IMAGEM DO PAINEL (DATABASE) AGORA!
                 buscarImagemBackgroundTMDB(cleanTitle, isSeries, icon, id, imgBanner, imgLogo, tvTitle)
 
-                // Clique no botão Assistir
                 btnPlay.setOnClickListener {
                      val intent = if (isSeries) Intent(this@HomeActivity, SeriesDetailsActivity::class.java).apply { putExtra("series_id", id) }
                                   else Intent(this@HomeActivity, DetailsActivity::class.java).apply { putExtra("stream_id", id) }
@@ -937,8 +841,6 @@ class HomeActivity : AppCompatActivity() {
                      intent.putExtra("is_series", isSeries)
                      startActivity(intent)
                 }
-                
-                // Clique no Banner inteiro também abre
                 itemView.setOnClickListener { btnPlay.performClick() }
             }
         }

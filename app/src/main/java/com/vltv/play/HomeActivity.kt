@@ -943,3 +943,4 @@ class HomeActivity : AppCompatActivity() {
             }
         }
     }
+}

@@ -709,7 +709,7 @@ class HomeActivity : AppCompatActivity() {
             .show()
     }
 
-    // ✅ FUNÇÃO RECUPERADA (Trending TMDB caso banco vazio)
+    // ✅ FUNÇÃO CORRIGIDA PARA EVITAR O CRASH (CHECK NULL POINTER)
     private fun carregarBannerAlternado() {
         val prefs = getSharedPreferences("vltv_home_prefs", Context.MODE_PRIVATE)
         val ultimoTipo = prefs.getString("ultimo_tipo_banner", "tv") ?: "tv"
@@ -741,12 +741,25 @@ class HomeActivity : AppCompatActivity() {
                         val imageUrl = "https://image.tmdb.org/t/p/original$backdropPath"
                         withContext(Dispatchers.Main) {
                             try {
-                                Glide.with(this@HomeActivity)
-                                    .load(imageUrl)
-                                    .centerCrop()
-                                    .dontAnimate()
-                                    .into(binding.root.findViewById<ImageView>(R.id.imgBanner) ?: return@withContext)
-                            } catch (e: Exception) {}
+                                // 🔴 AQUI ESTAVA O ERRO DO CRASH (IMG BANNER ERA NULL)
+                                // CORREÇÃO: Usamos findViewById com segurança + Try Catch
+                                val imgBannerView = binding.root.findViewById<ImageView>(R.id.imgBanner)
+                                
+                                if (imgBannerView != null) {
+                                    Glide.with(this@HomeActivity)
+                                        .load(imageUrl)
+                                        .centerCrop()
+                                        .dontAnimate()
+                                        .into(imgBannerView)
+                                    
+                                    imgBannerView.visibility = View.VISIBLE
+                                } else {
+                                    // Se a imagem não for encontrada no XML, apenas ignora sem fechar o app
+                                }
+
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
                         }
                     }
                 }

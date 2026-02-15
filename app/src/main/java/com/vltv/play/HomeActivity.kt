@@ -5,9 +5,11 @@ import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.DisplayMetrics // ✅ LINHA QUE FALTAVA ADICIONADA
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
@@ -68,54 +70,61 @@ class HomeActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // 🔥 DETECÇÃO MELHORADA: CELULAR vs TV
-        configurarOrientacaoAutomatica()
-        
-        binding = ActivityHomeBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-
-        // ✅ RECUPERA O PERFIL
-        currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
-
-        val windowInsetsController =
-            WindowCompat.getInsetsController(window, window.decorView)
-        windowInsetsController?.systemBarsBehavior =
-            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
-
-        DownloadHelper.registerReceiver(this)
-
-        // ✅ SETUP CAST BUTTON (PROTEGIDO)
+        // 🚨 PROTEÇÃO CONTRA CRASH NO INÍCIO
         try {
-             CastContext.getSharedInstance(this)
-            binding.mediaRouteButton?.let { btn ->
-                CastButtonFactory.setUpMediaRouteButton(applicationContext, btn)
+            // 🔥 DETECÇÃO MELHORADA: CELULAR vs TV
+            configurarOrientacaoAutomatica()
+            
+            binding = ActivityHomeBinding.inflate(layoutInflater)
+            setContentView(binding.root)
+
+            // ✅ RECUPERA O PERFIL
+            currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
+
+            val windowInsetsController =
+                WindowCompat.getInsetsController(window, window.decorView)
+            windowInsetsController?.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
+
+            DownloadHelper.registerReceiver(this)
+
+            // ✅ SETUP CAST BUTTON (PROTEGIDO)
+            try {
+                CastContext.getSharedInstance(this)
+                binding.mediaRouteButton?.let { btn ->
+                    CastButtonFactory.setUpMediaRouteButton(applicationContext, btn)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
+
+            // ✅ INICIALIZA O LAYOUT
+            setupSingleBanner()
+            setupBottomNavigation()
+
+            setupClicks() 
+            setupFirebaseRemoteConfig()
+            
+            // ✅ CARREGAMENTO OTIMIZADO (TURBO)
+            carregarDadosLocaisImediato()
+            sincronizarConteudoSilenciosamente()
+
+            // ✅ LÓGICA KIDS
+            val isKidsMode = intent.getBooleanExtra("IS_KIDS_MODE", false)
+            if (isKidsMode) {
+                currentProfile = "Kids"
+                Handler(Looper.getMainLooper()).postDelayed({
+                    try {
+                        binding.cardKids.performClick()
+                        Toast.makeText(this, "Modo Kids Ativado", Toast.LENGTH_SHORT).show()
+                    } catch (e: Exception) {}
+                }, 500)
+            }
+
         } catch (e: Exception) {
             e.printStackTrace()
-        }
-
-        // ✅ INICIALIZA O LAYOUT
-        setupSingleBanner()
-        setupBottomNavigation()
-
-        setupClicks() 
-        setupFirebaseRemoteConfig()
-        
-        // ✅ CARREGAMENTO OTIMIZADO (TURBO)
-        carregarDadosLocaisImediato()
-        sincronizarConteudoSilenciosamente()
-
-        // ✅ LÓGICA KIDS
-        val isKidsMode = intent.getBooleanExtra("IS_KIDS_MODE", false)
-        if (isKidsMode) {
-            currentProfile = "Kids"
-            Handler(Looper.getMainLooper()).postDelayed({
-                try {
-                    binding.cardKids.performClick()
-                    Toast.makeText(this, "Modo Kids Ativado", Toast.LENGTH_SHORT).show()
-                } catch (e: Exception) {}
-            }, 500)
+            // Se der erro grave no onCreate, evita fechar se possível ou loga
         }
     }
 
@@ -529,9 +538,14 @@ class HomeActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        sortearBannerUnico()
-        carregarContinuarAssistindoLocal()
-        atualizarNotificacaoDownload()
+        // 🔥 PROTEÇÃO TAMBÉM NO ONRESUME
+        try {
+            sortearBannerUnico()
+            carregarContinuarAssistindoLocal()
+            atualizarNotificacaoDownload()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
     
     private fun atualizarNotificacaoDownload() {
@@ -602,7 +616,7 @@ class HomeActivity : AppCompatActivity() {
         }
         
         if (isTelevisionDevice()) {
-            // Lógica de D-PAD para TV (Mantida original)
+            // Lógica de D-PAD para TV
             binding.cardLiveTv.setOnKeyListener { _, keyCode, event ->
                 if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && event.action == KeyEvent.ACTION_DOWN) {
                     binding.cardMovies.requestFocus()
@@ -665,7 +679,7 @@ class HomeActivity : AppCompatActivity() {
             .show()
     }
 
-    // ✅ FUNÇÃO COM PROTEÇÃO ANTI-CRASH
+    // ✅ FUNÇÃO COM PROTEÇÃO ANTI-CRASH E OTIMIZAÇÃO
     private fun carregarBannerAlternado() {
         val prefs = getSharedPreferences("vltv_home_prefs", Context.MODE_PRIVATE)
         val ultimoTipo = prefs.getString("ultimo_tipo_banner", "tv") ?: "tv"

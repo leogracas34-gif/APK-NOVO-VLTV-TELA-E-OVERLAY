@@ -23,7 +23,7 @@ import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.app.AlertDialog // Importante para o alerta de erro
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -83,60 +83,75 @@ class HomeActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // 🔥 DETECÇÃO MELHORADA: CELULAR vs TV
-        configurarOrientacaoAutomatica()
-        
-        binding = ActivityHomeBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-
-        // ✅ RECUPERA O PERFIL
-        currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
-
-        val windowInsetsController =
-            WindowCompat.getInsetsController(window, window.decorView)
-        windowInsetsController?.systemBarsBehavior =
-            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
-
-        DownloadHelper.registerReceiver(this)
-
-        // ✅ SETUP CAST BUTTON (PROTEGIDO)
+        // 🚨 INÍCIO DA PROTEÇÃO CONTRA CRASH (RASTREADOR) 🚨
         try {
-             CastContext.getSharedInstance(this)
-            binding.mediaRouteButton?.let { btn ->
-                CastButtonFactory.setUpMediaRouteButton(applicationContext, btn)
+
+            // 🔥 DETECÇÃO MELHORADA: CELULAR vs TV
+            configurarOrientacaoAutomatica()
+            
+            binding = ActivityHomeBinding.inflate(layoutInflater)
+            setContentView(binding.root)
+
+            // ✅ RECUPERA O PERFIL
+            currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
+
+            val windowInsetsController =
+                WindowCompat.getInsetsController(window, window.decorView)
+            windowInsetsController?.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
+
+            DownloadHelper.registerReceiver(this)
+
+            // ✅ SETUP CAST BUTTON (PROTEGIDO)
+            try {
+                CastContext.getSharedInstance(this)
+                binding.mediaRouteButton?.let { btn ->
+                    CastButtonFactory.setUpMediaRouteButton(applicationContext, btn)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
+
+            // ✅ INICIALIZA O LAYOUT
+            setupSingleBanner() // Mudamos para Single Banner
+            setupBottomNavigation()
+
+            setupClicks() 
+            setupFirebaseRemoteConfig()
+            
+            // ✅ CARREGAMENTO OTIMIZADO
+            carregarDadosLocaisImediato()
+            sincronizarConteudoSilenciosamente()
+            
+            // ✅ LÓGICA KIDS
+            val isKidsMode = intent.getBooleanExtra("IS_KIDS_MODE", false)
+            if (isKidsMode) {
+                currentProfile = "Kids"
+                Handler(Looper.getMainLooper()).postDelayed({
+                    try {
+                        binding.cardKids.performClick()
+                        Toast.makeText(this, "Modo Kids Ativado", Toast.LENGTH_SHORT).show()
+                    } catch (e: Exception) {}
+                }, 500)
+            }
+
         } catch (e: Exception) {
+            // 🚨 SE DER ERRO NO ONCREATE, MOSTRA NA TELA EM VEZ DE FECHAR 🚨
             e.printStackTrace()
+            mostraErroNaTela(e)
         }
+    }
 
-        // ✅ INICIALIZA O LAYOUT
-        setupSingleBanner() // Mudamos para Single Banner
-        setupBottomNavigation()
-
-        setupClicks() 
-        setupFirebaseRemoteConfig()
-        
-        // ✅ CORREÇÃO AQUI: Removemos as chamadas duplicadas que faziam piscar.
-        // A função carregarDadosLocaisImediato() já desenha a tela inteira.
-        // A sincronizarConteudoSilenciosamente() roda em background e atualiza depois.
-        
-        carregarDadosLocaisImediato()
-        sincronizarConteudoSilenciosamente()
-        
-        // REMOVIDO: carregarListasDaHome() -> Isso era duplicado, pois carregarDadosLocaisImediato já faz isso.
-
-        // ✅ LÓGICA KIDS
-        val isKidsMode = intent.getBooleanExtra("IS_KIDS_MODE", false)
-        if (isKidsMode) {
-            currentProfile = "Kids"
-            Handler(Looper.getMainLooper()).postDelayed({
-                try {
-                    binding.cardKids.performClick()
-                    Toast.makeText(this, "Modo Kids Ativado", Toast.LENGTH_SHORT).show()
-                } catch (e: Exception) {}
-            }, 500)
-        }
+    // 🚨 FUNÇÃO NOVA: Mostra o erro na tela para você tirar print
+    private fun mostraErroNaTela(e: Exception) {
+        val erroMsg = "ERRO FATAL:\n${e.message}\n\nLocal:\n${e.stackTrace.getOrNull(0)}"
+        AlertDialog.Builder(this)
+            .setTitle("Erro no App")
+            .setMessage(erroMsg)
+            .setCancelable(false)
+            .setPositiveButton("OK") { _, _ -> finish() }
+            .show()
     }
 
     private fun configurarOrientacaoAutomatica() {
@@ -741,8 +756,7 @@ class HomeActivity : AppCompatActivity() {
                         val imageUrl = "https://image.tmdb.org/t/p/original$backdropPath"
                         withContext(Dispatchers.Main) {
                             try {
-                                // 🔴 AQUI ESTAVA O ERRO DO CRASH (IMG BANNER ERA NULL)
-                                // CORREÇÃO: Usamos findViewById com segurança + Try Catch
+                                // 🔴 CORREÇÃO: Usamos findViewById com segurança para verificar se existe
                                 val imgBannerView = binding.root.findViewById<ImageView>(R.id.imgBanner)
                                 
                                 if (imgBannerView != null) {
@@ -754,7 +768,7 @@ class HomeActivity : AppCompatActivity() {
                                     
                                     imgBannerView.visibility = View.VISIBLE
                                 } else {
-                                    // Se a imagem não for encontrada no XML, apenas ignora sem fechar o app
+                                    // Se não achou, ignora (não fecha o app)
                                 }
 
                             } catch (e: Exception) {

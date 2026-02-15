@@ -738,42 +738,46 @@ class HomeActivity : AppCompatActivity() {
         return super.onKeyDown(keyCode, event)
     }
 
-    // ✅ FIX 2 & 3: "A Lógica do Detetive" (Trecho Visual + Clique Corrigido)
+    // ✅ FIX DEFINITIVO 2 & 3: Substitui Episódio por Série (Capa + ID Correto)
     private fun carregarContinuarAssistindoLocal() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // Pega do Room Database (que contém ID do Episódio e Foto do Episódio)
+                // Busca o histórico do Room Database (que contém ID do Episódio)
                 val historyList = database.streamDao().getWatchHistory(currentProfile, 20)
                 
                 val vodItems = mutableListOf<VodItem>()
                 val seriesMap = mutableMapOf<String, Boolean>()
                 
-                // Mapa para guardar o ID Real da Série Pai (para corrigir o clique)
-                val seriesRealIdMap = mutableMapOf<String, Int>() 
-
                 for (item in historyList) {
-                    // Mantém a foto original do episódio (o trecho) e o nome do episódio
-                    val finalIcon = item.icon ?: ""
-                    val finalName = item.name
+                    var finalId = item.stream_id.toString()
+                    var finalName = item.name
+                    var finalIcon = item.icon ?: ""
+                    var isSeries = item.is_series
 
-                    // 🔥 DETETIVE: Se for série, descobre quem é o PAI para salvar o ID correto
-                    if (item.is_series) {
+                    // 🔥 DETETIVE: Se for episódio de série, vamos SUBSTITUIR pela SÉRIE PAI
+                    if (isSeries) {
                         try {
-                            // 1. Limpa o nome (Remove "T1E1", "S01E01") para achar o nome da série pura
+                            // 1. Limpa o nome (Remove "T1 E1", "S01E01") para achar o nome da série pura
                             // Ex: "Breaking Bad T1 E5" vira "Breaking Bad"
                             val cleanName = item.name.replace(Regex("(?i)(\\s+S\\d+|\\s+T\\d+|\\s+E\\d+|\\s+Ep\\d+|\\s+Temporada|\\s+Season).*"), "").trim()
                             
-                            // 2. Busca MANUAL no banco para achar o ID da série pelo nome
+                            // 2. Busca MANUAL no banco: Pega ID, Nome e Capa da Série
                             val cursor = database.openHelper.writableDatabase.query(
-                                "SELECT series_id FROM series_streams WHERE name LIKE ? LIMIT 1", 
+                                "SELECT series_id, name, cover FROM series_streams WHERE name LIKE ? LIMIT 1", 
                                 arrayOf("%$cleanName%")
                             )
                             
                             if (cursor.moveToFirst()) {
                                 // ACHAMOS A SÉRIE PAI!
                                 val realSeriesId = cursor.getInt(0)
-                                // Salvamos esse ID Real no mapa para usar no Clique
-                                seriesRealIdMap[item.stream_id.toString()] = realSeriesId
+                                val realName = cursor.getString(1)
+                                val realCover = cursor.getString(2)
+                                
+                                // 🔥 SUBSTITUIÇÃO MÁGICA
+                                // Agora o item na lista é a SÉRIE, não mais o episódio
+                                finalId = realSeriesId.toString()
+                                finalName = realName
+                                finalIcon = realCover
                             }
                             cursor.close()
                         } catch (e: Exception) {
@@ -781,9 +785,9 @@ class HomeActivity : AppCompatActivity() {
                         }
                     }
 
-                    // Visualmente, adicionamos o item original (Foto do episódio + Nome do Episódio)
-                    vodItems.add(VodItem(item.stream_id.toString(), finalName, finalIcon))
-                    seriesMap[item.stream_id.toString()] = item.is_series
+                    // Adiciona à lista (Se for série, já estará com os dados da Série Pai)
+                    vodItems.add(VodItem(finalId, finalName, finalIcon))
+                    seriesMap[finalId] = isSeries
                 }
 
                 withContext(Dispatchers.Main) {
@@ -796,14 +800,11 @@ class HomeActivity : AppCompatActivity() {
                         binding.rvContinueWatching.adapter = HomeRowAdapter(vodItems) { selected ->
                             
                             val isSeries = seriesMap[selected.id] ?: false
-                            // Verifica se temos um ID corrigido ("Real") para essa série
-                            // Se não achou (ex: filme), usa o ID original
-                            val realSeriesId = seriesRealIdMap[selected.id] ?: selected.id.toIntOrNull() ?: 0
                             
                             val intent = if (isSeries) {
-                                // 🔥 AGORA SIM: Manda o ID da SÉRIE PAI (realSeriesId), não do Episódio!
+                                // 🔥 CLIQUE DIRETO: O ID já é o da Série (finalId acima)
                                 Intent(this@HomeActivity, SeriesDetailsActivity::class.java).apply {
-                                    putExtra("series_id", realSeriesId)
+                                    putExtra("series_id", selected.id.toIntOrNull() ?: 0)
                                 }
                             } else {
                                 Intent(this@HomeActivity, DetailsActivity::class.java).apply {
@@ -812,9 +813,7 @@ class HomeActivity : AppCompatActivity() {
                             }
                             
                             intent.putExtra("name", selected.name)
-                            // Mantém o ícone original (o trecho) para a animação da próxima tela
                             intent.putExtra("icon", selected.streamIcon)
-                            
                             intent.putExtra("PROFILE_NAME", currentProfile)
                             startActivity(intent)
                         }

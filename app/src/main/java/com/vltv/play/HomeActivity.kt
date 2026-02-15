@@ -81,10 +81,10 @@ class HomeActivity : AppCompatActivity() {
             // ✅ RECUPERA O PERFIL
             currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
 
-            // ✅ CORREÇÃO 1: BARRA DE NAVEGAÇÃO FIXA (NÃO SOME MAIS)
+            // ✅ CORREÇÃO 1: BARRA DE NAVEGAÇÃO FIXA (BOTÕES VISÍVEIS)
             val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
             windowInsetsController.isAppearanceLightStatusBars = false 
-            // REMOVIDO: hide(WindowInsetsCompat.Type.systemBars()) para manter botões visíveis
+            // REMOVIDO: windowInsetsController?.hide(...) -> Isso garante que a barra preta com botões fique visível
 
             DownloadHelper.registerReceiver(this)
 
@@ -738,38 +738,41 @@ class HomeActivity : AppCompatActivity() {
         return super.onKeyDown(keyCode, event)
     }
 
-    // ✅ FIX CORRETO 2 & 3: LÓGICA CONTINUAR ASSISTINDO (SÉRIES)
+    // ✅ FIX 2 & 3: "A Lógica do Detetive" (Trecho Visual + Clique Corrigido)
     private fun carregarContinuarAssistindoLocal() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // Busca o histórico do Room Database
+                // Pega do Room Database (que contém ID do Episódio e Foto do Episódio)
                 val historyList = database.streamDao().getWatchHistory(currentProfile, 20)
+                
                 val vodItems = mutableListOf<VodItem>()
                 val seriesMap = mutableMapOf<String, Boolean>()
                 
-                // Mapa para guardar o ID Real da Série (para navegação) 
+                // Mapa para guardar o ID Real da Série Pai (para corrigir o clique)
                 val seriesRealIdMap = mutableMapOf<String, Int>() 
 
                 for (item in historyList) {
-                    var finalIcon = item.icon ?: ""
-                    var finalName = item.name
+                    // Mantém a foto original do episódio (o trecho) e o nome do episódio
+                    val finalIcon = item.icon ?: ""
+                    val finalName = item.name
 
-                    // 🔥 O PULO DO GATO: Se for série, tentamos achar a série "Pai"
+                    // 🔥 DETETIVE: Se for série, descobre quem é o PAI para salvar o ID correto
                     if (item.is_series) {
                         try {
-                            // 1. Limpa o nome (Remove "T1 E1", "S01E01") para buscar apenas pelo nome da série
+                            // 1. Limpa o nome (Remove "T1E1", "S01E01") para achar o nome da série pura
+                            // Ex: "Breaking Bad T1 E5" vira "Breaking Bad"
                             val cleanName = item.name.replace(Regex("(?i)(\\s+S\\d+|\\s+T\\d+|\\s+E\\d+|\\s+Ep\\d+|\\s+Temporada|\\s+Season).*"), "").trim()
                             
-                            // 2. Busca MANUAL no banco para achar o ID da série pelo nome limpo
+                            // 2. Busca MANUAL no banco para achar o ID da série pelo nome
                             val cursor = database.openHelper.writableDatabase.query(
                                 "SELECT series_id FROM series_streams WHERE name LIKE ? LIMIT 1", 
                                 arrayOf("%$cleanName%")
                             )
                             
                             if (cursor.moveToFirst()) {
-                                // ACHAMOS O ID DA SÉRIE PAI!
+                                // ACHAMOS A SÉRIE PAI!
                                 val realSeriesId = cursor.getInt(0)
-                                // Salvamos esse ID Real para usar no Clique posterior
+                                // Salvamos esse ID Real no mapa para usar no Clique
                                 seriesRealIdMap[item.stream_id.toString()] = realSeriesId
                             }
                             cursor.close()
@@ -778,7 +781,7 @@ class HomeActivity : AppCompatActivity() {
                         }
                     }
 
-                    // ADICIONAMOS O ITEM ORIGINAL (Trecho do episódio + Nome do Episódio)
+                    // Visualmente, adicionamos o item original (Foto do episódio + Nome do Episódio)
                     vodItems.add(VodItem(item.stream_id.toString(), finalName, finalIcon))
                     seriesMap[item.stream_id.toString()] = item.is_series
                 }
@@ -793,11 +796,12 @@ class HomeActivity : AppCompatActivity() {
                         binding.rvContinueWatching.adapter = HomeRowAdapter(vodItems) { selected ->
                             
                             val isSeries = seriesMap[selected.id] ?: false
-                            // Verifica se temos um ID corrigido para essa série, senão usa o original
+                            // Verifica se temos um ID corrigido ("Real") para essa série
+                            // Se não achou (ex: filme), usa o ID original
                             val realSeriesId = seriesRealIdMap[selected.id] ?: selected.id.toIntOrNull() ?: 0
                             
                             val intent = if (isSeries) {
-                                // 🔥 AGORA SIM: Manda o ID da SÉRIE (realSeriesId), não do Episódio!
+                                // 🔥 AGORA SIM: Manda o ID da SÉRIE PAI (realSeriesId), não do Episódio!
                                 Intent(this@HomeActivity, SeriesDetailsActivity::class.java).apply {
                                     putExtra("series_id", realSeriesId)
                                 }
@@ -808,8 +812,9 @@ class HomeActivity : AppCompatActivity() {
                             }
                             
                             intent.putExtra("name", selected.name)
-                            // Mantém o ícone original (o trecho) para a aba
+                            // Mantém o ícone original (o trecho) para a animação da próxima tela
                             intent.putExtra("icon", selected.streamIcon)
+                            
                             intent.putExtra("PROFILE_NAME", currentProfile)
                             startActivity(intent)
                         }

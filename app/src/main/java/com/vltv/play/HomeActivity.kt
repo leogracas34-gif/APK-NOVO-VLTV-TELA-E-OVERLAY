@@ -81,10 +81,10 @@ class HomeActivity : AppCompatActivity() {
             // ✅ RECUPERA O PERFIL
             currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
 
-            // ✅ CORREÇÃO 1: BARRA DE NAVEGAÇÃO FIXA (NÃO SOME MAIS)
+            // ✅ CORREÇÃO 1: Botões do Celular (Barra de Navegação) FIXOS
             val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
             windowInsetsController.isAppearanceLightStatusBars = false 
-            // REMOVIDO: windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars()) -> Isso que escondia os botões
+            // REMOVIDO: windowInsetsController?.hide(...) -> Isso garante que a barra fique visível
 
             DownloadHelper.registerReceiver(this)
 
@@ -342,7 +342,6 @@ class HomeActivity : AppCompatActivity() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val imagesUrl = "https://api.themoviedb.org/3/$tipo/$tmdbId/images?api_key=$TMDB_API_KEY&include_image_language=pt,null"
-                
                 val imagesJson = URL(imagesUrl).readText()
                 val imagesObj = JSONObject(imagesJson)
 
@@ -371,13 +370,9 @@ class HomeActivity : AppCompatActivity() {
 
                     if (bestPath != null) {
                         val fullLogoUrl = "https://image.tmdb.org/t/p/w500$bestPath"
-
                         try {
-                            if (isSeries) {
-                                database.streamDao().updateSeriesLogo(internalId, fullLogoUrl)
-                            } else {
-                                database.streamDao().updateVodLogo(internalId, fullLogoUrl)
-                            }
+                            if (isSeries) database.streamDao().updateSeriesLogo(internalId, fullLogoUrl)
+                            else database.streamDao().updateVodLogo(internalId, fullLogoUrl)
                         } catch(e: Exception) {}
 
                         withContext(Dispatchers.Main) {
@@ -744,18 +739,43 @@ class HomeActivity : AppCompatActivity() {
             try {
                 // Busca o histórico do Room Database
                 val historyList = database.streamDao().getWatchHistory(currentProfile, 20)
-                
-                // Mapeia para VodItem (visual)
-                val vodItems = historyList.map { 
-                    VodItem(
-                        id = it.stream_id.toString(), 
-                        name = it.name, 
-                        streamIcon = it.icon ?: ""
-                    ) 
-                }
+                val vodItems = mutableListOf<VodItem>()
+                val seriesMap = mutableMapOf<String, Boolean>()
+                // Mapa para guardar o ID Real da Série (para navegação) e Capa (para visual)
+                val seriesRealIdMap = mutableMapOf<String, Int>() 
 
-                // Mapa auxiliar para saber se é série
-                val seriesMap = historyList.associate { it.stream_id.toString() to it.is_series }
+                for (item in historyList) {
+                    var finalId = item.stream_id
+                    var finalIcon = item.icon ?: ""
+                    var finalName = item.name
+
+                    // 🔥 O PULO DO GATO: Se for série, tentamos achar a série "Pai"
+                    if (item.is_series) {
+                        try {
+                            // 1. Limpa o nome (Remove "T1E1", "S01E01")
+                            // Ex: "Breaking Bad T1 E5" -> "Breaking Bad"
+                            val cleanName = item.name.replace(Regex("(?i)(\\s+S\\d+|\\s+T\\d+|\\s+E\\d+|\\s+Ep\\d+|\\s+Temporada|\\s+Season).*"), "").trim()
+                            
+                            // 2. Busca MANUAL no banco (Bypass DAO) para achar o ID da série
+                            val cursor = database.openHelper.writableDatabase.query("SELECT series_id FROM series_streams WHERE name LIKE ? LIMIT 1", arrayOf("%$cleanName%"))
+                            
+                            if (cursor.moveToFirst()) {
+                                // ACHAMOS A SÉRIE REAL!
+                                val realSeriesId = cursor.getInt(0)
+                                
+                                // Salvamos esse ID Real para usar no Clique
+                                seriesRealIdMap[item.stream_id.toString()] = realSeriesId
+                            }
+                            cursor.close()
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+
+                    // ADICIONA O ITEM VISUAL (COM A FOTO DO EPISÓDIO)
+                    vodItems.add(VodItem(item.stream_id.toString(), finalName, finalIcon))
+                    seriesMap[item.stream_id.toString()] = item.is_series
+                }
 
                 withContext(Dispatchers.Main) {
                     val tvTitle = binding.root.findViewById<TextView>(R.id.tvContinueWatching)
@@ -767,13 +787,13 @@ class HomeActivity : AppCompatActivity() {
                         binding.rvContinueWatching.adapter = HomeRowAdapter(vodItems) { selected ->
                             
                             val isSeries = seriesMap[selected.id] ?: false
+                            // Verifica se temos um ID corrigido ("Real") para essa série
+                            val realSeriesId = seriesRealIdMap[selected.id] ?: selected.id.toIntOrNull() ?: 0
                             
                             val intent = if (isSeries) {
-                                // 🔥 CORREÇÃO 2: Se for série, enviamos para SeriesDetails
-                                // ATENÇÃO: Se o 'selected.id' for de episódio, o ideal é ter o ID da série.
-                                // Aqui assumimos que se está no histórico como série, o ID pode ser tratado lá.
+                                // 🔥 AGORA SIM: Manda o ID da SÉRIE, não do Episódio!
                                 Intent(this@HomeActivity, SeriesDetailsActivity::class.java).apply {
-                                    putExtra("series_id", selected.id.toIntOrNull() ?: 0)
+                                    putExtra("series_id", realSeriesId)
                                 }
                             } else {
                                 Intent(this@HomeActivity, DetailsActivity::class.java).apply {
@@ -783,11 +803,8 @@ class HomeActivity : AppCompatActivity() {
                             
                             intent.putExtra("name", selected.name)
                             
-                            // 🔥 CORREÇÃO 3: Se for série, não mandamos o ícone do episódio (que pode ser vazio/preto)
-                            // Deixamos a próxima tela buscar a capa oficial.
-                            if (!isSeries) {
-                                intent.putExtra("icon", selected.streamIcon)
-                            }
+                            // 🔥 MANTÉM O ÍCONE DO EPISÓDIO (O que você pediu!)
+                            intent.putExtra("icon", selected.streamIcon)
                             
                             intent.putExtra("PROFILE_NAME", currentProfile)
                             startActivity(intent)

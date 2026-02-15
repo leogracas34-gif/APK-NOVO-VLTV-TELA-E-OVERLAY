@@ -23,7 +23,7 @@ import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog // Importante para o alerta de erro
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -83,75 +83,58 @@ class HomeActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // 🚨 INÍCIO DA PROTEÇÃO CONTRA CRASH (RASTREADOR) 🚨
+        // 🔥 DETECÇÃO MELHORADA: CELULAR vs TV
+        configurarOrientacaoAutomatica()
+        
+        binding = ActivityHomeBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
+        // ✅ RECUPERA O PERFIL
+        currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
+
+        val windowInsetsController =
+            WindowCompat.getInsetsController(window, window.decorView)
+        windowInsetsController?.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
+
+        DownloadHelper.registerReceiver(this)
+
+        // ✅ SETUP CAST BUTTON (PROTEGIDO)
         try {
-
-            // 🔥 DETECÇÃO MELHORADA: CELULAR vs TV
-            configurarOrientacaoAutomatica()
-            
-            binding = ActivityHomeBinding.inflate(layoutInflater)
-            setContentView(binding.root)
-
-            // ✅ RECUPERA O PERFIL
-            currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
-
-            val windowInsetsController =
-                WindowCompat.getInsetsController(window, window.decorView)
-            windowInsetsController?.systemBarsBehavior =
-                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
-
-            DownloadHelper.registerReceiver(this)
-
-            // ✅ SETUP CAST BUTTON (PROTEGIDO)
-            try {
-                CastContext.getSharedInstance(this)
-                binding.mediaRouteButton?.let { btn ->
-                    CastButtonFactory.setUpMediaRouteButton(applicationContext, btn)
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
+             CastContext.getSharedInstance(this)
+            binding.mediaRouteButton?.let { btn ->
+                CastButtonFactory.setUpMediaRouteButton(applicationContext, btn)
             }
-
-            // ✅ INICIALIZA O LAYOUT
-            setupSingleBanner() // Mudamos para Single Banner
-            setupBottomNavigation()
-
-            setupClicks() 
-            setupFirebaseRemoteConfig()
-            
-            // ✅ CARREGAMENTO OTIMIZADO
-            carregarDadosLocaisImediato()
-            sincronizarConteudoSilenciosamente()
-            
-            // ✅ LÓGICA KIDS
-            val isKidsMode = intent.getBooleanExtra("IS_KIDS_MODE", false)
-            if (isKidsMode) {
-                currentProfile = "Kids"
-                Handler(Looper.getMainLooper()).postDelayed({
-                    try {
-                        binding.cardKids.performClick()
-                        Toast.makeText(this, "Modo Kids Ativado", Toast.LENGTH_SHORT).show()
-                    } catch (e: Exception) {}
-                }, 500)
-            }
-
         } catch (e: Exception) {
-            // 🚨 SE DER ERRO NO ONCREATE, MOSTRA NA TELA EM VEZ DE FECHAR 🚨
             e.printStackTrace()
-            mostraErroNaTela(e)
         }
-    }
 
-    // 🚨 FUNÇÃO NOVA: Mostra o erro na tela para você tirar print
-    private fun mostraErroNaTela(e: Exception) {
-        val erroMsg = "ERRO FATAL:\n${e.message}\n\nLocal:\n${e.stackTrace.getOrNull(0)}"
-        AlertDialog.Builder(this)
-            .setTitle("Erro no App")
-            .setMessage(erroMsg)
-            .setCancelable(false)
-            .setPositiveButton("OK") { _, _ -> finish() }
-            .show()
+        // ✅ INICIALIZA O LAYOUT
+        setupSingleBanner() // Mudamos para Single Banner
+        setupBottomNavigation()
+
+        setupClicks() 
+        setupFirebaseRemoteConfig()
+        
+        // ✅ CARREGAMENTO OTIMIZADO (Chamada única para evitar pisca-pisca)
+        carregarDadosLocaisImediato()
+        
+        // Sincronização e listas extras rodam em background
+        sincronizarConteudoSilenciosamente()
+        carregarListasDaHome()
+
+        // ✅ LÓGICA KIDS
+        val isKidsMode = intent.getBooleanExtra("IS_KIDS_MODE", false)
+        if (isKidsMode) {
+            currentProfile = "Kids"
+            Handler(Looper.getMainLooper()).postDelayed({
+                try {
+                    binding.cardKids.performClick()
+                    Toast.makeText(this, "Modo Kids Ativado", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {}
+            }, 500)
+        }
     }
 
     private fun configurarOrientacaoAutomatica() {
@@ -267,9 +250,6 @@ class HomeActivity : AppCompatActivity() {
                     
                     // 🚀 ATIVA O MODO SUPERSONICO (PRELOAD DAS LISTAS INFERIORES)
                     ativarModoSupersonico(movieItems, seriesItems)
-
-                    // ✅ GARANTE QUE O CONTINUAR ASSISTINDO APAREÇA SEM PISCAR
-                    carregarContinuarAssistindoLocal()
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -724,7 +704,7 @@ class HomeActivity : AppCompatActivity() {
             .show()
     }
 
-    // ✅ FUNÇÃO CORRIGIDA PARA EVITAR O CRASH (CHECK NULL POINTER)
+    // ✅ FUNÇÃO RECUPERADA (Trending TMDB caso banco vazio)
     private fun carregarBannerAlternado() {
         val prefs = getSharedPreferences("vltv_home_prefs", Context.MODE_PRIVATE)
         val ultimoTipo = prefs.getString("ultimo_tipo_banner", "tv") ?: "tv"
@@ -756,24 +736,12 @@ class HomeActivity : AppCompatActivity() {
                         val imageUrl = "https://image.tmdb.org/t/p/original$backdropPath"
                         withContext(Dispatchers.Main) {
                             try {
-                                // 🔴 CORREÇÃO: Usamos findViewById com segurança para verificar se existe
-                                val imgBannerView = binding.root.findViewById<ImageView>(R.id.imgBanner)
-                                
-                                if (imgBannerView != null) {
-                                    Glide.with(this@HomeActivity)
-                                        .load(imageUrl)
-                                        .centerCrop()
-                                        .dontAnimate()
-                                        .into(imgBannerView)
-                                    
-                                    imgBannerView.visibility = View.VISIBLE
-                                } else {
-                                    // Se não achou, ignora (não fecha o app)
-                                }
-
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                            }
+                                Glide.with(this@HomeActivity)
+                                    .load(imageUrl)
+                                    .centerCrop()
+                                    .dontAnimate()
+                                    .into(binding.root.findViewById<ImageView>(R.id.imgBanner) ?: return@withContext)
+                            } catch (e: Exception) {}
                         }
                     }
                 }
@@ -975,4 +943,3 @@ class HomeActivity : AppCompatActivity() {
             }
         }
     }
-}

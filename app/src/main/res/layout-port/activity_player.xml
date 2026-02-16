@@ -113,7 +113,7 @@
                 android:focusableInTouchMode="true"
                 style="@style/Widget.AppCompat.Button.Colored"/>
 
-            <Button
+            <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnPlayNextEpisode"
                 android:layout_width="wrap_content"
                 android:layout_height="48dp"
@@ -121,9 +121,10 @@
                 android:textAllCaps="false"
                 android:textColor="#FFFFFF"
                 android:background="@drawable/bg_progress_button"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
                 android:focusable="true"
-                android:focusableInTouchMode="true"
-                style="@style/Widget.AppCompat.Button.Borderless"/>
+                android:focusableInTouchMode="true"/>
 
         </LinearLayout>
     </LinearLayout>

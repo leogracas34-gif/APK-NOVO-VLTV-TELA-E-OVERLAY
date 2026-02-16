@@ -161,7 +161,6 @@
                                 android:layout_width="0dp"
                                 android:layout_height="4dp"
                                 android:layout_weight="1"
-                                android:progressTint="#FFD700"
                                 android:progressBackgroundTint="#333333"
                                 android:progress="0" />
 

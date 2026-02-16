@@ -142,6 +142,68 @@
                     </FrameLayout>
 
                     <LinearLayout
+                        android:id="@+id/layoutProgress"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="gone"
+                        android:layout_marginTop="12dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <ProgressBar
+                                android:id="@+id/progressBarMovie"
+                                style="?android:attr/progressBarStyleHorizontal"
+                                android:layout_width="0dp"
+                                android:layout_height="4dp"
+                                android:layout_weight="1"
+                                android:progressTint="#FFD700"
+                                android:progressBackgroundTint="#333333"
+                                android:progress="0" />
+
+                            <TextView
+                                android:id="@+id/tvTimeRemaining"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="--min"
+                                android:textColor="#CCCCCC"
+                                android:textSize="10sp"
+                                android:layout_marginStart="8dp"/>
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:id="@+id/btnRestartAction"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center"
+                            android:layout_marginTop="8dp"
+                            android:layout_gravity="center_horizontal"
+                            android:padding="8dp"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:background="?attr/selectableItemBackground">
+
+                            <ImageView
+                                android:layout_width="16dp"
+                                android:layout_height="16dp"
+                                android:src="@android:drawable/ic_menu_rotate"
+                                app:tint="#CCCCCC"/>
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Assistir do Início"
+                                android:textColor="#CCCCCC"
+                                android:textSize="12sp"
+                                android:layout_marginStart="6dp"/>
+                        </LinearLayout>
+                    </LinearLayout>
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"

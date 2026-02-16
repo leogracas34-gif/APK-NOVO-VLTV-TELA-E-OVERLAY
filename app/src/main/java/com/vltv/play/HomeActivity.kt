@@ -235,10 +235,13 @@ class HomeActivity : AppCompatActivity() {
                         }
                     }
                     
+                    // Salva a lista completa para sortear no onResume
                     listaCompletaParaSorteio = (localMovies + localSeries)
                     sortearBannerUnico()
-                    ativarModoSupersonico(movieItems, seriesItems)
                     
+                    // 🚀 ATIVA O MODO SUPERSONICO
+                    ativarModoSupersonico(movieItems, seriesItems)
+
                     // ✅ AQUI: Carrega o "Continuar Assistindo" com a lógica nova
                     carregarContinuarAssistindoLocal()
                 }
@@ -733,7 +736,7 @@ class HomeActivity : AppCompatActivity() {
         return super.onKeyDown(keyCode, event)
     }
 
-    // ✅ FIX DEFINITIVO 2 & 3: Substitui Episódio por Série (Capa + ID Correto) - COM FALLBACK SE FALHAR
+    // ✅ FIX DEFINITIVO 2 & 3: Substitui Episódio por Série (Capa + ID Correto) - COM FALLBACK
     private fun carregarContinuarAssistindoLocal() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
@@ -753,18 +756,27 @@ class HomeActivity : AppCompatActivity() {
 
                     if (isSeries) {
                         try {
-                            // 1. LIMPEZA AGRESSIVA DE NOME PARA ACHAR O PAI
-                            // Remove tudo: S01, E01, Temporada, Hífen, etc.
-                            // Ex: "A Casa do Dragão - T2 E5" vira "A Casa do Dragão"
-                            var cleanName = item.name
+                            // 1. LIMPEZA DE PREFIXOS NO INÍCIO (T1E1, S01E01, 1x01)
+                            // A Regex "^..." garante que só remove se estiver no começo
+                            var cleanName = item.name.replace(Regex("(?i)^(S\\d+E\\d+|T\\d+E\\d+|\\d+x\\d+|E\\d+)\\s*(-|:)?\\s*"), "")
+                            
+                            // 2. REMOVE DOIS PONTOS (Pega só o que vem antes de :)
+                            // Ex: "Destiladores: Mestre..." -> "Destiladores"
+                            if (cleanName.contains(":")) {
+                                cleanName = cleanName.substringBefore(":")
+                            }
+                            
+                            // 3. LIMPEZA DE SUFIXOS (Temporada, Episódio no final)
+                            cleanName = cleanName.replace(Regex("(?i)\\s+(S\\d+|T\\d+|E\\d+|Ep\\d+|Temporada|Season|Episode|Capitulo|\\d+x\\d+).*"), "")
+                            
+                            // 4. SEPARADOR " - " (Pega o que vem antes, se houver)
                             if (cleanName.contains(" - ")) {
                                 cleanName = cleanName.substringBefore(" - ")
                             }
-                            // Regex poderoso para limpar qualquer resto de "temporada/episódio"
-                            cleanName = cleanName.replace(Regex("(?i)\\s+(S\\d+|T\\d+|E\\d+|Ep\\d+|Temporada|Season|Episode|Capitulo|\\d+x\\d+).*"), "")
+                            
                             cleanName = cleanName.trim()
 
-                            // 2. BUSCA NO BANCO (LIKE %nome%) para ser flexível
+                            // 5. BUSCA NO BANCO
                             val cursor = database.openHelper.writableDatabase.query(
                                 "SELECT series_id, name, cover FROM series_streams WHERE name LIKE ? LIMIT 1", 
                                 arrayOf("%$cleanName%")
@@ -787,10 +799,8 @@ class HomeActivity : AppCompatActivity() {
                                 finalIcon = realCover
                                 seriesJaAdicionadas.add(realSeriesId)
                             } else {
-                                // ⚠️ ALTERAÇÃO IMPORTANTE: 
-                                // Se não achou a série "pai" no banco, não faz 'continue'.
-                                // Ele deixa passar o item original (finalId = episódio).
-                                // Isso garante que o item NÃO SUMA da lista.
+                                // SE NÃO ACHOU A SÉRIE PAI NO BANCO, MANTÉM O EPISÓDIO
+                                // MAS NÃO DEIXA SUMIR DA LISTA.
                             }
                             cursor.close()
                         } catch (e: Exception) {
@@ -814,12 +824,12 @@ class HomeActivity : AppCompatActivity() {
                             val isSeries = seriesMap[selected.id] ?: false
                             
                             val intent = if (isSeries) {
-                                // ID DA SÉRIE PAI -> SeriesDetailsActivity
+                                // ✅ ID DA SÉRIE PAI -> SeriesDetailsActivity (Usa "series_id")
                                 Intent(this@HomeActivity, SeriesDetailsActivity::class.java).apply {
                                     putExtra("series_id", selected.id.toIntOrNull() ?: 0)
                                 }
                             } else {
-                                // ID DO FILME -> DetailsActivity
+                                // ✅ ID DO FILME -> DetailsActivity (Usa "stream_id")
                                 Intent(this@HomeActivity, DetailsActivity::class.java).apply {
                                     putExtra("stream_id", selected.id.toIntOrNull() ?: 0)
                                 }

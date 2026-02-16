@@ -105,10 +105,7 @@
             android:backgroundTint="#D32F2F"
             android:focusable="true"
             android:focusableInTouchMode="true"
-            android:nextFocusUp="@id/btnPlayNextEpisode"
-            android:nextFocusDown="@id/btnPlayNextEpisode"
-            android:nextFocusLeft="@id/btnPlayNextEpisode"
-            android:nextFocusRight="@id/btnPlayNextEpisode"/>
+            style="@style/Widget.AppCompat.Button.Colored"/>
     </LinearLayout>
 
     <ProgressBar
@@ -116,7 +113,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintEnd_of="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 

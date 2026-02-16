@@ -28,6 +28,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 import java.util.ArrayList
+import java.util.concurrent.TimeUnit 
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -72,6 +73,12 @@ class SeriesDetailsActivity : AppCompatActivity() {
     private lateinit var btnResume: Button
     private var appBarLayout: AppBarLayout? = null
     private var tabLayout: TabLayout? = null
+
+    // ✅ NOVAS VIEWS PARA A BARRA DE PROGRESSO (Igual Filmes)
+    private var layoutProgress: LinearLayout? = null
+    private var progressBarSeries: ProgressBar? = null
+    private var tvTimeRemaining: TextView? = null
+    private var btnRestartAction: LinearLayout? = null // Botão reiniciar se quiser implementar
 
     // NOVA VIEW DO RODAPÉ
     private lateinit var bottomNavigation: BottomNavigationView
@@ -122,6 +129,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
             imgTitleLogo.alpha = alphaValue
             btnPlaySeries.alpha = alphaValue
             btnResume.alpha = alphaValue
+            layoutProgress?.alpha = alphaValue // Esconde a barra ao rolar
             btnFavoriteSeries.alpha = alphaValue
             tvRating.alpha = alphaValue
             tvGenre.alpha = alphaValue
@@ -203,6 +211,19 @@ class SeriesDetailsActivity : AppCompatActivity() {
             if (epParaContinuar != null) {
                 abrirPlayer(epParaContinuar, true)
             }
+        }
+        
+        // Botão reiniciar (opcional, igual filmes)
+        btnRestartAction?.setOnClickListener {
+             val epEncontrado = encontrarEpisodioParaContinuar() ?: encontrarEpisodioParaAssistir()
+             if (epEncontrado != null) {
+                 AlertDialog.Builder(this)
+                .setTitle("Reiniciar Episódio")
+                .setMessage("Deseja assistir desde o início?")
+                .setPositiveButton("Sim") { _, _ -> abrirPlayer(epEncontrado, false) }
+                .setNegativeButton("Não", null)
+                .show()
+             }
         }
 
         restaurarEstadoDownload()
@@ -357,6 +378,13 @@ class SeriesDetailsActivity : AppCompatActivity() {
         imgDownloadEpisodeState = findViewById(R.id.imgDownloadState)
         tvDownloadEpisodeState = findViewById(R.id.tvDownloadState)
         btnDownloadSeason = findViewById(R.id.btnDownloadSeason)
+
+        // ✅ INICIALIZA VIEWS DE PROGRESSO (Igual Filmes)
+        // Certifique-se de ter copiado o bloco XML do layout de filmes para o layout de séries
+        layoutProgress = findViewById(R.id.layoutProgress)
+        progressBarSeries = findViewById(R.id.progressBarMovie) // Usando mesmo ID para facilitar
+        tvTimeRemaining = findViewById(R.id.tvTimeRemaining)
+        btnRestartAction = findViewById(R.id.btnRestartAction)
     }
 
     private fun verificarTecnologias(nome: String) {
@@ -747,9 +775,11 @@ class SeriesDetailsActivity : AppCompatActivity() {
         if (lista.isNotEmpty()) {
             currentEpisode = lista.first()
             restaurarEstadoDownload()
-            verificarResume() // ✅ Verifica resume com chave do perfil
+            // ✅ IMPORTANTE: Ao mudar a temporada, verifica o resume novamente para atualizar a barra
+            verificarResume()
         }
-        rvEpisodes.adapter = EpisodeAdapter(this, lista) { ep, _ ->
+        // ✅ ATUALIZAÇÃO: Passa o perfil para o adapter para ele mostrar o progresso individual
+        rvEpisodes.adapter = EpisodeAdapter(this, lista, currentProfile) { ep, _ ->
             currentEpisode = ep
             restaurarEstadoDownload()
             verificarResume()
@@ -834,25 +864,54 @@ class SeriesDetailsActivity : AppCompatActivity() {
         return null
     }
 
-    // ✅ RESUME ISOLADO POR PERFIL (Função auxiliar)
+    // ✅ ATUALIZAÇÃO: Agora calcula o progresso e atualiza a barra no TOPO da tela
     private fun verificarResume() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
-        var temHistorico = false
-        // Varre todas as temporadas e episódios desta série para ver se o perfil atual assistiu algo
+        var epRecente: EpisodeStream? = null
+        var maxPos = 0L
+        var maxDur = 0L
+        
+        // Varre todas as temporadas para achar onde parou
         for (season in sortedSeasons) {
             val eps = episodesBySeason[season] ?: continue
             for (ep in eps) {
                 val sid = ep.id.toIntOrNull() ?: 0
                 val pos = prefs.getLong("${currentProfile}_series_resume_${sid}_pos", 0L)
+                val dur = prefs.getLong("${currentProfile}_series_resume_${sid}_dur", 0L)
+                
+                // Encontra o episódio com progresso mais significativo
                 if (pos > 10000L) {
-                    temHistorico = true
-                    break
+                    epRecente = ep
+                    maxPos = pos
+                    maxDur = dur
+                    // Se achou, sai do loop (prioriza o primeiro encontrado, ou poderia ser o timestamp mais recente)
+                    break 
                 }
             }
-            if (temHistorico) break
+            if (epRecente != null) break
         }
+
         runOnUiThread {
-            btnResume.visibility = if (temHistorico) View.VISIBLE else View.GONE
+            if (epRecente != null && maxDur > 0) {
+                btnPlaySeries.text = "CONTINUAR T${currentSeason}:E${epRecente.episode_num}"
+                btnResume.visibility = View.VISIBLE
+                btnRestartAction?.visibility = View.VISIBLE
+                layoutProgress?.visibility = View.VISIBLE
+                
+                // Cálculo da porcentagem
+                val progressPercent = ((maxPos.toFloat() / maxDur.toFloat()) * 100).toInt()
+                progressBarSeries?.progress = progressPercent
+                
+                val restMs = maxDur - maxPos
+                val hours = TimeUnit.MILLISECONDS.toHours(restMs)
+                val minutes = TimeUnit.MILLISECONDS.toMinutes(restMs) % 60
+                tvTimeRemaining?.text = "Restam ${hours}h${minutes}min"
+            } else {
+                btnPlaySeries.text = "ASSISTIR"
+                btnResume.visibility = View.GONE
+                btnRestartAction?.visibility = View.GONE
+                layoutProgress?.visibility = View.GONE
+            }
         }
     }
 
@@ -921,16 +980,25 @@ class SeriesDetailsActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
-    class EpisodeAdapter(private val activity: SeriesDetailsActivity, val list: List<EpisodeStream>, private val onClick: (EpisodeStream, Int) -> Unit) : RecyclerView.Adapter<EpisodeAdapter.VH>() {
+    class EpisodeAdapter(
+        private val activity: SeriesDetailsActivity, 
+        val list: List<EpisodeStream>, 
+        private val profile: String, // ✅ Recebe o perfil para buscar o progresso
+        private val onClick: (EpisodeStream, Int) -> Unit
+    ) : RecyclerView.Adapter<EpisodeAdapter.VH>() {
+        
         class VH(v: View) : RecyclerView.ViewHolder(v) {
             val tvTitle: TextView = v.findViewById(R.id.tvEpisodeTitle)
             val imgThumb: ImageView = v.findViewById(R.id.imgEpisodeThumb)
             val tvPlotEp: TextView = v.findViewById(R.id.tvEpisodePlot)
             // ✅ ATUALIZAÇÃO: IDs conforme seu item_episode.xml (Celular)
             val btnDownloadItem: LinearLayout = v.findViewById(R.id.btnDownloadEpisode)
-            val imgDownloadIcon: ImageView = v.findViewById(R.id.imgDownloadIcon)
+            // ✅ NOVO: Barra de progresso individual do episódio (Necessário adicionar no XML)
+            val pbEpisodeProgress: ProgressBar? = v.findViewById(R.id.pbEpisodeProgress) 
         }
+        
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = VH(LayoutInflater.from(parent.context).inflate(R.layout.item_episode, parent, false))
+        
         override fun onBindViewHolder(holder: VH, position: Int) {
             val ep = list[position]
             holder.tvTitle.text = "E${ep.episode_num.toString().padStart(2, '0')} - ${ep.title}"
@@ -943,6 +1011,22 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .centerCrop()
                 .into(holder.imgThumb)
+
+            // ✅ LÓGICA DE PROGRESSO INDIVIDUAL (Abaixo de cada episódio)
+            val epId = ep.id.toIntOrNull() ?: 0
+            val prefs = holder.itemView.context.getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+            val keyPos = "${profile}_series_resume_${epId}_pos"
+            val keyDur = "${profile}_series_resume_${epId}_dur"
+            val pos = prefs.getLong(keyPos, 0)
+            val dur = prefs.getLong(keyDur, 0)
+
+            if (pos > 0 && dur > 0) {
+                val pct = ((pos.toFloat() / dur.toFloat()) * 100).toInt()
+                holder.pbEpisodeProgress?.visibility = View.VISIBLE
+                holder.pbEpisodeProgress?.progress = pct
+            } else {
+                holder.pbEpisodeProgress?.visibility = View.GONE
+            }
                 
             // ✅ ATUALIZAÇÃO: Clique no download do episódio na lista
             holder.btnDownloadItem.setOnClickListener {

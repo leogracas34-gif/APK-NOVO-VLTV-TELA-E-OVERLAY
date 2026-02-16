@@ -733,7 +733,7 @@ class HomeActivity : AppCompatActivity() {
         return super.onKeyDown(keyCode, event)
     }
 
-    // ✅ FIX DEFINITIVO 2 & 3: Substitui Episódio por Série (Capa + ID Correto)
+    // ✅ FIX DEFINITIVO 2 & 3: Substitui Episódio por Série (Capa + ID Correto) - COM FALLBACK SE FALHAR
     private fun carregarContinuarAssistindoLocal() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
@@ -787,19 +787,19 @@ class HomeActivity : AppCompatActivity() {
                                 finalIcon = realCover
                                 seriesJaAdicionadas.add(realSeriesId)
                             } else {
-                                // SE NÃO ACHOU A SÉRIE PAI NO BANCO, MELHOR NÃO MOSTRAR O EPISÓDIO QUEBRADO
-                                // PARA EVITAR A TELA PRETA.
-                                cursor.close()
-                                continue
+                                // ⚠️ ALTERAÇÃO IMPORTANTE: 
+                                // Se não achou a série "pai" no banco, não faz 'continue'.
+                                // Ele deixa passar o item original (finalId = episódio).
+                                // Isso garante que o item NÃO SUMA da lista.
                             }
                             cursor.close()
                         } catch (e: Exception) {
                             e.printStackTrace()
-                            continue // Se der erro, pula o item
+                            // Se der erro, segue com o item original para não sumir
                         }
                     }
 
-                    // Se for filme (isSeries false) ou se achou a série pai, adiciona
+                    // Se for filme (isSeries false) ou se achou a série pai (ou falhou e manteve o original), adiciona
                     vodItems.add(VodItem(finalId, finalName, finalIcon))
                     seriesMap[finalId] = isSeries
                 }

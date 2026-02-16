@@ -103,9 +103,6 @@ class PlayerActivity : AppCompatActivity() {
 
     private val handler = Handler(Looper.getMainLooper())
     
-    // Configuração do tempo de pulo (ex: 15 segundos para encher o botão)
-    private val AUTO_SKIP_TIME_MS = 15000L 
-
     private val nextChecker = object : Runnable {
         override fun run() {
             val p = player ?: return
@@ -113,21 +110,17 @@ class PlayerActivity : AppCompatActivity() {
                 val dur = p.duration
                 val pos = p.currentPosition
                 if (dur > 0) {
-                    val progressVideo = pos.toFloat() / dur.toFloat()
-                    
-                    // Começa a mostrar os botões quando faltar 20 segundos ou 98%
-                    if (progressVideo >= 0.98f || (dur - pos) <= 20000L) {
-                        
+                    val remaining = dur - pos
+                    // Mostra quando faltar 20 segundos (20000ms)
+                    if (remaining <= 20000L) {
                         if (nextEpisodeContainer.visibility != View.VISIBLE) {
                             nextEpisodeContainer.visibility = View.VISIBLE
                             btnPlayNextEpisode.requestFocus()
                         }
 
-                        val remaining = dur - pos
-                        // Calcula o progresso do botão (0 a 10000 para o ClipDrawable)
-                        // Quanto menor o tempo restante, mais "cheio" o botão fica
-                        val btnProgress = ((1.0f - (remaining.toFloat() / 20000L)) * 10000).toInt()
-                        btnPlayNextEpisode.background.level = btnProgress.coerceIn(0, 10000)
+                        // Lógica para encher o botão (ClipDrawable usa escala de 0 a 10000)
+                        val progress = ((1.0f - (remaining.toFloat() / 20000L)) * 10000).toInt()
+                        btnPlayNextEpisode.background?.level = progress.coerceIn(0, 10000)
                         
                         if (remaining <= 1000L) {
                             nextEpisodeContainer.visibility = View.GONE
@@ -136,10 +129,10 @@ class PlayerActivity : AppCompatActivity() {
                         }
                     } else {
                         nextEpisodeContainer.visibility = View.GONE
-                        btnPlayNextEpisode.background.level = 0
+                        btnPlayNextEpisode.background?.level = 0
                     }
                 }
-                handler.postDelayed(this, 500L) // Atualiza mais rápido para o preenchimento ser suave
+                handler.postDelayed(this, 500L)
             }
         }
     }
@@ -167,14 +160,13 @@ class PlayerActivity : AppCompatActivity() {
         nextEpisodeContainer = findViewById(R.id.nextEpisodeContainer)
         tvNextEpisodeTitle = findViewById(R.id.tvNextEpisodeTitle)
         btnPlayNextEpisode = findViewById(R.id.btnPlayNextEpisode)
-        btnWatchCredits = findViewById(R.id.btnWatchCredits)
+        btnWatchCredits = findViewById(R.id.btnWatchCredits) // Inicialização necessária para evitar erro
 
         btnPlayNextEpisode.isFocusable = true
         btnPlayNextEpisode.isFocusableInTouchMode = true
         btnWatchCredits.isFocusable = true
         btnWatchCredits.isFocusableInTouchMode = true
         
-        // Mantendo foco limpo sem zoom
         btnPlayNextEpisode.setOnFocusChangeListener { view, hasFocus ->
             if (hasFocus) {
                 btnPlayNextEpisode.setTextColor(Color.YELLOW)
@@ -240,10 +232,8 @@ class PlayerActivity : AppCompatActivity() {
         }
 
         btnWatchCredits.setOnClickListener {
-            // Cancela o checker e esconde o container para assistir os créditos
             handler.removeCallbacks(nextChecker)
             nextEpisodeContainer.visibility = View.GONE
-            Toast.makeText(this, "Aproveite os créditos", Toast.LENGTH_SHORT).show()
         }
 
         if (streamType == "movie") {

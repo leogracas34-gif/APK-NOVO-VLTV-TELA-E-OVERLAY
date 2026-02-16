@@ -880,7 +880,8 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 val dur = prefs.getLong("${currentProfile}_series_resume_${sid}_dur", 0L)
                 
                 // Encontra o episódio com progresso mais significativo
-                if (pos > 10000L) {
+                // 🔥 MUDANÇA: Reduzi para 1000L (1 segundo) para aparecer "instantaneamente"
+                if (pos > 1000L) {
                     epRecente = ep
                     maxPos = pos
                     maxDur = dur

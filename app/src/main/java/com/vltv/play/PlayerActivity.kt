@@ -158,15 +158,14 @@ class PlayerActivity : AppCompatActivity() {
         btnPlayNextEpisode.isFocusable = true
         btnPlayNextEpisode.isFocusableInTouchMode = true
         
+        // ✅ ALTERAÇÃO: Removido o efeito de escala (Zoom) para manter o formato original
         btnPlayNextEpisode.setOnFocusChangeListener { view, hasFocus ->
             if (hasFocus) {
                 view.setBackgroundResource(R.drawable.bg_focus_neon)
                 btnPlayNextEpisode.setTextColor(Color.WHITE)
-                view.animate().scaleX(1.1f).scaleY(1.1f).setDuration(150).start()
             } else {
                 view.setBackgroundResource(0)
                 btnPlayNextEpisode.setTextColor(Color.WHITE)
-                view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
             }
         }
 
@@ -319,7 +318,6 @@ class PlayerActivity : AppCompatActivity() {
 
     @OptIn(UnstableApi::class)
     private fun iniciarPlayer() {
-        // ✅ CORREÇÃO CRÍTICA: Prioriza o arquivo offline se existir o caminho
         if (streamType == "vod_offline" || !offlineUri.isNullOrBlank()) {
             var uriStr = offlineUri
             if (uriStr.isNullOrBlank()) {
@@ -328,7 +326,6 @@ class PlayerActivity : AppCompatActivity() {
                 return
             }
             
-            // ✅ CORREÇÃO DE PROTOCOLO: Adiciona file:// se for caminho local puro
             if (!uriStr!!.startsWith("content://") && !uriStr!!.startsWith("file://") && !uriStr!!.startsWith("http")) {
                 uriStr = "file://$uriStr"
             }
@@ -367,10 +364,8 @@ class PlayerActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 Toast.makeText(this, "Erro crítico ao carregar arquivo.", Toast.LENGTH_SHORT).show()
             }
-            return // ✅ SAI DA FUNÇÃO PARA NÃO TENTAR CONECTAR NA INTERNET
+            return 
         }
-
-        // --- LÓGICA ONLINE (Só executa se não for offline) ---
 
         if (activeServerList.isEmpty()) {
             Toast.makeText(this, "Erro: Sem servidor.", Toast.LENGTH_LONG).show()

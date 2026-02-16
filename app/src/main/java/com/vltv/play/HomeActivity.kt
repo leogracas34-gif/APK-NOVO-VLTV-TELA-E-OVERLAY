@@ -235,14 +235,11 @@ class HomeActivity : AppCompatActivity() {
                         }
                     }
                     
-                    // Salva a lista completa para sortear no onResume
                     listaCompletaParaSorteio = (localMovies + localSeries)
                     sortearBannerUnico()
-                    
-                    // 🚀 ATIVA O MODO SUPERSONICO
                     ativarModoSupersonico(movieItems, seriesItems)
-
-                    // ✅ GARANTE QUE O CONTINUAR ASSISTINDO APAREÇA
+                    
+                    // ✅ AQUI: Carrega o "Continuar Assistindo" com a lógica nova
                     carregarContinuarAssistindoLocal()
                 }
             } catch (e: Exception) {
@@ -563,9 +560,7 @@ class HomeActivity : AppCompatActivity() {
         fun isTelevisionDevice(): Boolean {
             return packageManager.hasSystemFeature("android.hardware.type.television") ||
                    packageManager.hasSystemFeature("android.software.leanback") ||
-                   (resources.configuration.uiMode and
-                   Configuration.UI_MODE_TYPE_MASK) ==
-                   Configuration.UI_MODE_TYPE_TELEVISION
+                   (resources.configuration.uiMode and Configuration.UI_MODE_TYPE_MASK) == Configuration.UI_MODE_TYPE_TELEVISION
         }
 
         // --- Configuração dos cliques ---
@@ -747,66 +742,84 @@ class HomeActivity : AppCompatActivity() {
                 
                 val vodItems = mutableListOf<VodItem>()
                 val seriesMap = mutableMapOf<String, Boolean>()
-                
+                // Set para não repetir a mesma série várias vezes se tiver vários episódios
+                val seriesJaAdicionadas = mutableSetOf<String>()
+
                 for (item in historyList) {
                     var finalId = item.stream_id.toString()
                     var finalName = item.name
                     var finalIcon = item.icon ?: ""
-                    var isSeries = item.is_series
+                    val isSeries = item.is_series
 
-                    // 🔥 DETETIVE: Se for episódio de série, vamos SUBSTITUIR pela SÉRIE PAI
                     if (isSeries) {
                         try {
-                            // 1. Limpa o nome (Remove "T1 E1", "S01E01") para achar o nome da série pura
-                            // Ex: "Breaking Bad T1 E5" vira "Breaking Bad"
-                            val cleanName = item.name.replace(Regex("(?i)(\\s+S\\d+|\\s+T\\d+|\\s+E\\d+|\\s+Ep\\d+|\\s+Temporada|\\s+Season).*"), "").trim()
-                            
-                            // 2. Busca MANUAL no banco: Pega ID, Nome e Capa da Série
+                            // 1. LIMPEZA AGRESSIVA DE NOME PARA ACHAR O PAI
+                            // Remove tudo: S01, E01, Temporada, Hífen, etc.
+                            // Ex: "A Casa do Dragão - T2 E5" vira "A Casa do Dragão"
+                            var cleanName = item.name
+                            if (cleanName.contains(" - ")) {
+                                cleanName = cleanName.substringBefore(" - ")
+                            }
+                            // Regex poderoso para limpar qualquer resto de "temporada/episódio"
+                            cleanName = cleanName.replace(Regex("(?i)\\s+(S\\d+|T\\d+|E\\d+|Ep\\d+|Temporada|Season|Episode|Capitulo|\\d+x\\d+).*"), "")
+                            cleanName = cleanName.trim()
+
+                            // 2. BUSCA NO BANCO (LIKE %nome%) para ser flexível
                             val cursor = database.openHelper.writableDatabase.query(
                                 "SELECT series_id, name, cover FROM series_streams WHERE name LIKE ? LIMIT 1", 
                                 arrayOf("%$cleanName%")
                             )
                             
                             if (cursor.moveToFirst()) {
-                                // ACHAMOS A SÉRIE PAI!
-                                val realSeriesId = cursor.getInt(0)
+                                val realSeriesId = cursor.getInt(0).toString()
                                 val realName = cursor.getString(1)
                                 val realCover = cursor.getString(2)
                                 
-                                // 🔥 SUBSTITUIÇÃO MÁGICA
-                                // Agora o item na lista é a SÉRIE, não mais o episódio
-                                finalId = realSeriesId.toString()
+                                // Se já adicionamos essa série na lista, PULA para não duplicar
+                                if (seriesJaAdicionadas.contains(realSeriesId)) {
+                                    cursor.close()
+                                    continue 
+                                }
+
+                                // SUBSTITUI O EPISÓDIO PELA SÉRIE PAI ENCONTRADA
+                                finalId = realSeriesId
                                 finalName = realName
                                 finalIcon = realCover
+                                seriesJaAdicionadas.add(realSeriesId)
+                            } else {
+                                // SE NÃO ACHOU A SÉRIE PAI NO BANCO, MELHOR NÃO MOSTRAR O EPISÓDIO QUEBRADO
+                                // PARA EVITAR A TELA PRETA.
+                                cursor.close()
+                                continue
                             }
                             cursor.close()
                         } catch (e: Exception) {
                             e.printStackTrace()
+                            continue // Se der erro, pula o item
                         }
                     }
 
-                    // Adiciona à lista (Se for série, já estará com os dados da Série Pai)
+                    // Se for filme (isSeries false) ou se achou a série pai, adiciona
                     vodItems.add(VodItem(finalId, finalName, finalIcon))
                     seriesMap[finalId] = isSeries
                 }
 
                 withContext(Dispatchers.Main) {
                     val tvTitle = binding.root.findViewById<TextView>(R.id.tvContinueWatching)
-                    
                     if (vodItems.isNotEmpty()) {
                         tvTitle?.visibility = View.VISIBLE
                         binding.rvContinueWatching.visibility = View.VISIBLE
                         
                         binding.rvContinueWatching.adapter = HomeRowAdapter(vodItems) { selected ->
-                            
                             val isSeries = seriesMap[selected.id] ?: false
                             
                             val intent = if (isSeries) {
-                                // 🔥 CLIQUE DIRETO: O ID já é o da Série (finalId acima)
+                                // ID DA SÉRIE PAI -> SeriesDetailsActivity
                                 Intent(this@HomeActivity, SeriesDetailsActivity::class.java).apply {
                                     putExtra("series_id", selected.id.toIntOrNull() ?: 0)
                                 }
                             } else {
+                                // ID DO FILME -> DetailsActivity
                                 Intent(this@HomeActivity, DetailsActivity::class.java).apply {
                                     putExtra("stream_id", selected.id.toIntOrNull() ?: 0)
                                 }
@@ -828,27 +841,21 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ ADAPTER DO BANNER
     inner class BannerAdapter(private var items: List<Any>) : RecyclerView.Adapter<BannerAdapter.BannerViewHolder>() {
-
         fun updateList(newItems: List<Any>) {
             items = newItems
             notifyDataSetChanged()
         }
-
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): BannerViewHolder {
             val view = LayoutInflater.from(parent.context).inflate(R.layout.item_banner_home, parent, false)
             return BannerViewHolder(view)
         }
-
         override fun onBindViewHolder(holder: BannerViewHolder, position: Int) {
             if (items.isNotEmpty()) {
                 holder.bind(items[0])
             }
         }
-
         override fun getItemCount(): Int = items.size
-
         inner class BannerViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
             private val imgBanner: ImageView = itemView.findViewById(R.id.imgBanner)
             private val tvTitle: TextView = itemView.findViewById(R.id.tvBannerTitle)
@@ -869,7 +876,6 @@ class HomeActivity : AppCompatActivity() {
                 }
 
                 val cleanTitle = limparNomeParaTMDB(title)
-                
                 tvTitle.text = cleanTitle
                 tvTitle.visibility = View.VISIBLE
                 imgLogo.visibility = View.GONE

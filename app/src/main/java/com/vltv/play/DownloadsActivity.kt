@@ -81,6 +81,8 @@ class DownloadsActivity : AppCompatActivity() {
 
     private fun mostrarEpisodiosDaSerie(nomeSerie: String) {
         val dao = AppDatabase.getDatabase(this).streamDao()
+        
+        // ✅ CORREÇÃO AQUI: Usando Lambda { lista -> ... } para evitar erro de compilação onChanged
         dao.getAllDownloads().observe(this) { listaCompleta ->
             val episodios = listaCompleta?.filter { it.name == nomeSerie } ?: emptyList()
             
@@ -94,6 +96,8 @@ class DownloadsActivity : AppCompatActivity() {
                     }
                     .show()
             }
+            
+            // Remove para não disparar novamente ao abrir o player
             dao.getAllDownloads().removeObservers(this)
         }
     }
@@ -102,7 +106,7 @@ class DownloadsActivity : AppCompatActivity() {
         val file = File(item.file_path)
         
         if (!file.exists()) {
-            Toast.makeText(this, "Arquivo não encontrado!", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Arquivo não encontrado! Talvez tenha sido apagado.", Toast.LENGTH_LONG).show()
             return
         }
 
@@ -161,8 +165,6 @@ class DownloadsActivity : AppCompatActivity() {
             val tvName: TextView = v.findViewById(R.id.tvDownloadName)
             val tvStatus: TextView = v.findViewById(R.id.tvDownloadPath)
             val imgCapa: ImageView? = v.findViewById(R.id.imgPoster)
-            // ✅ Nova referência para o ícone do telefone
-            val imgStatus: ImageView = v.findViewById(R.id.imgStatusDownload)
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
@@ -176,23 +178,16 @@ class DownloadsActivity : AppCompatActivity() {
             holder.tvName.text = item.name
 
             if (item.status == "BAIXANDO" || item.status == "DOWNLOADING") {
-                holder.tvStatus.visibility = View.VISIBLE
-                holder.imgStatus.visibility = View.GONE
                 holder.tvStatus.text = "Baixando... ${item.progress}%"
                 holder.tvStatus.setTextColor(android.graphics.Color.YELLOW)
                 holder.itemView.isEnabled = false
                 holder.itemView.alpha = 0.5f
             } else if (item.status == "BAIXADO" || item.status == "COMPLETED") {
-                // ✅ MOSTRA O ÍCONE E ESCONDE O TEXTO
-                holder.tvStatus.visibility = View.GONE 
-                holder.imgStatus.visibility = View.VISIBLE
-                holder.imgStatus.setImageResource(R.drawable.ic_downloaded_device)
-                
+                holder.tvStatus.text = "📱 No dispositivo"
+                holder.tvStatus.setTextColor(android.graphics.Color.parseColor("#A6FFFFFF"))
                 holder.itemView.isEnabled = true
                 holder.itemView.alpha = 1.0f
             } else {
-                holder.imgStatus.visibility = View.GONE
-                holder.tvStatus.visibility = View.VISIBLE
                 holder.tvStatus.text = "Falha no download"
                 holder.tvStatus.setTextColor(android.graphics.Color.RED)
                 holder.itemView.isEnabled = true
@@ -201,13 +196,17 @@ class DownloadsActivity : AppCompatActivity() {
             holder.imgCapa?.let { img ->
                 Glide.with(holder.itemView.context)
                     .load(item.image_url)
+                    .placeholder(android.R.drawable.ic_menu_gallery)
                     .centerCrop()
                     .diskCacheStrategy(DiskCacheStrategy.ALL)
                     .into(img)
             }
 
             holder.itemView.setOnClickListener { onClick(item) }
-            holder.itemView.setOnLongClickListener { onLongClick(item); true }
+            holder.itemView.setOnLongClickListener { 
+                onLongClick(item)
+                true
+            }
             
             holder.itemView.setOnFocusChangeListener { v, hasFocus ->
                 if (hasFocus) {

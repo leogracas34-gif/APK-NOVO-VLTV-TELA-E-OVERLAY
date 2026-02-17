@@ -1,30 +1,30 @@
-package com.vltv.play // Certifique-se de que este é o pacote correto do seu app
+package com.vltv.play
 
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import android.widget.EditText
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.vltv.play.databinding.ActivityProfileSelectionBinding
 import com.vltv.play.databinding.ItemProfileCircleBinding
 
-// 1. Classe de dados para o Perfil
 data class UserProfile(val id: Int, var name: String, val imageRes: Int)
 
 class ProfilesActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityProfileSelectionBinding
+    private var isEditMode = false // Controla se estamos editando ou entrando
+    private lateinit var adapter: ProfileAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        // Inicializa o ViewBinding
         binding = ActivityProfileSelectionBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // 2. Lista com os 4 perfis que você pediu
         val listaPerfis = mutableListOf(
             UserProfile(1, "Perfil 1", R.drawable.ic_profile_placeholder),
             UserProfile(2, "Perfil 2", R.drawable.ic_profile_placeholder),
@@ -32,23 +32,41 @@ class ProfilesActivity : AppCompatActivity() {
             UserProfile(4, "Perfil 4", R.drawable.ic_profile_placeholder)
         )
 
-        // 3. Configura a Grade de 2 colunas
+        adapter = ProfileAdapter(listaPerfis)
         binding.rvProfiles.layoutManager = GridLayoutManager(this, 2)
-        binding.rvProfiles.adapter = ProfileAdapter(listaPerfis)
+        binding.rvProfiles.adapter = adapter
 
-        // 4. Botão Editar Perfis (Topo Direito)
+        // Lógica do botão EDITAR PERFIS
         binding.tvEditProfiles.setOnClickListener {
-            Toast.makeText(this, "Modo Edição Ativado", Toast.LENGTH_SHORT).show()
-            // Aqui futuramente chamaremos a tela de trocar nome/foto
+            isEditMode = !isEditMode // Inverte o estado
+            binding.tvEditProfiles.text = if (isEditMode) "CONCLUÍDO" else "EDITAR PERFIS"
+            adapter.notifyDataSetChanged() // Avisa a lista para mudar o comportamento
         }
 
-        // 5. Botão Adicionar Perfil (Sinal de +)
         binding.layoutAddProfile.setOnClickListener {
-            Toast.makeText(this, "Abrindo tela de novo perfil...", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Adicionar novo perfil", Toast.LENGTH_SHORT).show()
         }
     }
 
-    // --- ADAPTER INTERNO PARA OS CÍRCULOS ---
+    // Função para mostrar o diálogo de edição de nome
+    private fun showEditDialog(perfil: UserProfile, position: Int) {
+        val input = EditText(this)
+        input.setText(perfil.name)
+
+        AlertDialog.Builder(this)
+            .setTitle("Editar Nome")
+            .setView(input)
+            .setPositiveButton("Salvar") { _, _ ->
+                val novoNome = input.text.toString()
+                if (novoNome.isNotEmpty()) {
+                    perfil.name = novoNome
+                    adapter.notifyItemChanged(position)
+                }
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
     inner class ProfileAdapter(private val perfis: List<UserProfile>) : 
         RecyclerView.Adapter<ProfileAdapter.ProfileViewHolder>() {
 
@@ -56,22 +74,28 @@ class ProfilesActivity : AppCompatActivity() {
             RecyclerView.ViewHolder(itemBinding.root)
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ProfileViewHolder {
-            val inflater = LayoutInflater.from(parent.context)
-            val itemBinding = ItemProfileCircleBinding.inflate(inflater, parent, false)
+            val itemBinding = ItemProfileCircleBinding.inflate(LayoutInflater.from(parent.context), parent, false)
             return ProfileViewHolder(itemBinding)
         }
 
         override fun onBindViewHolder(holder: ProfileViewHolder, position: Int) {
             val perfil = perfis[position]
-            
-            // Define o nome e a imagem no círculo
             holder.itemBinding.tvProfileName.text = perfil.name
             holder.itemBinding.ivProfileAvatar.setImageResource(perfil.imageRes)
 
-            // Clique no Perfil para entrar
+            // Se estiver no modo edição, mudamos a cor da borda ou mostramos um aviso visual
+            if (isEditMode) {
+                holder.itemBinding.ivProfileAvatar.setStrokeColorResource(android.R.color.holo_blue_light)
+            } else {
+                holder.itemBinding.ivProfileAvatar.setStrokeColorResource(android.R.color.white)
+            }
+
             holder.itemBinding.root.setOnClickListener {
-                Toast.makeText(this@ProfilesActivity, "Entrando como: ${perfil.name}", Toast.LENGTH_SHORT).show()
-                // Aqui você fará o Intent para a sua HomeActivity
+                if (isEditMode) {
+                    showEditDialog(perfil, position)
+                } else {
+                    Toast.makeText(this@ProfilesActivity, "Entrando como: ${perfil.name}", Toast.LENGTH_SHORT).show()
+                }
             }
         }
 

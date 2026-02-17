@@ -98,6 +98,12 @@
             android:screenOrientation="unspecified"
             android:exported="false" />
 
+        <activity
+            android:name=".ProfilesActivity"
+            android:exported="false"
+            android:screenOrientation="sensorPortrait"
+            android:theme="@style/Theme.AppCompat.NoActionBar" />
+
     </application>
 
 </manifest>

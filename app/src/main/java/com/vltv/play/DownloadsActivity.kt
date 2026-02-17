@@ -37,7 +37,7 @@ class DownloadsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // ✅ BOTÕES FIXOS: Removida a ocultação para que os botões do celular não sumam
+        // ✅ BOTÕES FIXOS: Mantém a barra de navegação sempre visível
         WindowCompat.setDecorFitsSystemWindows(window, true)
         
         setContentView(R.layout.activity_downloads)
@@ -150,7 +150,7 @@ class DownloadsActivity : AppCompatActivity() {
             val tvName: TextView = v.findViewById(R.id.tvDownloadName)
             val tvStatus: TextView = v.findViewById(R.id.tvDownloadPath)
             val imgCapa: ImageView? = v.findViewById(R.id.imgPoster)
-            // ✅ Referência para o seu novo ícone de celular
+            // ✅ Referência ao novo ícone transparente do XML
             val imgStatus: ImageView = v.findViewById(R.id.imgStatusDownload)
         }
 
@@ -172,7 +172,7 @@ class DownloadsActivity : AppCompatActivity() {
                 holder.itemView.isEnabled = false
                 holder.itemView.alpha = 0.5f
             } else if (item.status == "BAIXADO" || item.status == "COMPLETED") {
-                // ✅ MUDANÇA AQUI: Remove o texto e mostra o seu ícone de celular com check
+                // ✅ MOSTRA O ÍCONE DO TELEFONE E ESCONDE O TEXTO
                 holder.tvStatus.visibility = View.GONE 
                 holder.imgStatus.visibility = View.VISIBLE
                 holder.imgStatus.setImageResource(R.drawable.ic_downloaded_device)

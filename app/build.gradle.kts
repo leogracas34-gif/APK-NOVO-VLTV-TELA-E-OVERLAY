@@ -87,3 +87,6 @@ dependencies {
 
     implementation("com.google.android.flexbox:flexbox:3.0.0")
     }
+
+   // Biblioteca para carregar imagens (Glide)
+    kapt("com.github.bumptech.glide:compiler:4.16.0")

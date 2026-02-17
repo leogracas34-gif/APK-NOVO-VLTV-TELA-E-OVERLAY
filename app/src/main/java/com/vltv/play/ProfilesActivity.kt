@@ -1,90 +1,80 @@
-package com.vltv.play
+package com.vltv.play // Certifique-se de que este é o pacote correto do seu app
 
-import android.content.Intent
-import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
-import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.vltv.play.databinding.ActivityProfilesBinding
-import com.vltv.play.databinding.ItemProfileBinding
+import com.vltv.play.databinding.ActivityProfileSelectionBinding
+import com.vltv.play.databinding.ItemProfileCircleBinding
 
-// Classe de dados para organizar os perfis
-data class UserProfile(val name: String, val color: Int)
+// 1. Classe de dados para o Perfil
+data class UserProfile(val id: Int, var name: String, val imageRes: Int)
 
 class ProfilesActivity : AppCompatActivity() {
 
-    private lateinit var binding: ActivityProfilesBinding
+    private lateinit var binding: ActivityProfileSelectionBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityProfilesBinding.inflate(layoutInflater)
+        
+        // Inicializa o ViewBinding
+        binding = ActivityProfileSelectionBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Configuração do RecyclerView Horizontal para Perfis
-        binding.rvProfiles.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-
-        // Lista de perfis com cores Premium
-        val listaPerfis = listOf(
-            UserProfile("Pai", Color.parseColor("#E50914")),   // Vermelho Netflix
-            UserProfile("Mãe", Color.parseColor("#2BADEE")),   // Azul
-            UserProfile("Kids", Color.parseColor("#FFC107")),  // Amarelo
-            UserProfile("Convidado", Color.parseColor("#4CAF50")) // Verde
+        // 2. Lista com os 4 perfis que você pediu
+        val listaPerfis = mutableListOf(
+            UserProfile(1, "Perfil 1", R.drawable.ic_profile_placeholder),
+            UserProfile(2, "Perfil 2", R.drawable.ic_profile_placeholder),
+            UserProfile(3, "Perfil 3", R.drawable.ic_profile_placeholder),
+            UserProfile(4, "Perfil 4", R.drawable.ic_profile_placeholder)
         )
-        
+
+        // 3. Configura a Grade de 2 colunas
+        binding.rvProfiles.layoutManager = GridLayoutManager(this, 2)
         binding.rvProfiles.adapter = ProfileAdapter(listaPerfis)
+
+        // 4. Botão Editar Perfis (Topo Direito)
+        binding.tvEditProfiles.setOnClickListener {
+            Toast.makeText(this, "Modo Edição Ativado", Toast.LENGTH_SHORT).show()
+            // Aqui futuramente chamaremos a tela de trocar nome/foto
+        }
+
+        // 5. Botão Adicionar Perfil (Sinal de +)
+        binding.layoutAddProfile.setOnClickListener {
+            Toast.makeText(this, "Abrindo tela de novo perfil...", Toast.LENGTH_SHORT).show()
+        }
     }
 
-    inner class ProfileAdapter(private val perfis: List<UserProfile>) : RecyclerView.Adapter<ProfileAdapter.VH>() {
-        
-        inner class VH(val itemBinding: ItemProfileBinding) : RecyclerView.ViewHolder(itemBinding.root)
+    // --- ADAPTER INTERNO PARA OS CÍRCULOS ---
+    inner class ProfileAdapter(private val perfis: List<UserProfile>) : 
+        RecyclerView.Adapter<ProfileAdapter.ProfileViewHolder>() {
 
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
-            val ib = ItemProfileBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-            return VH(ib)
+        inner class ProfileViewHolder(val itemBinding: ItemProfileCircleBinding) : 
+            RecyclerView.ViewHolder(itemBinding.root)
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ProfileViewHolder {
+            val inflater = LayoutInflater.from(parent.context)
+            val itemBinding = ItemProfileCircleBinding.inflate(inflater, parent, false)
+            return ProfileViewHolder(itemBinding)
         }
 
-        override fun onBindViewHolder(holder: VH, position: Int) {
+        override fun onBindViewHolder(holder: ProfileViewHolder, position: Int) {
             val perfil = perfis[position]
-            val b = holder.itemBinding
+            
+            // Define o nome e a imagem no círculo
+            holder.itemBinding.tvProfileName.text = perfil.name
+            holder.itemBinding.ivProfileAvatar.setImageResource(perfil.imageRes)
 
-            b.tvProfileName.text = perfil.name
-            b.imgAvatar.setBackgroundColor(perfil.color)
-
-            // ✅ Efeito de Foco usando o SEU bg_button_neon.xml
-            b.root.setOnFocusChangeListener { view, hasFocus ->
-                if (hasFocus) {
-                    view.animate().scaleX(1.15f).scaleY(1.15f).setDuration(200).start()
-                    b.tvProfileName.setTextColor(Color.WHITE)
-                    
-                    b.borderFocus.visibility = View.VISIBLE
-                    b.borderFocus.setBackgroundResource(R.drawable.bg_button_neon)
-                    b.borderFocus.background?.setTint(perfil.color) // Aplica a cor neon do perfil
-                } else {
-                    view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start()
-                    b.tvProfileName.setTextColor(Color.parseColor("#888888"))
-                    b.borderFocus.visibility = View.INVISIBLE
-                }
-            }
-
-            // ✅ Lógica de Clique com Vínculo ao Botão Kids
-            b.root.setOnClickListener {
-                val intent = Intent(this@ProfilesActivity, HomeActivity::class.java)
-                intent.putExtra("PROFILE_NAME", perfil.name)
-                intent.putExtra("PROFILE_COLOR", perfil.color)
-                
-                // Se o nome for "Kids", ativa o modo automático na Home
-                val isKidsMode = perfil.name.equals("Kids", ignoreCase = true)
-                intent.putExtra("IS_KIDS_MODE", isKidsMode)
-                
-                startActivity(intent)
-                finish()
+            // Clique no Perfil para entrar
+            holder.itemBinding.root.setOnClickListener {
+                Toast.makeText(this@ProfilesActivity, "Entrando como: ${perfil.name}", Toast.LENGTH_SHORT).show()
+                // Aqui você fará o Intent para a sua HomeActivity
             }
         }
 
-        override fun getItemCount() = perfis.size
+        override fun getItemCount(): Int = perfis.size
     }
 }

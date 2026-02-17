@@ -4,8 +4,17 @@ import androidx.room.*
 import android.content.Context
 
 // ==========================================
-// 🚀 TABELAS OTIMIZADAS (COM ÍNDICES)
+// 🚀 TABELAS (ENTITIES)
 // ==========================================
+
+// ✅ NOVA TABELA DE PERFIS (TMDB)
+@Entity(tableName = "user_profiles")
+data class ProfileEntity(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    var name: String,
+    var imageUrl: String? = null,
+    val isKids: Boolean = false
+)
 
 @Entity(
     tableName = "live_streams",
@@ -109,12 +118,26 @@ data class DownloadEntity(
 )
 
 // ==========================================
-// 🚀 DAO TURBINADO
+// 🚀 DAO ATUALIZADO (INCLUINDO PERFIS)
 // ==========================================
 
 @Dao
 interface StreamDao {
     
+    // --- PERFIS (NOVO) ---
+    @Query("SELECT * FROM user_profiles")
+    suspend fun getAllProfiles(): List<ProfileEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertProfile(profile: ProfileEntity)
+
+    @Update
+    suspend fun updateProfile(profile: ProfileEntity)
+
+    @Delete
+    suspend fun deleteProfile(profile: ProfileEntity)
+
+    // --- STREAMS ---
     @Transaction 
     @Query("SELECT * FROM vod_streams ORDER BY added DESC LIMIT :limit")
     suspend fun getRecentVods(limit: Int): List<VodEntity>
@@ -184,14 +207,12 @@ interface StreamDao {
     @Query("SELECT * FROM downloads WHERE status = :status")
     suspend fun getDownloadsByStatus(status: String): List<DownloadEntity>
 
-    // ✅ ESTA É A FUNÇÃO QUE RESOLVE O PROBLEMA DO CONTADOR EM TODAS AS TELAS
-    // Ela conta apenas quem está com status "BAIXANDO" e avisa a UI instantaneamente
     @Query("SELECT COUNT(*) FROM downloads WHERE status = 'BAIXANDO'")
     fun getCountDownloadsAtivos(): androidx.lifecycle.LiveData<Int>
 }
 
 // ==========================================
-// 🚀 DATABASE ENGINE
+// 🚀 DATABASE ENGINE (VERSÃO ATUALIZADA)
 // ==========================================
 
 @Database(
@@ -202,9 +223,10 @@ interface StreamDao {
         CategoryEntity::class, 
         EpgEntity::class, 
         WatchHistoryEntity::class, 
-        DownloadEntity::class
+        DownloadEntity::class,
+        ProfileEntity::class // ✅ Adicionado
     ], 
-    version = 5, 
+    version = 6, // ✅ Aumentado de 5 para 6
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

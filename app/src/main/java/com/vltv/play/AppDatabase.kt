@@ -190,6 +190,10 @@ interface StreamDao {
     
     @Query("DELETE FROM downloads WHERE android_download_id = :downloadId")
     suspend fun deleteDownloadByAndroidId(downloadId: Long)
+
+    // ✅ FUNÇÃO ADICIONADA PARA CORRIGIR O ERRO DE COMPILAÇÃO E MONITORAR DOWNLOADS ATIVOS
+    @Query("SELECT * FROM downloads WHERE status = :status")
+    suspend fun getDownloadsByStatus(status: String): List<DownloadEntity>
 }
 
 // ==========================================

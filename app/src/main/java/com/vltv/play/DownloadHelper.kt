@@ -42,16 +42,17 @@ object DownloadHelper {
                 val nomeSeguro = nomePrincipal.replace(Regex("[^a-zA-Z0-9\\.\\-]"), "_")
                 val tipo = if (isSeries) "series" else "movie"
                 
-                // ✅ Ajuste no nome do arquivo para evitar erro de "Arquivo não encontrado"
+                // ✅ NOME ÚNICO: Adicionado System.currentTimeMillis() para evitar conflito de arquivo se baixar rápido
                 val sufixoEp = if (nomeEpisodio != null) "_${nomeEpisodio.replace(" ", "_")}" else ""
-                val nomeArquivo = "${tipo}_${streamId}${sufixoEp}_${nomeSeguro}$EXTENSAO_SEGURA"
+                val timestamp = System.currentTimeMillis()
+                val nomeArquivo = "${tipo}_${streamId}${sufixoEp}_${timestamp}$EXTENSAO_SEGURA"
 
                 val request = DownloadManager.Request(Uri.parse(url))
                     .setTitle(if (nomeEpisodio != null) "$nomePrincipal - $nomeEpisodio" else nomePrincipal)
-                    // ✅ VISIBILITY_VISIBLE: Aparece progresso e some ao terminar (Não fica preso)
                     .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
                     .setVisibleInDownloadsUi(false)
                     .setAllowedOverMetered(true)
+                    // ✅ IMPORTANTE: Deixa o Android gerenciar a criação do arquivo de forma isolada
                     .setDestinationInExternalFilesDir(context, PASTA_OCULTA, nomeArquivo)
 
                 val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
@@ -77,71 +78,77 @@ object DownloadHelper {
                     Toast.makeText(context, "Download iniciado...", Toast.LENGTH_SHORT).show()
                 }
 
-                // Chamada do monitoramento imediato
                 iniciarMonitoramento(context)
 
             } catch (e: Exception) {
                 Log.e(TAG, "Erro ao iniciar download: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Erro ao preparar download.", Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
 
     private fun iniciarMonitoramento(context: Context) {
-        // Se já estiver rodando, não criamos outro, mas garantimos que ele continue ativo
         if (progressJob?.isActive == true) return 
 
         progressJob = CoroutineScope(Dispatchers.IO).launch {
             val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             val db = AppDatabase.getDatabase(context).streamDao()
             
-            // Mantemos o loop enquanto houver algo com status BAIXANDO no seu Banco de Dados
             var continuarMonitorando = true
 
             while (continuarMonitorando) {
-                val cursor = dm.query(DownloadManager.Query())
-                var aindaTemDownloadRodandoNoAndroid = false
+                // ✅ CONSULTA DINÂMICA: Filtramos apenas pelos IDs que estão no seu banco como BAIXANDO
+                val listaNoDb = db.getDownloadsByStatus(STATE_BAIXANDO)
+                
+                if (listaNoDb.isEmpty()) {
+                    continuarMonitorando = false
+                    break
+                }
 
-                if (cursor != null && cursor.moveToFirst()) {
-                    do {
-                        val idIndex = cursor.getColumnIndex(DownloadManager.COLUMN_ID)
+                var encontrouAtivoNoAndroid = false
+
+                listaNoDb.forEach { entity ->
+                    val query = DownloadManager.Query().setFilterById(entity.android_download_id)
+                    val cursor = dm.query(query)
+
+                    if (cursor != null && cursor.moveToFirst()) {
                         val statusIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
                         val downloadedIndex = cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
                         val totalIndex = cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
 
-                        if (idIndex != -1 && statusIndex != -1) {
-                            val id = cursor.getLong(idIndex)
+                        if (statusIndex != -1) {
                             val status = cursor.getInt(statusIndex)
-                            
                             val baixado = cursor.getLong(downloadedIndex)
                             val total = cursor.getLong(totalIndex)
                             val progresso = if (total > 0) ((baixado * 100) / total).toInt() else 0
 
-                            // ✅ Atualização Assertiva baseada no status do DownloadManager
                             when (status) {
                                 DownloadManager.STATUS_RUNNING, DownloadManager.STATUS_PENDING -> {
-                                    db.updateDownloadProgress(id, STATE_BAIXANDO, progresso)
-                                    aindaTemDownloadRodandoNoAndroid = true
+                                    db.updateDownloadProgress(entity.android_download_id, STATE_BAIXANDO, progresso)
+                                    encontrouAtivoNoAndroid = true
                                 }
                                 DownloadManager.STATUS_SUCCESSFUL -> {
-                                    db.updateDownloadProgress(id, STATE_BAIXADO, 100)
+                                    db.updateDownloadProgress(entity.android_download_id, STATE_BAIXADO, 100)
                                 }
                                 DownloadManager.STATUS_FAILED -> {
-                                    db.updateDownloadProgress(id, STATE_ERRO, 0)
+                                    db.updateDownloadProgress(entity.android_download_id, STATE_ERRO, 0)
                                 }
                             }
                         }
-                    } while (cursor.moveToNext())
-                    cursor.close()
+                        cursor.close()
+                    }
                 }
 
-                // ✅ Verificação Assertiva: Conferimos no SEU banco de dados se ainda existem itens "BAIXANDO"
-                // Isso evita que o Job morra se o Android demorar a iniciar o processo
-                val ativosNoDb = db.getDownloadsByStatus(STATE_BAIXANDO)
-                if (ativosNoDb.isEmpty() && !aindaTemDownloadRodandoNoAndroid) {
-                    continuarMonitorando = false
+                if (!encontrouAtivoNoAndroid) {
+                    // Pequena pausa extra antes de encerrar para dar tempo de novos downloads entrarem
+                    delay(2000)
+                    val checagemFinal = db.getDownloadsByStatus(STATE_BAIXANDO)
+                    if (checagemFinal.isEmpty()) continuarMonitorando = false
                 }
                 
-                delay(1000) // Reduzido para 1s para ser mais "instantâneo" na UI
+                delay(1200) 
             }
         }
     }
@@ -153,7 +160,6 @@ object DownloadHelper {
                 CoroutineScope(Dispatchers.IO).launch {
                     val db = AppDatabase.getDatabase(context).streamDao()
                     db.updateDownloadProgress(id, STATE_BAIXADO, 100)
-                    // Ao terminar um, tentamos rodar o monitoramento para garantir que outros na fila sigam atualizando
                     withContext(Dispatchers.Main) {
                         iniciarMonitoramento(context)
                     }

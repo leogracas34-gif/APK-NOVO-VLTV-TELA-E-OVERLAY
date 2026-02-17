@@ -63,7 +63,6 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var nextEpisodeContainer: View
     private lateinit var tvNextEpisodeTitle: TextView
     private lateinit var btnPlayNextEpisode: Button
-    private lateinit var btnWatchCredits: Button
 
     private var player: ExoPlayer? = null
 
@@ -102,7 +101,6 @@ class PlayerActivity : AppCompatActivity() {
     private val database by lazy { AppDatabase.getDatabase(this) }
 
     private val handler = Handler(Looper.getMainLooper())
-    
     private val nextChecker = object : Runnable {
         override fun run() {
             val p = player ?: return
@@ -110,33 +108,25 @@ class PlayerActivity : AppCompatActivity() {
                 val dur = p.duration
                 val pos = p.currentPosition
                 if (dur > 0) {
-                    val remaining = dur - pos
-                    // Mostra quando faltar 20 segundos (20000ms)
-                    if (remaining <= 20000L) {
+                    val progress = pos.toFloat() / dur.toFloat()
+                    if (progress >= 0.98f) {
+                        val remaining = dur - pos
+                        val seconds = (remaining / 1000L).toInt()
+                        tvNextEpisodeTitle.text = "Próximo episódio em ${seconds}s"
+                        
                         if (nextEpisodeContainer.visibility != View.VISIBLE) {
                             nextEpisodeContainer.visibility = View.VISIBLE
                             btnPlayNextEpisode.requestFocus()
                         }
-
-                        // Lógica para encher o botão (ClipDrawable usa escala de 0 a 10000)
-                        try {
-                            val progress = ((1.0f - (remaining.toFloat() / 20000L)) * 10000).toInt()
-                            btnPlayNextEpisode.background?.level = progress.coerceIn(0, 10000)
-                        } catch (e: Exception) {
-                            Log.e("PLAYER_UI", "Erro ao atualizar progresso do botão")
-                        }
                         
                         if (remaining <= 1000L) {
                             nextEpisodeContainer.visibility = View.GONE
-                            abrirProximoEpisodio()
-                            return
                         }
                     } else {
                         nextEpisodeContainer.visibility = View.GONE
-                        btnPlayNextEpisode.background?.level = 0
                     }
                 }
-                handler.postDelayed(this, 500L)
+                handler.postDelayed(this, 1000L)
             }
         }
     }
@@ -164,17 +154,17 @@ class PlayerActivity : AppCompatActivity() {
         nextEpisodeContainer = findViewById(R.id.nextEpisodeContainer)
         tvNextEpisodeTitle = findViewById(R.id.tvNextEpisodeTitle)
         btnPlayNextEpisode = findViewById(R.id.btnPlayNextEpisode)
-        btnWatchCredits = findViewById(R.id.btnWatchCredits) // Inicialização necessária para evitar erro
 
         btnPlayNextEpisode.isFocusable = true
         btnPlayNextEpisode.isFocusableInTouchMode = true
-        btnWatchCredits.isFocusable = true
-        btnWatchCredits.isFocusableInTouchMode = true
         
+        // ✅ ALTERAÇÃO: Removido o efeito de escala (Zoom) para manter o formato original
         btnPlayNextEpisode.setOnFocusChangeListener { view, hasFocus ->
             if (hasFocus) {
-                btnPlayNextEpisode.setTextColor(Color.YELLOW)
+                view.setBackgroundResource(R.drawable.bg_focus_neon)
+                btnPlayNextEpisode.setTextColor(Color.WHITE)
             } else {
+                view.setBackgroundResource(0)
                 btnPlayNextEpisode.setTextColor(Color.WHITE)
             }
         }
@@ -233,11 +223,6 @@ class PlayerActivity : AppCompatActivity() {
             } else {
                 Toast.makeText(this, "Sem próximo episódio", Toast.LENGTH_SHORT).show()
             }
-        }
-
-        btnWatchCredits.setOnClickListener {
-            handler.removeCallbacks(nextChecker)
-            nextEpisodeContainer.visibility = View.GONE
         }
 
         if (streamType == "movie") {

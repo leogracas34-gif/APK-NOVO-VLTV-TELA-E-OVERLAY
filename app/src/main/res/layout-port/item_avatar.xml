@@ -16,4 +16,4 @@
         app:strokeColor="@color/white"
         app:strokeWidth="2dp" />
 
-</LinearLayout>
+</FrameLayout>

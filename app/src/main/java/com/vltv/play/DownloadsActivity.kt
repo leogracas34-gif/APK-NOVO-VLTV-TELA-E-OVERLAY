@@ -37,8 +37,9 @@ class DownloadsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // ✅ BOTÕES FIXOS: Mantém a barra de navegação sempre visível
-        WindowCompat.setDecorFitsSystemWindows(window, true)
+        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+        windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
         
         setContentView(R.layout.activity_downloads)
 
@@ -82,8 +83,10 @@ class DownloadsActivity : AppCompatActivity() {
         val dao = AppDatabase.getDatabase(this).streamDao()
         dao.getAllDownloads().observe(this) { listaCompleta ->
             val episodios = listaCompleta?.filter { it.name == nomeSerie } ?: emptyList()
+            
             if (episodios.isNotEmpty()) {
                 val nomesEpisodios = episodios.map { it.episode_name ?: "Episódio" }.toTypedArray()
+
                 AlertDialog.Builder(this)
                     .setTitle(nomeSerie)
                     .setItems(nomesEpisodios) { _, which ->
@@ -97,10 +100,12 @@ class DownloadsActivity : AppCompatActivity() {
 
     private fun abrirPlayerOffline(item: DownloadEntity) {
         val file = File(item.file_path)
+        
         if (!file.exists()) {
             Toast.makeText(this, "Arquivo não encontrado!", Toast.LENGTH_LONG).show()
             return
         }
+
         val intent = Intent(this, PlayerActivity::class.java).apply {
             putExtra("stream_id", item.stream_id)
             putExtra("stream_type", "vod_offline")
@@ -115,7 +120,7 @@ class DownloadsActivity : AppCompatActivity() {
     private fun confirmarExclusao(item: DownloadEntity) {
         AlertDialog.Builder(this)
             .setTitle("Excluir Download")
-            .setMessage("Deseja apagar '${item.name}'?")
+            .setMessage("Deseja apagar '${item.name}' do seu dispositivo?")
             .setPositiveButton("Apagar") { _, _ -> deletarArquivo(item) }
             .setNegativeButton("Cancelar", null)
             .show()
@@ -125,13 +130,19 @@ class DownloadsActivity : AppCompatActivity() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val file = File(item.file_path)
-                if (file.exists()) file.delete()
+                if (file.exists()) {
+                    file.delete()
+                }
+
                 val db = AppDatabase.getDatabase(applicationContext).streamDao()
                 db.deleteDownload(item.id)
+
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(applicationContext, "Excluído.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(applicationContext, "Download excluído.", Toast.LENGTH_SHORT).show()
                 }
-            } catch (e: Exception) { e.printStackTrace() }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
@@ -150,7 +161,7 @@ class DownloadsActivity : AppCompatActivity() {
             val tvName: TextView = v.findViewById(R.id.tvDownloadName)
             val tvStatus: TextView = v.findViewById(R.id.tvDownloadPath)
             val imgCapa: ImageView? = v.findViewById(R.id.imgPoster)
-            // ✅ Referência ao novo ícone transparente do XML
+            // ✅ Nova referência para o ícone do telefone
             val imgStatus: ImageView = v.findViewById(R.id.imgStatusDownload)
         }
 
@@ -172,7 +183,7 @@ class DownloadsActivity : AppCompatActivity() {
                 holder.itemView.isEnabled = false
                 holder.itemView.alpha = 0.5f
             } else if (item.status == "BAIXADO" || item.status == "COMPLETED") {
-                // ✅ MOSTRA O ÍCONE DO TELEFONE E ESCONDE O TEXTO
+                // ✅ MOSTRA O ÍCONE E ESCONDE O TEXTO
                 holder.tvStatus.visibility = View.GONE 
                 holder.imgStatus.visibility = View.VISIBLE
                 holder.imgStatus.setImageResource(R.drawable.ic_downloaded_device)

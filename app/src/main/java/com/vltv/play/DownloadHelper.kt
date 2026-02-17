@@ -38,27 +38,28 @@ object DownloadHelper {
     ) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // 1. Prepara o nome e caminho (Garantindo compatibilidade com Séries)
+                // 1. Prepara a base do nome
                 val nomeSeguro = nomePrincipal.replace(Regex("[^a-zA-Z0-9\\.\\-]"), "_")
                 val tipo = if (isSeries) "series" else "movie"
-                
-                // ✅ NOME ÚNICO: Adicionado System.currentTimeMillis() para evitar conflito de arquivo se baixar rápido
                 val sufixoEp = if (nomeEpisodio != null) "_${nomeEpisodio.replace(" ", "_")}" else ""
-                val timestamp = System.currentTimeMillis()
-                val nomeArquivo = "${tipo}_${streamId}${sufixoEp}_${timestamp}$EXTENSAO_SEGURA"
+
+                val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                
+                // ✅ NOME PREVISÍVEL E ÚNICO: Usamos um nome temporário inicial
+                val nomeArquivoProvisorio = "${tipo}_${streamId}${sufixoEp}_task${System.currentTimeMillis()}$EXTENSAO_SEGURA"
 
                 val request = DownloadManager.Request(Uri.parse(url))
                     .setTitle(if (nomeEpisodio != null) "$nomePrincipal - $nomeEpisodio" else nomePrincipal)
-                    .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
+                    // ✅ NOTIFICAÇÃO REMOVIDA: Não aparece mais no rodapé/sistema
+                    .setNotificationVisibility(DownloadManager.Request.VISIBILITY_HIDDEN)
                     .setVisibleInDownloadsUi(false)
                     .setAllowedOverMetered(true)
-                    // ✅ IMPORTANTE: Deixa o Android gerenciar a criação do arquivo de forma isolada
-                    .setDestinationInExternalFilesDir(context, PASTA_OCULTA, nomeArquivo)
+                    .setDestinationInExternalFilesDir(context, PASTA_OCULTA, nomeArquivoProvisorio)
 
-                val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
                 val downloadId = dm.enqueue(request)
 
-                val file = File(context.getExternalFilesDir(PASTA_OCULTA), nomeArquivo)
+                // ✅ CAMINHO FINAL: O arquivo físico que a DownloadsActivity vai procurar
+                val file = File(context.getExternalFilesDir(PASTA_OCULTA), nomeArquivoProvisorio)
 
                 val entity = DownloadEntity(
                     android_download_id = downloadId,
@@ -82,9 +83,6 @@ object DownloadHelper {
 
             } catch (e: Exception) {
                 Log.e(TAG, "Erro ao iniciar download: ${e.message}")
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Erro ao preparar download.", Toast.LENGTH_SHORT).show()
-                }
             }
         }
     }
@@ -99,7 +97,6 @@ object DownloadHelper {
             var continuarMonitorando = true
 
             while (continuarMonitorando) {
-                // ✅ CONSULTA DINÂMICA: Filtramos apenas pelos IDs que estão no seu banco como BAIXANDO
                 val listaNoDb = db.getDownloadsByStatus(STATE_BAIXANDO)
                 
                 if (listaNoDb.isEmpty()) {
@@ -142,7 +139,6 @@ object DownloadHelper {
                 }
 
                 if (!encontrouAtivoNoAndroid) {
-                    // Pequena pausa extra antes de encerrar para dar tempo de novos downloads entrarem
                     delay(2000)
                     val checagemFinal = db.getDownloadsByStatus(STATE_BAIXANDO)
                     if (checagemFinal.isEmpty()) continuarMonitorando = false

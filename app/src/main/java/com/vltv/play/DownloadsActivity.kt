@@ -37,9 +37,8 @@ class DownloadsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
-        windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
+        // ✅ BOTÕES FIXOS: Removida a ocultação para que os botões do celular não sumam
+        WindowCompat.setDecorFitsSystemWindows(window, true)
         
         setContentView(R.layout.activity_downloads)
 
@@ -81,14 +80,10 @@ class DownloadsActivity : AppCompatActivity() {
 
     private fun mostrarEpisodiosDaSerie(nomeSerie: String) {
         val dao = AppDatabase.getDatabase(this).streamDao()
-        
-        // ✅ CORREÇÃO AQUI: Usando Lambda { lista -> ... } para evitar erro de compilação onChanged
         dao.getAllDownloads().observe(this) { listaCompleta ->
             val episodios = listaCompleta?.filter { it.name == nomeSerie } ?: emptyList()
-            
             if (episodios.isNotEmpty()) {
                 val nomesEpisodios = episodios.map { it.episode_name ?: "Episódio" }.toTypedArray()
-
                 AlertDialog.Builder(this)
                     .setTitle(nomeSerie)
                     .setItems(nomesEpisodios) { _, which ->
@@ -96,20 +91,16 @@ class DownloadsActivity : AppCompatActivity() {
                     }
                     .show()
             }
-            
-            // Remove para não disparar novamente ao abrir o player
             dao.getAllDownloads().removeObservers(this)
         }
     }
 
     private fun abrirPlayerOffline(item: DownloadEntity) {
         val file = File(item.file_path)
-        
         if (!file.exists()) {
-            Toast.makeText(this, "Arquivo não encontrado! Talvez tenha sido apagado.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Arquivo não encontrado!", Toast.LENGTH_LONG).show()
             return
         }
-
         val intent = Intent(this, PlayerActivity::class.java).apply {
             putExtra("stream_id", item.stream_id)
             putExtra("stream_type", "vod_offline")
@@ -124,7 +115,7 @@ class DownloadsActivity : AppCompatActivity() {
     private fun confirmarExclusao(item: DownloadEntity) {
         AlertDialog.Builder(this)
             .setTitle("Excluir Download")
-            .setMessage("Deseja apagar '${item.name}' do seu dispositivo?")
+            .setMessage("Deseja apagar '${item.name}'?")
             .setPositiveButton("Apagar") { _, _ -> deletarArquivo(item) }
             .setNegativeButton("Cancelar", null)
             .show()
@@ -134,19 +125,13 @@ class DownloadsActivity : AppCompatActivity() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val file = File(item.file_path)
-                if (file.exists()) {
-                    file.delete()
-                }
-
+                if (file.exists()) file.delete()
                 val db = AppDatabase.getDatabase(applicationContext).streamDao()
                 db.deleteDownload(item.id)
-
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(applicationContext, "Download excluído.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(applicationContext, "Excluído.", Toast.LENGTH_SHORT).show()
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+            } catch (e: Exception) { e.printStackTrace() }
         }
     }
 
@@ -165,6 +150,8 @@ class DownloadsActivity : AppCompatActivity() {
             val tvName: TextView = v.findViewById(R.id.tvDownloadName)
             val tvStatus: TextView = v.findViewById(R.id.tvDownloadPath)
             val imgCapa: ImageView? = v.findViewById(R.id.imgPoster)
+            // ✅ Referência para o seu novo ícone de celular
+            val imgStatus: ImageView = v.findViewById(R.id.imgStatusDownload)
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
@@ -178,16 +165,23 @@ class DownloadsActivity : AppCompatActivity() {
             holder.tvName.text = item.name
 
             if (item.status == "BAIXANDO" || item.status == "DOWNLOADING") {
+                holder.tvStatus.visibility = View.VISIBLE
+                holder.imgStatus.visibility = View.GONE
                 holder.tvStatus.text = "Baixando... ${item.progress}%"
                 holder.tvStatus.setTextColor(android.graphics.Color.YELLOW)
                 holder.itemView.isEnabled = false
                 holder.itemView.alpha = 0.5f
             } else if (item.status == "BAIXADO" || item.status == "COMPLETED") {
-                holder.tvStatus.text = "📱 No dispositivo"
-                holder.tvStatus.setTextColor(android.graphics.Color.parseColor("#A6FFFFFF"))
+                // ✅ MUDANÇA AQUI: Remove o texto e mostra o seu ícone de celular com check
+                holder.tvStatus.visibility = View.GONE 
+                holder.imgStatus.visibility = View.VISIBLE
+                holder.imgStatus.setImageResource(R.drawable.ic_downloaded_device)
+                
                 holder.itemView.isEnabled = true
                 holder.itemView.alpha = 1.0f
             } else {
+                holder.imgStatus.visibility = View.GONE
+                holder.tvStatus.visibility = View.VISIBLE
                 holder.tvStatus.text = "Falha no download"
                 holder.tvStatus.setTextColor(android.graphics.Color.RED)
                 holder.itemView.isEnabled = true
@@ -196,17 +190,13 @@ class DownloadsActivity : AppCompatActivity() {
             holder.imgCapa?.let { img ->
                 Glide.with(holder.itemView.context)
                     .load(item.image_url)
-                    .placeholder(android.R.drawable.ic_menu_gallery)
                     .centerCrop()
                     .diskCacheStrategy(DiskCacheStrategy.ALL)
                     .into(img)
             }
 
             holder.itemView.setOnClickListener { onClick(item) }
-            holder.itemView.setOnLongClickListener { 
-                onLongClick(item)
-                true
-            }
+            holder.itemView.setOnLongClickListener { onLongClick(item); true }
             
             holder.itemView.setOnFocusChangeListener { v, hasFocus ->
                 if (hasFocus) {

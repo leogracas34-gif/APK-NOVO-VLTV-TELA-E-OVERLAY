@@ -7,7 +7,6 @@ import android.content.Context
 // 🚀 TABELAS OTIMIZADAS (COM ÍNDICES)
 // ==========================================
 
-// Adicionado index em category_id e name para filtros rápidos
 @Entity(
     tableName = "live_streams",
     indices = [
@@ -23,7 +22,6 @@ data class LiveStreamEntity(
     val category_id: String
 )
 
-// Index turbo: Busca rápida por Categoria, Nome e Data de Adição
 @Entity(
     tableName = "vod_streams", 
     indices = [
@@ -44,7 +42,6 @@ data class VodEntity(
     val logo_url: String? = null
 )
 
-// Index turbo: Busca rápida por Categoria e Modificação
 @Entity(
     tableName = "series_streams", 
     indices = [
@@ -66,7 +63,7 @@ data class SeriesEntity(
 @Entity(
     tableName = "watch_history", 
     primaryKeys = ["stream_id", "profile_name"],
-    indices = [Index(value = ["timestamp"])] // Para ordenar histórico instantaneamente
+    indices = [Index(value = ["timestamp"])]
 )
 data class WatchHistoryEntity(
     val stream_id: Int,
@@ -118,8 +115,6 @@ data class DownloadEntity(
 @Dao
 interface StreamDao {
     
-    // --- BUSCAS HOME (ULTRA RÁPIDAS) ---
-    // Transaction evita travar a thread principal em leituras grandes
     @Transaction 
     @Query("SELECT * FROM vod_streams ORDER BY added DESC LIMIT :limit")
     suspend fun getRecentVods(limit: Int): List<VodEntity>
@@ -131,15 +126,12 @@ interface StreamDao {
     @Query("SELECT * FROM series_streams ORDER BY last_modified DESC LIMIT :limit")
     suspend fun getRecentSeries(limit: Int): List<SeriesEntity>
 
-    // --- BUSCAS DE PESQUISA (OTIMIZADAS) ---
-    // LIKE é pesado, mas com LIMIT ajuda a não explodir a memória
     @Query("SELECT * FROM live_streams WHERE name LIKE '%' || :query || '%' LIMIT 100")
     suspend fun searchLive(query: String): List<LiveStreamEntity>
 
     @Query("SELECT * FROM vod_streams WHERE name LIKE '%' || :query || '%' LIMIT 100")
     suspend fun searchVod(query: String): List<VodEntity>
 
-    // --- INSERTS EM LOTE (USE @Transaction para ser atômico e rápido) ---
     @Transaction
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertLiveStreams(streams: List<LiveStreamEntity>)
@@ -158,14 +150,12 @@ interface StreamDao {
     @Query("DELETE FROM live_streams")
     suspend fun clearLive()
 
-    // --- LOGOS & UPDATES ---
     @Query("UPDATE series_streams SET logo_url = :logoUrl WHERE series_id = :id")
     suspend fun updateSeriesLogo(id: Int, logoUrl: String)
 
     @Query("UPDATE vod_streams SET logo_url = :logoUrl WHERE stream_id = :id")
     suspend fun updateVodLogo(id: Int, logoUrl: String)
 
-    // --- HISTÓRICO ---
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveWatchHistory(history: WatchHistoryEntity)
 
@@ -191,9 +181,13 @@ interface StreamDao {
     @Query("DELETE FROM downloads WHERE android_download_id = :downloadId")
     suspend fun deleteDownloadByAndroidId(downloadId: Long)
 
-    // ✅ FUNÇÃO ADICIONADA PARA CORRIGIR O ERRO DE COMPILAÇÃO E MONITORAR DOWNLOADS ATIVOS
     @Query("SELECT * FROM downloads WHERE status = :status")
     suspend fun getDownloadsByStatus(status: String): List<DownloadEntity>
+
+    // ✅ ESTA É A FUNÇÃO QUE RESOLVE O PROBLEMA DO CONTADOR EM TODAS AS TELAS
+    // Ela conta apenas quem está com status "BAIXANDO" e avisa a UI instantaneamente
+    @Query("SELECT COUNT(*) FROM downloads WHERE status = 'BAIXANDO'")
+    fun getCountDownloadsAtivos(): androidx.lifecycle.LiveData<Int>
 }
 
 // ==========================================
@@ -210,7 +204,7 @@ interface StreamDao {
         WatchHistoryEntity::class, 
         DownloadEntity::class
     ], 
-    version = 5, // ⚠️ SUBI A VERSÃO PARA FORÇAR A RECRIACÃO DOS ÍNDICES
+    version = 5, 
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -227,11 +221,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "vltv_play_db"
                 )
-                // ⚠️ Destroi e recria o banco se mudar a estrutura (Bom para performance limpa)
                 .fallbackToDestructiveMigration() 
-                
-                // 🚀 O SEGREDO DA VELOCIDADE: Write-Ahead Logging
-                // Permite leitura e escrita simultânea (Não trava a tela enquanto salva filmes)
                 .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
                 .build()
                 

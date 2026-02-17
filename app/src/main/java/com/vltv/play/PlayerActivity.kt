@@ -119,8 +119,12 @@ class PlayerActivity : AppCompatActivity() {
                         }
 
                         // Lógica para encher o botão (ClipDrawable usa escala de 0 a 10000)
-                        val progress = ((1.0f - (remaining.toFloat() / 20000L)) * 10000).toInt()
-                        btnPlayNextEpisode.background?.level = progress.coerceIn(0, 10000)
+                        try {
+                            val progress = ((1.0f - (remaining.toFloat() / 20000L)) * 10000).toInt()
+                            btnPlayNextEpisode.background?.level = progress.coerceIn(0, 10000)
+                        } catch (e: Exception) {
+                            Log.e("PLAYER_UI", "Erro ao atualizar progresso do botão")
+                        }
                         
                         if (remaining <= 1000L) {
                             nextEpisodeContainer.visibility = View.GONE

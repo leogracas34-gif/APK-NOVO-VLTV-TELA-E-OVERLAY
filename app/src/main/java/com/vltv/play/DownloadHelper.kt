@@ -77,6 +77,7 @@ object DownloadHelper {
                     Toast.makeText(context, "Download iniciado...", Toast.LENGTH_SHORT).show()
                 }
 
+                // Chamada do monitoramento imediato
                 iniciarMonitoramento(context)
 
             } catch (e: Exception) {
@@ -86,16 +87,19 @@ object DownloadHelper {
     }
 
     private fun iniciarMonitoramento(context: Context) {
+        // Se já estiver rodando, não criamos outro, mas garantimos que ele continue ativo
         if (progressJob?.isActive == true) return 
 
         progressJob = CoroutineScope(Dispatchers.IO).launch {
             val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             val db = AppDatabase.getDatabase(context).streamDao()
-            var downloadsAtivos = true
+            
+            // Mantemos o loop enquanto houver algo com status BAIXANDO no seu Banco de Dados
+            var continuarMonitorando = true
 
-            while (downloadsAtivos) {
+            while (continuarMonitorando) {
                 val cursor = dm.query(DownloadManager.Query())
-                var encontrouAtivo = false
+                var aindaTemDownloadRodandoNoAndroid = false
 
                 if (cursor != null && cursor.moveToFirst()) {
                     do {
@@ -112,24 +116,32 @@ object DownloadHelper {
                             val total = cursor.getLong(totalIndex)
                             val progresso = if (total > 0) ((baixado * 100) / total).toInt() else 0
 
-                            if (status == DownloadManager.STATUS_RUNNING) {
-                                db.updateDownloadProgress(id, STATE_BAIXANDO, progresso)
-                                encontrouAtivo = true
-                            } else if (status == DownloadManager.STATUS_SUCCESSFUL) {
-                                db.updateDownloadProgress(id, STATE_BAIXADO, 100)
-                            } else if (status == DownloadManager.STATUS_FAILED) {
-                                db.updateDownloadProgress(id, STATE_ERRO, 0)
+                            // ✅ Atualização Assertiva baseada no status do DownloadManager
+                            when (status) {
+                                DownloadManager.STATUS_RUNNING, DownloadManager.STATUS_PENDING -> {
+                                    db.updateDownloadProgress(id, STATE_BAIXANDO, progresso)
+                                    aindaTemDownloadRodandoNoAndroid = true
+                                }
+                                DownloadManager.STATUS_SUCCESSFUL -> {
+                                    db.updateDownloadProgress(id, STATE_BAIXADO, 100)
+                                }
+                                DownloadManager.STATUS_FAILED -> {
+                                    db.updateDownloadProgress(id, STATE_ERRO, 0)
+                                }
                             }
                         }
                     } while (cursor.moveToNext())
                     cursor.close()
                 }
 
-                if (!encontrouAtivo) {
-                    downloadsAtivos = false 
+                // ✅ Verificação Assertiva: Conferimos no SEU banco de dados se ainda existem itens "BAIXANDO"
+                // Isso evita que o Job morra se o Android demorar a iniciar o processo
+                val ativosNoDb = db.getDownloadsByStatus(STATE_BAIXANDO)
+                if (ativosNoDb.isEmpty() && !aindaTemDownloadRodandoNoAndroid) {
+                    continuarMonitorando = false
                 }
                 
-                delay(1500) 
+                delay(1000) // Reduzido para 1s para ser mais "instantâneo" na UI
             }
         }
     }
@@ -141,6 +153,10 @@ object DownloadHelper {
                 CoroutineScope(Dispatchers.IO).launch {
                     val db = AppDatabase.getDatabase(context).streamDao()
                     db.updateDownloadProgress(id, STATE_BAIXADO, 100)
+                    // Ao terminar um, tentamos rodar o monitoramento para garantir que outros na fila sigam atualizando
+                    withContext(Dispatchers.Main) {
+                        iniciarMonitoramento(context)
+                    }
                 }
             }
         }

@@ -77,7 +77,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp"
+        android:padding="12dp"
         android:background="#CC000000"
         android:visibility="gone"
         android:descendantFocusability="afterDescendants"
@@ -89,44 +89,26 @@
             android:id="@+id/tvNextEpisodeTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Próximo episódio"
+            android:text="Próximo episódio em 60s"
             android:textColor="#FFFFFF"
             android:textSize="14sp"
-            android:layout_marginBottom="12dp"
             android:textStyle="bold" />
 
-        <LinearLayout
+        <Button
+            android:id="@+id/btnPlayNextEpisode"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <Button
-                android:id="@+id/btnWatchCredits"
-                android:layout_width="wrap_content"
-                android:layout_height="48dp"
-                android:text="Créditos"
-                android:textAllCaps="false"
-                android:textColor="#FFFFFF"
-                android:layout_marginEnd="8dp"
-                android:backgroundTint="#44FFFFFF"
-                android:focusable="true"
-                android:focusableInTouchMode="true"
-                style="@style/Widget.AppCompat.Button.Colored"/>
-
-            <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/btnPlayNextEpisode"
-                android:layout_width="wrap_content"
-                android:layout_height="48dp"
-                android:text="Próximo"
-                android:textAllCaps="false"
-                android:textColor="#FFFFFF"
-                android:background="@drawable/bg_progress_button"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:focusable="true"
-                android:focusableInTouchMode="true"/>
-
-        </LinearLayout>
+            android:layout_marginTop="8dp"
+            android:text="Ir para o próximo"
+            android:textAllCaps="false"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#D32F2F"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:nextFocusUp="@id/btnPlayNextEpisode"
+            android:nextFocusDown="@id/btnPlayNextEpisode"
+            android:nextFocusLeft="@id/btnPlayNextEpisode"
+            android:nextFocusRight="@id/btnPlayNextEpisode"/>
     </LinearLayout>
 
     <ProgressBar

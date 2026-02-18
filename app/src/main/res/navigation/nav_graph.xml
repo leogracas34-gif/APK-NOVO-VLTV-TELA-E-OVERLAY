@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/nav_home">
+
+    <fragment
+        android:id="@+id/nav_home"
+        android:name="com.vltv.play.ui.home.HomeFragment"
+        android:label="Início"
+        tools:layout="@layout/fragment_home" />
+
+    <fragment
+        android:id="@+id/nav_search"
+        android:name="com.vltv.play.ui.search.SearchFragment"
+        android:label="Buscar"
+        tools:layout="@layout/fragment_search" />
+
+    <fragment
+        android:id="@+id/nav_downloads"
+        android:name="com.vltv.play.ui.downloads.DownloadsFragment"
+        android:label="Downloads"
+        tools:layout="@layout/fragment_downloads" />
+
+    <fragment
+        android:id="@+id/nav_profile"
+        android:name="com.vltv.play.ui.profile.ProfileFragment"
+        android:label="Meu Perfil"
+        tools:layout="@layout/fragment_profile" />
+
+</navigation>

@@ -7,13 +7,20 @@ import retrofit2.http.GET
 import retrofit2.http.Query
 
 // Modelo para receber a resposta do TMDB
+// Alterado para suportar posters de filmes (personagens)
 data class TmdbResponse(val results: List<TmdbPerson>)
-data class TmdbPerson(val name: String, val profile_path: String?)
+data class TmdbPerson(val title: String?, val poster_path: String?) {
+    // Mantemos o nome original da variável no Adapter para não quebrar seu código
+    val name: String get() = title ?: ""
+    val profile_path: String? get() = poster_path
+}
 
 interface TmdbApi {
-    @GET("person/popular")
+    // Alterado para buscar filmes/personagens em vez de atores
+    @GET("search/movie")
     suspend fun getPopularPeople(
         @Query("api_key") apiKey: String,
+        @Query("query") query: String = "Avengers", // Termo de busca
         @Query("language") language: String = "pt-BR",
         @Query("page") page: Int = 1
     ): TmdbResponse

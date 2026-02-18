@@ -49,16 +49,21 @@ class AvatarSelectionDialog(
 
                 val todosOsResultados = mutableListOf<TmdbPerson>()
 
-                // Fazemos a busca para cada termo e juntamos tudo
+                // Otimização de Carregamento: Agora usamos async para buscar tudo em paralelo
                 withContext(Dispatchers.IO) {
-                    personagens.forEach { termo ->
-                        try {
-                            // Aqui corrigimos o erro: agora passamos a 'apiKey' e o 'termo' (query)
-                            val response = TmdbClient.api.getPopularPeople(apiKey, termo)
-                            todosOsResultados.addAll(response.results)
-                        } catch (e: Exception) {
-                            e.printStackTrace() 
+                    val buscas = personagens.map { termo ->
+                        async {
+                            try {
+                                TmdbClient.api.getPopularPeople(apiKey, termo).results
+                            } catch (e: Exception) {
+                                emptyList<TmdbPerson>()
+                            }
                         }
+                    }
+                    
+                    // Aguarda todas as buscas terminarem juntas e junta os resultados
+                    buscas.forEach { deferred ->
+                        todosOsResultados.addAll(deferred.await())
                     }
                 }
                 

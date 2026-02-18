@@ -5,6 +5,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
 import retrofit2.http.Query
+import java.util.concurrent.TimeUnit
 
 // Modelo para receber a resposta do TMDB
 data class TmdbResponse(val results: List<TmdbPerson>)
@@ -26,9 +27,15 @@ interface TmdbApi {
 
 object TmdbClient {
     private const val BASE_URL = "https://api.themoviedb.org/3/"
-    private const val IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w185" // Aumentei para w185 para as fotos não ficarem embaçadas
+    private const val IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w185" // Mantido w185 para nitidez e velocidade
 
-    private val okHttpClient = OkHttpClient.Builder().build()
+    // Ajustado OkHttpClient para ser mais robusto e evitar falhas de conexão
+    private val okHttpClient = OkHttpClient.Builder()
+        .connectTimeout(30, TimeUnit.SECONDS) // Aumenta tempo de conexão
+        .readTimeout(30, TimeUnit.SECONDS)    // Aumenta tempo de leitura
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(true)       // Tenta reconectar automaticamente se falhar
+        .build()
 
     val api: TmdbApi by lazy {
         Retrofit.Builder()

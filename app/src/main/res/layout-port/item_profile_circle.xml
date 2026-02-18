@@ -16,8 +16,7 @@
         android:layout_height="110dp"
         android:scaleType="centerCrop"
         android:src="@drawable/ic_profile_placeholder"
-        app:strokeColor="#FFFFFF"
-        app:strokeWidth="2dp"
+        app:strokeWidth="0dp"
         app:shapeAppearanceOverlay="@style/CircleImage" />
 
     <TextView
@@ -25,9 +24,12 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Nome do Perfil"
-        android:textColor="#FFFFFF"
-        android:textSize="15sp"
-        android:layout_marginTop="10dp"
-        android:textStyle="normal" />
+        android:textColor="#E1E1E1"
+        android:textSize="16sp"
+        android:layout_marginTop="12dp"
+        android:fontFamily="sans-serif-medium"
+        android:textStyle="bold"
+        android:letterSpacing="0.03"
+        android:lineSpacingExtra="2dp" />
 
 </LinearLayout>

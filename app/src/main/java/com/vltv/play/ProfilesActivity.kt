@@ -62,27 +62,41 @@ class ProfilesActivity : AppCompatActivity() {
     private fun loadProfilesFromDb() {
         lifecycleScope.launch {
             val perfis = withContext(Dispatchers.IO) { db.streamDao().getAllProfiles() }
-            listaPerfis.clear()
-            listaPerfis.addAll(perfis)
             
-            if (listaPerfis.isEmpty()) {
+            // CORREÇÃO: Verificamos se está vazio antes de tentar criar
+            if (perfis.isEmpty()) {
                 createDefaultProfiles()
             } else {
+                listaPerfis.clear()
+                listaPerfis.addAll(perfis)
                 adapter.notifyDataSetChanged()
             }
         }
     }
 
     private suspend fun createDefaultProfiles() {
-        // Agora os perfis padrão já nascem com a imagem definida
+        // CORREÇÃO: Nomes alterados conforme solicitado e apenas 2 itens na lista
         val padrao = listOf(
-            ProfileEntity(name = "Perfil 1", imageUrl = defaultAvatarUrl),
-            ProfileEntity(name = "Perfil 2", imageUrl = defaultAvatarUrl)
+            ProfileEntity(name = "Meu Perfil 1", imageUrl = defaultAvatarUrl),
+            ProfileEntity(name = "Meu Perfil 2", imageUrl = defaultAvatarUrl)
         )
+        
         withContext(Dispatchers.IO) {
-            padrao.forEach { db.streamDao().insertProfile(it) }
+            // TRAVA DE SEGURANÇA: Checa novamente dentro da Coroutine se o banco está vazio
+            // Isso evita que o Android crie 4 perfis se a função for chamada rápido demais
+            val checagem = db.streamDao().getAllProfiles()
+            if (checagem.isEmpty()) {
+                padrao.forEach { db.streamDao().insertProfile(it) }
+            }
         }
-        loadProfilesFromDb()
+        
+        // CORREÇÃO: Em vez de chamar loadProfilesFromDb() e gerar loop, atualizamos a lista aqui
+        val perfisCriados = withContext(Dispatchers.IO) { db.streamDao().getAllProfiles() }
+        listaPerfis.clear()
+        listaPerfis.addAll(perfisCriados)
+        withContext(Dispatchers.Main) {
+            adapter.notifyDataSetChanged()
+        }
     }
 
     private fun addNewProfile() {
@@ -96,7 +110,9 @@ class ProfilesActivity : AppCompatActivity() {
                     lifecycleScope.launch(Dispatchers.IO) {
                         // Novo perfil também já nasce com o avatar padrão aqui
                         db.streamDao().insertProfile(ProfileEntity(name = nome, imageUrl = defaultAvatarUrl))
-                        loadProfilesFromDb()
+                        withContext(Dispatchers.Main) {
+                            loadProfilesFromDb()
+                        }
                     }
                 }
             }
@@ -144,14 +160,18 @@ class ProfilesActivity : AppCompatActivity() {
     private fun updateProfileInDb(perfil: ProfileEntity) {
         lifecycleScope.launch(Dispatchers.IO) {
             db.streamDao().updateProfile(perfil)
-            loadProfilesFromDb()
+            withContext(Dispatchers.Main) {
+                loadProfilesFromDb()
+            }
         }
     }
 
     private fun deleteProfile(perfil: ProfileEntity) {
         lifecycleScope.launch(Dispatchers.IO) {
             db.streamDao().deleteProfile(perfil)
-            loadProfilesFromDb()
+            withContext(Dispatchers.Main) {
+                loadProfilesFromDb()
+            }
         }
     }
 

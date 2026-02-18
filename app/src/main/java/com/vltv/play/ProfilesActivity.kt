@@ -1,5 +1,6 @@
 package com.vltv.play
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.ViewGroup
@@ -7,70 +8,157 @@ import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
+import com.vltv.play.data.AppDatabase
+import com.vltv.play.data.ProfileEntity
 import com.vltv.play.databinding.ActivityProfileSelectionBinding
 import com.vltv.play.databinding.ItemProfileCircleBinding
-
-data class UserProfile(val id: Int, var name: String, val imageRes: Int)
+import com.vltv.play.ui.AvatarSelectionDialog
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class ProfilesActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityProfileSelectionBinding
-    private var isEditMode = false // Controla se estamos editando ou entrando
+    private var isEditMode = false
     private lateinit var adapter: ProfileAdapter
+    private val db by lazy { AppDatabase.getDatabase(this) }
+    private val listaPerfis = mutableListOf<ProfileEntity>()
+
+    // Pegue sua chave do seu arquivo TmdbConfig
+    private val tmdbApiKey = "9b73f5dd15b8165b1b57419be2f29128" 
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityProfileSelectionBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        val listaPerfis = mutableListOf(
-            UserProfile(1, "Perfil 1", R.drawable.ic_profile_placeholder),
-            UserProfile(2, "Perfil 2", R.drawable.ic_profile_placeholder),
-            UserProfile(3, "Perfil 3", R.drawable.ic_profile_placeholder),
-            UserProfile(4, "Perfil 4", R.drawable.ic_profile_placeholder)
-        )
+        setupRecyclerView()
+        loadProfilesFromDb()
 
-        adapter = ProfileAdapter(listaPerfis)
-        binding.rvProfiles.layoutManager = GridLayoutManager(this, 2)
-        binding.rvProfiles.adapter = adapter
-
-        // Lógica do botão EDITAR PERFIS
+        // Botão EDITAR / CONCLUÍDO
         binding.tvEditProfiles.setOnClickListener {
-            isEditMode = !isEditMode // Inverte o estado
+            isEditMode = !isEditMode
             binding.tvEditProfiles.text = if (isEditMode) "CONCLUÍDO" else "EDITAR PERFIS"
-            adapter.notifyDataSetChanged() // Avisa a lista para mudar o comportamento
+            adapter.notifyDataSetChanged()
         }
 
+        // Botão ADICIONAR PERFIL (+)
         binding.layoutAddProfile.setOnClickListener {
-            Toast.makeText(this, "Adicionar novo perfil", Toast.LENGTH_SHORT).show()
+            addNewProfile()
         }
     }
 
-    // Função para mostrar o diálogo de edição de nome
-    private fun showEditDialog(perfil: UserProfile, position: Int) {
-        val input = EditText(this)
-        input.setText(perfil.name)
+    private fun setupRecyclerView() {
+        adapter = ProfileAdapter(listaPerfis)
+        binding.rvProfiles.layoutManager = GridLayoutManager(this, 2)
+        binding.rvProfiles.adapter = adapter
+    }
 
+    private fun loadProfilesFromDb() {
+        lifecycleScope.launch {
+            val perfis = withContext(Dispatchers.IO) { db.streamDao().getAllProfiles() }
+            listaPerfis.clear()
+            listaPerfis.addAll(perfis)
+            
+            // Se o banco estiver vazio (primeiro acesso), cria perfis padrão
+            if (listaPerfis.isEmpty()) {
+                createDefaultProfiles()
+            } else {
+                adapter.notifyDataSetChanged()
+            }
+        }
+    }
+
+    private suspend fun createDefaultProfiles() {
+        val padrao = listOf(
+            ProfileEntity(name = "Perfil 1"),
+            ProfileEntity(name = "Perfil 2")
+        )
+        withContext(Dispatchers.IO) {
+            padrao.forEach { db.streamDao().insertProfile(it) }
+        }
+        loadProfilesFromDb()
+    }
+
+    private fun addNewProfile() {
+        val input = EditText(this)
         AlertDialog.Builder(this)
-            .setTitle("Editar Nome")
+            .setTitle("Novo Perfil")
             .setView(input)
-            .setPositiveButton("Salvar") { _, _ ->
-                val novoNome = input.text.toString()
-                if (novoNome.isNotEmpty()) {
-                    perfil.name = novoNome
-                    adapter.notifyItemChanged(position)
+            .setPositiveButton("Adicionar") { _, _ ->
+                val nome = input.text.toString()
+                if (nome.isNotEmpty()) {
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        db.streamDao().insertProfile(ProfileEntity(name = nome))
+                        loadProfilesFromDb()
+                    }
                 }
             }
             .setNegativeButton("Cancelar", null)
             .show()
     }
 
-    inner class ProfileAdapter(private val perfis: List<UserProfile>) : 
+    // --- DIÁLOGO DE EDIÇÃO (NOME E AVATAR) ---
+    private fun showEditOptions(perfil: ProfileEntity) {
+        val options = arrayOf("Editar Nome", "Trocar Avatar (Personagens)", "Excluir Perfil")
+        AlertDialog.Builder(this)
+            .setTitle("O que deseja fazer?")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> editProfileName(perfil)
+                    1 -> openAvatarSelection(perfil)
+                    2 -> deleteProfile(perfil)
+                }
+            }
+            .show()
+    }
+
+    private fun editProfileName(perfil: ProfileEntity) {
+        val input = EditText(this)
+        input.setText(perfil.name)
+        AlertDialog.Builder(this)
+            .setTitle("Editar Nome")
+            .setView(input)
+            .setPositiveButton("Salvar") { _, _ ->
+                perfil.name = input.text.toString()
+                updateProfileInDb(perfil)
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    private fun openAvatarSelection(perfil: ProfileEntity) {
+        val dialog = AvatarSelectionDialog(this, tmdbApiKey) { imageUrl ->
+            perfil.imageUrl = imageUrl
+            updateProfileInDb(perfil)
+        }
+        dialog.show()
+    }
+
+    private fun updateProfileInDb(perfil: ProfileEntity) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            db.streamDao().updateProfile(perfil)
+            loadProfilesFromDb()
+        }
+    }
+
+    private fun deleteProfile(perfil: ProfileEntity) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            db.streamDao().deleteProfile(perfil)
+            loadProfilesFromDb()
+        }
+    }
+
+    // --- ADAPTER ---
+    inner class ProfileAdapter(private val perfis: List<ProfileEntity>) :
         RecyclerView.Adapter<ProfileAdapter.ProfileViewHolder>() {
 
-        inner class ProfileViewHolder(val itemBinding: ItemProfileCircleBinding) : 
+        inner class ProfileViewHolder(val itemBinding: ItemProfileCircleBinding) :
             RecyclerView.ViewHolder(itemBinding.root)
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ProfileViewHolder {
@@ -81,20 +169,27 @@ class ProfilesActivity : AppCompatActivity() {
         override fun onBindViewHolder(holder: ProfileViewHolder, position: Int) {
             val perfil = perfis[position]
             holder.itemBinding.tvProfileName.text = perfil.name
-            holder.itemBinding.ivProfileAvatar.setImageResource(perfil.imageRes)
 
-            // Se estiver no modo edição, mudamos a cor da borda ou mostramos um aviso visual
-            if (isEditMode) {
-                holder.itemBinding.ivProfileAvatar.setStrokeColorResource(android.R.color.holo_blue_light)
-            } else {
-                holder.itemBinding.ivProfileAvatar.setStrokeColorResource(android.R.color.white)
-            }
+            // Carrega imagem do TMDB ou Placeholder
+            Glide.with(this@ProfilesActivity)
+                .load(perfil.imageUrl ?: R.drawable.ic_profile_placeholder)
+                .circleCrop()
+                .into(holder.itemBinding.ivProfileAvatar)
+
+            holder.itemBinding.ivProfileAvatar.setStrokeColorResource(
+                if (isEditMode) android.R.color.holo_orange_light else android.R.color.white
+            )
 
             holder.itemBinding.root.setOnClickListener {
                 if (isEditMode) {
-                    showEditDialog(perfil, position)
+                    showEditOptions(perfil)
                 } else {
+                    // ✅ AQUI VAI PARA A HOME
                     Toast.makeText(this@ProfilesActivity, "Entrando como: ${perfil.name}", Toast.LENGTH_SHORT).show()
+                    val intent = Intent(this@ProfilesActivity, HomeActivity::class.java)
+                    intent.putExtra("PROFILE_NAME", perfil.name)
+                    startActivity(intent)
+                    finish() // Fecha a tela de perfis
                 }
             }
         }

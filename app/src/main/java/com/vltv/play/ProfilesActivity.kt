@@ -20,6 +20,8 @@ import com.vltv.play.ui.AvatarSelectionDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class ProfilesActivity : AppCompatActivity() {
 
@@ -31,6 +33,7 @@ class ProfilesActivity : AppCompatActivity() {
     
     // TRAVA DE SEGURANÇA (SEMÁFORO)
     private var isCreating = false
+    private val mutex = Mutex()
 
     private val tmdbApiKey = "9b73f5dd15b8165b1b57419be2f29128" 
     
@@ -67,18 +70,22 @@ class ProfilesActivity : AppCompatActivity() {
     }
 
     private fun loadProfilesFromDb() {
-        // Se já estiver no meio de uma criação, não faz nada
+        // Se já estiver no meio de uma criação, não faz nada para evitar duplicidade
         if (isCreating) return
 
         lifecycleScope.launch {
-            val perfis = withContext(Dispatchers.IO) { db.streamDao().getAllProfiles() }
-            
-            if (perfis.isEmpty()) {
-                createDefaultProfiles()
-            } else {
-                listaPerfis.clear()
-                listaPerfis.addAll(perfis)
-                adapter.notifyDataSetChanged()
+            mutex.withLock {
+                val perfis = withContext(Dispatchers.IO) { db.streamDao().getAllProfiles() }
+                
+                if (perfis.isEmpty()) {
+                    createDefaultProfiles()
+                } else {
+                    listaPerfis.clear()
+                    listaPerfis.addAll(perfis)
+                    withContext(Dispatchers.Main) {
+                        adapter.notifyDataSetChanged()
+                    }
+                }
             }
         }
     }
@@ -102,10 +109,10 @@ class ProfilesActivity : AppCompatActivity() {
         }
         
         val perfisCriados = withContext(Dispatchers.IO) { db.streamDao().getAllProfiles() }
-        listaPerfis.clear()
-        listaPerfis.addAll(perfisCriados)
         
         withContext(Dispatchers.Main) {
+            listaPerfis.clear()
+            listaPerfis.addAll(perfisCriados)
             adapter.notifyDataSetChanged()
             // Libera a trava após atualizar a tela
             isCreating = false

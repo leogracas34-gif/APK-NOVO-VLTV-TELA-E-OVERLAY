@@ -104,6 +104,9 @@
             android:screenOrientation="sensorPortrait"
             android:theme="@style/Theme.AppCompat.NoActionBar" />
 
+        <activity
+            android:name=".EditProfileActivity" />
+
     </application>
 
 </manifest>

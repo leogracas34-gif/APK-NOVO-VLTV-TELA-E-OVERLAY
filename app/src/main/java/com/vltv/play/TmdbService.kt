@@ -26,7 +26,7 @@ interface TmdbApi {
 
 object TmdbClient {
     private const val BASE_URL = "https://api.themoviedb.org/3/"
-    private const val IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500" // Aumentei para w500 para as fotos não ficarem embaçadas
+    private const val IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w185" // Aumentei para w185 para as fotos não ficarem embaçadas
 
     private val okHttpClient = OkHttpClient.Builder().build()
 

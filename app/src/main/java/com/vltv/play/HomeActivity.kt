@@ -5,6 +5,9 @@ import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -27,6 +30,8 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.DecodeFormat
 import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.request.target.CustomTarget
+import com.bumptech.glide.request.transition.Transition
 import com.vltv.play.databinding.ActivityHomeBinding
 import com.vltv.play.DownloadHelper
 import com.vltv.play.data.AppDatabase
@@ -59,6 +64,7 @@ class HomeActivity : AppCompatActivity() {
     
     // ✅ VARIÁVEL DE PERFIL
     private var currentProfile: String = "Padrao"
+    private var currentProfileIcon: String? = null
 
     // ✅ INSTÂNCIA DO BANCO DE DADOS ROOM
     private val database by lazy { AppDatabase.getDatabase(this) }
@@ -78,8 +84,9 @@ class HomeActivity : AppCompatActivity() {
             binding = ActivityHomeBinding.inflate(layoutInflater)
             setContentView(binding.root)
 
-            // ✅ RECUPERA O PERFIL
+            // ✅ RECUPERA O PERFIL E A FOTO
             currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
+            currentProfileIcon = intent.getStringExtra("PROFILE_ICON")
 
             // ✅ CORREÇÃO 1: BARRA DE NAVEGAÇÃO FIXA (BOTÕES VISÍVEIS)
             val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
@@ -168,6 +175,25 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun setupBottomNavigation() {
+        // ✅ ATUALIZA O NOME E O ÍCONE NO MENU INFERIOR
+        binding.bottomNavigation?.let { nav ->
+            val profileItem = nav.menu.findItem(R.id.nav_profile)
+            profileItem?.title = currentProfile
+
+            if (!currentProfileIcon.isNullOrEmpty()) {
+                Glide.with(this)
+                    .asBitmap()
+                    .load(currentProfileIcon)
+                    .circleCrop()
+                    .into(object : CustomTarget<Bitmap>() {
+                        override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
+                            profileItem?.icon = BitmapDrawable(resources, resource)
+                        }
+                        override fun onLoadCleared(placeholder: Drawable?) {}
+                    })
+            }
+        }
+
         binding.bottomNavigation?.setOnItemSelectedListener { item ->
             when (item.itemId) {
                 R.id.nav_home -> true
@@ -184,6 +210,7 @@ class HomeActivity : AppCompatActivity() {
                 R.id.nav_profile -> {
                     val intent = Intent(this, SettingsActivity::class.java)
                     intent.putExtra("PROFILE_NAME", currentProfile)
+                    intent.putExtra("PROFILE_ICON", currentProfileIcon)
                     startActivity(intent)
                     false
                 }
@@ -541,6 +568,7 @@ class HomeActivity : AppCompatActivity() {
             sortearBannerUnico()
             carregarContinuarAssistindoLocal()
             atualizarNotificacaoDownload()
+            setupBottomNavigation() // ✅ Atualiza a foto/nome ao voltar
         } catch (e: Exception) {
             e.printStackTrace()
         }

@@ -32,7 +32,9 @@ class ProfilesActivity : AppCompatActivity() {
     private val tmdbApiKey = "9b73f5dd15b8165b1b57419be2f29128" 
     
     // URL Padrão para os perfis já nascerem com um herói (Ex: Homem-Aranha)
-    private val defaultAvatarUrl = "https://image.tmdb.org/t/p/w200/ghvO1pL5u4p0I50L4R6m36L3R5V.jpg"
+    private val defaultAvatarUrl1 = "https://image.tmdb.org/t/p/w200/w1oD1MzHjnBJc5snKupIQaSBLIh.jpg"
+    private val defaultAvatarUrl2 = "https://image.tmdb.org/t/p/w200/iN41Ccw4DctL8npfmYg1j5Tr1eb.jpg"
+    
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -77,8 +79,8 @@ class ProfilesActivity : AppCompatActivity() {
     private suspend fun createDefaultProfiles() {
         // CORREÇÃO: Nomes alterados conforme solicitado e apenas 2 itens na lista
         val padrao = listOf(
-            ProfileEntity(name = "Meu Perfil 1", imageUrl = defaultAvatarUrl),
-            ProfileEntity(name = "Meu Perfil 2", imageUrl = defaultAvatarUrl)
+            ProfileEntity(name = "Meu Perfil 1", imageUrl = defaultAvatarUrl1),
+            ProfileEntity(name = "Meu Perfil 2", imageUrl = defaultAvatarUrl2)
         )
         
         withContext(Dispatchers.IO) {
@@ -108,8 +110,8 @@ class ProfilesActivity : AppCompatActivity() {
                 val nome = input.text.toString()
                 if (nome.isNotEmpty()) {
                     lifecycleScope.launch(Dispatchers.IO) {
-                        // Novo perfil também já nasce com o avatar padrão aqui
-                        db.streamDao().insertProfile(ProfileEntity(name = nome, imageUrl = defaultAvatarUrl))
+                        // CORREÇÃO: Usando a variável defaultAvatarUrl1 correta
+                        db.streamDao().insertProfile(ProfileEntity(name = nome, imageUrl = defaultAvatarUrl1))
                         withContext(Dispatchers.Main) {
                             loadProfilesFromDb()
                         }

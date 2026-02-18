@@ -1,5 +1,6 @@
 package com.vltv.play.data
 
+import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
@@ -22,9 +23,13 @@ object TmdbClient {
     private const val BASE_URL = "https://api.themoviedb.org/3/"
     private const val IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w200"
 
+    // Adicionado OkHttpClient isolado para evitar conflitos com o login original
+    private val okHttpClient = OkHttpClient.Builder().build()
+
     val api: TmdbApi by lazy {
         Retrofit.Builder()
             .baseUrl(BASE_URL)
+            .client(okHttpClient) // Vinculando o cliente isolado
             .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(TmdbApi::class.java)

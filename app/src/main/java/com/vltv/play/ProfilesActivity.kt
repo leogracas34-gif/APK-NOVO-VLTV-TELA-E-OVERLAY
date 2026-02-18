@@ -1,5 +1,6 @@
 package com.vltv.play
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -38,7 +39,7 @@ class ProfilesActivity : AppCompatActivity() {
     private val tmdbApiKey = "9b73f5dd15b8165b1b57419be2f29128" 
     
     // URLs Padrão para os 4 perfis iniciais
-    private val defaultAvatarUrl1 = "https://image.tmdb.org/t/p/original/gkINAPOuwUFo2Qphs3OUUbjUKUZ.jpg"
+    private val defaultAvatarUrl1 = "https://image.tmdb.org/t/p/original/ywe9S1cOyIhR5yWzK7511NuQ2YX.jpg"
     private val defaultAvatarUrl2 = "https://image.tmdb.org/t/p/original/4fLZUr1e65hKPPVw0R3PmKFKxj1.jpg"
     private val defaultAvatarUrl3 = "https://image.tmdb.org/t/p/original/53iAkBnBhqJh2ZmhCug4lSCSUq9.jpg"
     private val defaultAvatarUrl4 = "https://image.tmdb.org/t/p/original/8I37NtDffNV7AZlDa7uDvvqhovU.jpg"
@@ -48,6 +49,9 @@ class ProfilesActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityProfileSelectionBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // ✅ LÓGICA DE AUTO-LOGIN: Verifica se já tem um perfil salvo para entrar direto
+        verificarPerfilSalvo()
 
         setupRecyclerView()
         loadProfilesFromDb()
@@ -60,6 +64,24 @@ class ProfilesActivity : AppCompatActivity() {
 
         binding.layoutAddProfile.setOnClickListener {
             addNewProfile()
+        }
+    }
+
+    // ✅ FUNÇÃO QUE VERIFICA A "CADERNETA" (SHARED PREFERENCES)
+    private fun verificarPerfilSalvo() {
+        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+        val salvoNome = prefs.getString("last_profile_name", null)
+        val salvoIcon = prefs.getString("last_profile_icon", null)
+        
+        // Se o usuário não estiver vindo de um "Trocar Perfil" e houver dados salvos, vai direto
+        val forcarSelecao = intent.getBooleanExtra("FORCE_SELECTION", false)
+        
+        if (!forcarSelecao && salvoNome != null) {
+            val intent = Intent(this, HomeActivity::class.java)
+            intent.putExtra("PROFILE_NAME", salvoNome)
+            intent.putExtra("PROFILE_ICON", salvoIcon)
+            startActivity(intent)
+            finish()
         }
     }
 
@@ -221,9 +243,19 @@ class ProfilesActivity : AppCompatActivity() {
                     intent.putExtra("PROFILE_ID", perfil.id)
                     startActivity(intent)
                 } else {
+                    // ✅ SALVA NA CADERNETA ANTES DE ENTRAR
+                    val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+                    prefs.edit().apply {
+                        putString("last_profile_name", perfil.name)
+                        putString("last_profile_icon", perfil.imageUrl)
+                        apply()
+                    }
+
                     Toast.makeText(this@ProfilesActivity, "Entrando como: ${perfil.name}", Toast.LENGTH_SHORT).show()
                     val intent = Intent(this@ProfilesActivity, HomeActivity::class.java)
                     intent.putExtra("PROFILE_NAME", perfil.name)
+                    // ✅ ENVIA A FOTO TAMBÉM PARA A HOME NÃO FICAR SEM FOTO
+                    intent.putExtra("PROFILE_ICON", perfil.imageUrl)
                     startActivity(intent)
                     finish()
                 }

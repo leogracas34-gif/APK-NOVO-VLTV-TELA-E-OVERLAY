@@ -29,8 +29,10 @@ class ProfilesActivity : AppCompatActivity() {
     private val db by lazy { AppDatabase.getDatabase(this) }
     private val listaPerfis = mutableListOf<ProfileEntity>()
 
-    // Pegue sua chave do seu arquivo TmdbConfig
     private val tmdbApiKey = "9b73f5dd15b8165b1b57419be2f29128" 
+    
+    // URL Padrão para os perfis já nascerem com um herói (Ex: Homem-Aranha)
+    private val defaultAvatarUrl = "https://image.tmdb.org/t/p/w200/ghvO1pL5u4p0I50L4R6m36L3R5V.jpg"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,14 +42,12 @@ class ProfilesActivity : AppCompatActivity() {
         setupRecyclerView()
         loadProfilesFromDb()
 
-        // Botão EDITAR / CONCLUÍDO
         binding.tvEditProfiles.setOnClickListener {
             isEditMode = !isEditMode
             binding.tvEditProfiles.text = if (isEditMode) "CONCLUÍDO" else "EDITAR PERFIS"
             adapter.notifyDataSetChanged()
         }
 
-        // Botão ADICIONAR PERFIL (+)
         binding.layoutAddProfile.setOnClickListener {
             addNewProfile()
         }
@@ -65,7 +65,6 @@ class ProfilesActivity : AppCompatActivity() {
             listaPerfis.clear()
             listaPerfis.addAll(perfis)
             
-            // Se o banco estiver vazio (primeiro acesso), cria perfis padrão
             if (listaPerfis.isEmpty()) {
                 createDefaultProfiles()
             } else {
@@ -75,9 +74,10 @@ class ProfilesActivity : AppCompatActivity() {
     }
 
     private suspend fun createDefaultProfiles() {
+        // Agora os perfis padrão já nascem com a imagem definida
         val padrao = listOf(
-            ProfileEntity(name = "Perfil 1"),
-            ProfileEntity(name = "Perfil 2")
+            ProfileEntity(name = "Perfil 1", imageUrl = defaultAvatarUrl),
+            ProfileEntity(name = "Perfil 2", imageUrl = defaultAvatarUrl)
         )
         withContext(Dispatchers.IO) {
             padrao.forEach { db.streamDao().insertProfile(it) }
@@ -94,7 +94,8 @@ class ProfilesActivity : AppCompatActivity() {
                 val nome = input.text.toString()
                 if (nome.isNotEmpty()) {
                     lifecycleScope.launch(Dispatchers.IO) {
-                        db.streamDao().insertProfile(ProfileEntity(name = nome))
+                        // Novo perfil também já nasce com o avatar padrão aqui
+                        db.streamDao().insertProfile(ProfileEntity(name = nome, imageUrl = defaultAvatarUrl))
                         loadProfilesFromDb()
                     }
                 }
@@ -103,7 +104,7 @@ class ProfilesActivity : AppCompatActivity() {
             .show()
     }
 
-    // --- DIÁLOGO DE EDIÇÃO (NOME E AVATAR) ---
+    // --- DIÁLOGO DE EDIÇÃO (Ainda mantido para segurança enquanto criamos a nova tela) ---
     private fun showEditOptions(perfil: ProfileEntity) {
         val options = arrayOf("Editar Nome", "Trocar Avatar (Personagens)", "Excluir Perfil")
         AlertDialog.Builder(this)
@@ -170,7 +171,6 @@ class ProfilesActivity : AppCompatActivity() {
             val perfil = perfis[position]
             holder.itemBinding.tvProfileName.text = perfil.name
 
-            // Carrega imagem do TMDB ou Placeholder
             Glide.with(this@ProfilesActivity)
                 .load(perfil.imageUrl ?: R.drawable.ic_profile_placeholder)
                 .circleCrop()
@@ -182,14 +182,14 @@ class ProfilesActivity : AppCompatActivity() {
 
             holder.itemBinding.root.setOnClickListener {
                 if (isEditMode) {
+                    // Por enquanto abre as opções, logo será a nova Activity
                     showEditOptions(perfil)
                 } else {
-                    // ✅ AQUI VAI PARA A HOME
                     Toast.makeText(this@ProfilesActivity, "Entrando como: ${perfil.name}", Toast.LENGTH_SHORT).show()
                     val intent = Intent(this@ProfilesActivity, HomeActivity::class.java)
                     intent.putExtra("PROFILE_NAME", perfil.name)
                     startActivity(intent)
-                    finish() // Fecha a tela de perfis
+                    finish()
                 }
             }
         }

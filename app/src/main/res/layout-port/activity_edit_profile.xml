@@ -14,7 +14,7 @@
         android:textColor="@color/white"
         android:textSize="18sp"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_top_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent" />
 
     <TextView
         android:id="@+id/tvHeaderTitle"
@@ -26,7 +26,7 @@
         android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_top_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent" />
 
     <TextView
         android:id="@+id/btnSaveProfile"
@@ -37,7 +37,7 @@
         android:textSize="18sp"
         android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_top_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent" />
 
     <FrameLayout
         android:id="@+id/avatarFrame"
@@ -46,7 +46,7 @@
         android:layout_marginTop="50dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_top_toBottomOf="@id/tvHeaderTitle">
+        app:layout_constraintTop_toBottomOf="@id/tvHeaderTitle">
 
         <com.google.android.material.imageview.ShapeableImageView
             android:id="@+id/ivEditAvatar"
@@ -61,7 +61,7 @@
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:layout_gravity="bottom|end"
-            android:background="@drawable/bg_circle_white"
+            android:background="@android:color/white" 
             android:padding="8dp"
             android:src="@android:drawable/ic_menu_edit"
             app:tint="@color/black" />
@@ -75,9 +75,10 @@
         android:background="#2A2E3D"
         android:gravity="center"
         android:hint="Nome do Perfil"
+        android:padding="10dp"
         android:textColor="@color/white"
         android:textColorHint="#808080"
-        app:layout_top_toBottomOf="@id/avatarFrame" />
+        app:layout_constraintTop_toBottomOf="@id/avatarFrame" />
 
     <TextView
         android:id="@+id/btnDeleteProfile"

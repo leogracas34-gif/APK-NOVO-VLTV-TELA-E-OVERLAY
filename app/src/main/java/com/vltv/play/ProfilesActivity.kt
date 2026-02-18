@@ -31,9 +31,11 @@ class ProfilesActivity : AppCompatActivity() {
 
     private val tmdbApiKey = "9b73f5dd15b8165b1b57419be2f29128" 
     
-    // URL Padrão para os perfis já nascerem com um herói (Ex: Homem-Aranha)
+    // URLs Padrão para os 4 perfis iniciais
     private val defaultAvatarUrl1 = "https://image.tmdb.org/t/p/w200/w1oD1MzHjnBJc5snKupIQaSBLIh.jpg"
-    private val defaultAvatarUrl2 = "https://image.tmdb.org/t/p/w200/iN41Ccw4DctL8npfmYg1j5Tr1eb.jpg"
+    private val defaultAvatarUrl2 = "https://image.tmdb.org/t/p/original/4fLZUr1e65hKPPVw0R3PmKFKxj1.jpg"
+    private val defaultAvatarUrl3 = "https://image.tmdb.org/t/p/w200/53iAkBnBhqJh2ZmhCug4lSCSUq9.jpg"
+    private val defaultAvatarUrl4 = "https://image.tmdb.org/t/p/original/8I37NtDffNV7AZlDa7uDvvqhovU.jpg"
     
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -65,7 +67,7 @@ class ProfilesActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val perfis = withContext(Dispatchers.IO) { db.streamDao().getAllProfiles() }
             
-            // CORREÇÃO: Verificamos se está vazio antes de tentar criar
+            // Verificamos se está vazio antes de criar os 4 perfis padrão
             if (perfis.isEmpty()) {
                 createDefaultProfiles()
             } else {
@@ -77,22 +79,23 @@ class ProfilesActivity : AppCompatActivity() {
     }
 
     private suspend fun createDefaultProfiles() {
-        // CORREÇÃO: Nomes alterados conforme solicitado e apenas 2 itens na lista
+        // Agora configurado para criar 4 perfis com nomes e fotos distintas
         val padrao = listOf(
             ProfileEntity(name = "Meu Perfil 1", imageUrl = defaultAvatarUrl1),
-            ProfileEntity(name = "Meu Perfil 2", imageUrl = defaultAvatarUrl2)
+            ProfileEntity(name = "Meu Perfil 2", imageUrl = defaultAvatarUrl2),
+            ProfileEntity(name = "Meu Perfil 3", imageUrl = defaultAvatarUrl3),
+            ProfileEntity(name = "Meu Perfil 4", imageUrl = defaultAvatarUrl4)
         )
         
         withContext(Dispatchers.IO) {
-            // TRAVA DE SEGURANÇA: Checa novamente dentro da Coroutine se o banco está vazio
-            // Isso evita que o Android crie 4 perfis se a função for chamada rápido demais
+            // TRAVA: Só insere se o banco continuar vazio após a checagem
             val checagem = db.streamDao().getAllProfiles()
             if (checagem.isEmpty()) {
                 padrao.forEach { db.streamDao().insertProfile(it) }
             }
         }
         
-        // CORREÇÃO: Em vez de chamar loadProfilesFromDb() e gerar loop, atualizamos a lista aqui
+        // Atualiza a lista local com os 4 perfis criados
         val perfisCriados = withContext(Dispatchers.IO) { db.streamDao().getAllProfiles() }
         listaPerfis.clear()
         listaPerfis.addAll(perfisCriados)
@@ -110,7 +113,6 @@ class ProfilesActivity : AppCompatActivity() {
                 val nome = input.text.toString()
                 if (nome.isNotEmpty()) {
                     lifecycleScope.launch(Dispatchers.IO) {
-                        // CORREÇÃO: Usando a variável defaultAvatarUrl1 correta
                         db.streamDao().insertProfile(ProfileEntity(name = nome, imageUrl = defaultAvatarUrl1))
                         withContext(Dispatchers.Main) {
                             loadProfilesFromDb()
@@ -122,7 +124,7 @@ class ProfilesActivity : AppCompatActivity() {
             .show()
     }
 
-    // --- DIÁLOGO DE EDIÇÃO (Ainda mantido para segurança enquanto criamos a nova tela) ---
+    // --- DIÁLOGO DE EDIÇÃO ---
     private fun showEditOptions(perfil: ProfileEntity) {
         val options = arrayOf("Editar Nome", "Trocar Avatar (Personagens)", "Excluir Perfil")
         AlertDialog.Builder(this)
@@ -198,18 +200,14 @@ class ProfilesActivity : AppCompatActivity() {
                 .circleCrop()
                 .into(holder.itemBinding.ivProfileAvatar)
 
-            holder.itemBinding.ivProfileAvatar.setStrokeColorResource(
-                if (isEditMode) android.R.color.holo_orange_light else android.R.color.white
-            )
-
+            // CORREÇÃO: Removida a borda via código para não dar conflito com o XML estilo Disney
+            
             holder.itemBinding.root.setOnClickListener {
                 if (isEditMode) {
-                    // ✅ ATUALIZADO: Agora abre a nova tela única de edição
                     val intent = Intent(this@ProfilesActivity, EditProfileActivity::class.java)
                     intent.putExtra("PROFILE_ID", perfil.id)
                     startActivity(intent)
                 } else {
-                    // ✅ AQUI VAI PARA A HOME
                     Toast.makeText(this@ProfilesActivity, "Entrando como: ${perfil.name}", Toast.LENGTH_SHORT).show()
                     val intent = Intent(this@ProfilesActivity, HomeActivity::class.java)
                     intent.putExtra("PROFILE_NAME", perfil.name)
@@ -222,7 +220,6 @@ class ProfilesActivity : AppCompatActivity() {
         override fun getItemCount(): Int = perfis.size
     }
 
-    // Adicionado para atualizar a lista automaticamente ao voltar da tela de edição
     override fun onResume() {
         super.onResume()
         loadProfilesFromDb()

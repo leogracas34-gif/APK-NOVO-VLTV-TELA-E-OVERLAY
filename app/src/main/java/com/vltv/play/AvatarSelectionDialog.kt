@@ -25,6 +25,11 @@ class AvatarSelectionDialog(
 
         setupRecyclerView()
         loadAvatars()
+
+        // Configuração do botão cancelar que já estava no seu XML
+        binding.btnCancel.setOnClickListener {
+            dismiss()
+        }
     }
 
     private fun setupRecyclerView() {
@@ -35,15 +40,25 @@ class AvatarSelectionDialog(
         scope.launch {
             try {
                 // Aqui fazemos a busca por coleções de heróis para pegar os personagens
-                // Exemplo: ID 86311 é a coleção dos Vingadores
                 val response = withContext(Dispatchers.IO) {
-                    TmdbClient.api.getPopularPeople(apiKey) // Por enquanto usamos o popular, mas vou te ensinar a trocar pelo ID do herói
+                    TmdbClient.api.getPopularPeople(apiKey) 
                 }
                 
-                // Lógica de exibição no Adapter (que criaremos a seguir)
+                // Lógica de exibição no Adapter integrada ao seu código
+                val adapter = AvatarAdapter(response.results) { imageUrl ->
+                    onAvatarSelected(imageUrl) // Envia a imagem escolhida de volta
+                    dismiss() // Fecha o diálogo após a escolha
+                }
+                binding.rvAvatars.adapter = adapter
+                
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        scope.cancel() // Limpa as coroutines quando o dialog fecha para não dar erro de memória
     }
 }

@@ -28,13 +28,16 @@ class ProfilesActivity : AppCompatActivity() {
     private lateinit var adapter: ProfileAdapter
     private val db by lazy { AppDatabase.getDatabase(this) }
     private val listaPerfis = mutableListOf<ProfileEntity>()
+    
+    // TRAVA DE SEGURANÇA (SEMÁFORO)
+    private var isCreating = false
 
     private val tmdbApiKey = "9b73f5dd15b8165b1b57419be2f29128" 
     
     // URLs Padrão para os 4 perfis iniciais
-    private val defaultAvatarUrl1 = "https://image.tmdb.org/t/p/w200/w1oD1MzHjnBJc5snKupIQaSBLIh.jpg"
+    private val defaultAvatarUrl1 = "https://image.tmdb.org/t/p/original/gkINAPOuwUFo2Qphs3OUUbjUKUZ.jpg"
     private val defaultAvatarUrl2 = "https://image.tmdb.org/t/p/original/4fLZUr1e65hKPPVw0R3PmKFKxj1.jpg"
-    private val defaultAvatarUrl3 = "https://image.tmdb.org/t/p/w200/53iAkBnBhqJh2ZmhCug4lSCSUq9.jpg"
+    private val defaultAvatarUrl3 = "https://image.tmdb.org/t/p/original/53iAkBnBhqJh2ZmhCug4lSCSUq9.jpg"
     private val defaultAvatarUrl4 = "https://image.tmdb.org/t/p/original/8I37NtDffNV7AZlDa7uDvvqhovU.jpg"
     
 
@@ -64,10 +67,12 @@ class ProfilesActivity : AppCompatActivity() {
     }
 
     private fun loadProfilesFromDb() {
+        // Se já estiver no meio de uma criação, não faz nada
+        if (isCreating) return
+
         lifecycleScope.launch {
             val perfis = withContext(Dispatchers.IO) { db.streamDao().getAllProfiles() }
             
-            // Verificamos se está vazio antes de criar os 4 perfis padrão
             if (perfis.isEmpty()) {
                 createDefaultProfiles()
             } else {
@@ -79,7 +84,9 @@ class ProfilesActivity : AppCompatActivity() {
     }
 
     private suspend fun createDefaultProfiles() {
-        // Agora configurado para criar 4 perfis com nomes e fotos distintas
+        // Ativa a trava para evitar que outra chamada entre aqui
+        isCreating = true
+
         val padrao = listOf(
             ProfileEntity(name = "Meu Perfil 1", imageUrl = defaultAvatarUrl1),
             ProfileEntity(name = "Meu Perfil 2", imageUrl = defaultAvatarUrl2),
@@ -88,19 +95,20 @@ class ProfilesActivity : AppCompatActivity() {
         )
         
         withContext(Dispatchers.IO) {
-            // TRAVA: Só insere se o banco continuar vazio após a checagem
             val checagem = db.streamDao().getAllProfiles()
             if (checagem.isEmpty()) {
                 padrao.forEach { db.streamDao().insertProfile(it) }
             }
         }
         
-        // Atualiza a lista local com os 4 perfis criados
         val perfisCriados = withContext(Dispatchers.IO) { db.streamDao().getAllProfiles() }
         listaPerfis.clear()
         listaPerfis.addAll(perfisCriados)
+        
         withContext(Dispatchers.Main) {
             adapter.notifyDataSetChanged()
+            // Libera a trava após atualizar a tela
+            isCreating = false
         }
     }
 
@@ -200,8 +208,6 @@ class ProfilesActivity : AppCompatActivity() {
                 .circleCrop()
                 .into(holder.itemBinding.ivProfileAvatar)
 
-            // CORREÇÃO: Removida a borda via código para não dar conflito com o XML estilo Disney
-            
             holder.itemBinding.root.setOnClickListener {
                 if (isEditMode) {
                     val intent = Intent(this@ProfilesActivity, EditProfileActivity::class.java)

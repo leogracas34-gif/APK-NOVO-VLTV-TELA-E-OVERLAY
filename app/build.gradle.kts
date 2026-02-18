@@ -86,6 +86,8 @@ dependencies {
     implementation("com.google.android.gms:play-services-cast-framework:21.4.0")
 
     implementation("com.google.android.flexbox:flexbox:3.0.0")
+    implementation("androidx.navigation:navigation-fragment-ktx:2.7.7")
+    implementation("androidx.navigation:navigation-ui-ktx:2.7.7")
 
    // Biblioteca para carregar imagens (Glide)
     kapt("com.github.bumptech.glide:compiler:4.16.0")

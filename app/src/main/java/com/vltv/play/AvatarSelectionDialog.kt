@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import androidx.recyclerview.widget.GridLayoutManager
 import com.vltv.play.data.TmdbClient
+import com.vltv.play.data.TmdbPerson
 import com.vltv.play.databinding.DialogAvatarSelectionBinding
 import kotlinx.coroutines.*
 
@@ -39,13 +40,33 @@ class AvatarSelectionDialog(
     private fun loadAvatars() {
         scope.launch {
             try {
-                // Aqui fazemos a busca por coleções de heróis para pegar os personagens
-                val response = withContext(Dispatchers.IO) {
-                    TmdbClient.api.getPopularPeople(apiKey) 
+                // Lista de termos para buscar os personagens que você pediu
+                val personagens = listOf(
+                    "Avengers", "Spider-Man", "Iron Man", "Hulk", "Thor", 
+                    "Mickey Mouse", "Avatar Way of Water", "Batman", 
+                    "Superman", "Wonder Woman", "Scarlet Witch", "X-Men"
+                )
+
+                val todosOsResultados = mutableListOf<TmdbPerson>()
+
+                // Fazemos a busca para cada termo e juntamos tudo
+                withContext(Dispatchers.IO) {
+                    personagens.forEach { termo ->
+                        try {
+                            // Aqui corrigimos o erro: agora passamos a 'apiKey' e o 'termo' (query)
+                            val response = TmdbClient.api.getPopularPeople(apiKey, termo)
+                            todosOsResultados.addAll(response.results)
+                        } catch (e: Exception) {
+                            e.printStackTrace() 
+                        }
+                    }
                 }
                 
                 // Lógica de exibição no Adapter integrada ao seu código
-                val adapter = AvatarAdapter(response.results) { imageUrl ->
+                // Usamos as fotos filtradas para não repetir muito
+                val listaFinal = todosOsResultados.distinctBy { it.profile_path }.filter { it.profile_path != null }
+
+                val adapter = AvatarAdapter(listaFinal) { imageUrl ->
                     onAvatarSelected(imageUrl) // Envia a imagem escolhida de volta
                     dismiss() // Fecha o diálogo após a escolha
                 }

@@ -12,6 +12,7 @@ class DownloadsFragment : Fragment() {
     private val binding get() = _binding!!
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
+        // O erro Unresolved Reference acontece aqui se o XML não tiver a tag <layout>
         _binding = FragmentDownloadsBinding.inflate(inflater, container, false)
         return binding.root
     }

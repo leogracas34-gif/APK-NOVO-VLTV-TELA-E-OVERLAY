@@ -4,6 +4,7 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:padding="16dp"
+    android:minWidth="1000dp"
     android:background="@color/black"> <TextView
         android:id="@+id/tvTitle"
         android:layout_width="match_parent"
@@ -18,7 +19,7 @@
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvAvatars"
         android:layout_width="match_parent"
-        android:layout_height="400dp"
+        android:layout_height="450dp" 
         android:clipToPadding="false"
         android:scrollbarStyle="outsideOverlay"
         android:scrollbars="vertical" />

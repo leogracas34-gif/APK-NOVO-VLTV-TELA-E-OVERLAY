@@ -182,9 +182,12 @@ class ProfilesActivity : AppCompatActivity() {
 
             holder.itemBinding.root.setOnClickListener {
                 if (isEditMode) {
-                    // Por enquanto abre as opções, logo será a nova Activity
-                    showEditOptions(perfil)
+                    // ✅ ATUALIZADO: Agora abre a nova tela única de edição
+                    val intent = Intent(this@ProfilesActivity, EditProfileActivity::class.java)
+                    intent.putExtra("PROFILE_ID", perfil.id)
+                    startActivity(intent)
                 } else {
+                    // ✅ AQUI VAI PARA A HOME
                     Toast.makeText(this@ProfilesActivity, "Entrando como: ${perfil.name}", Toast.LENGTH_SHORT).show()
                     val intent = Intent(this@ProfilesActivity, HomeActivity::class.java)
                     intent.putExtra("PROFILE_NAME", perfil.name)
@@ -195,5 +198,11 @@ class ProfilesActivity : AppCompatActivity() {
         }
 
         override fun getItemCount(): Int = perfis.size
+    }
+
+    // Adicionado para atualizar a lista automaticamente ao voltar da tela de edição
+    override fun onResume() {
+        super.onResume()
+        loadProfilesFromDb()
     }
 }

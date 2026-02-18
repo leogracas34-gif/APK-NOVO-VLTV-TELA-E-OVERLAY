@@ -27,6 +27,9 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.RecyclerView
+// ✅ NOVAS IMPORTAÇÕES NECESSÁRIAS PARA A NAVEGAÇÃO FUNCIONAR
+import androidx.navigation.fragment.NavHostFragment
+import androidx.navigation.ui.setupWithNavController
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.DecodeFormat
 import com.bumptech.glide.load.engine.DiskCacheStrategy
@@ -83,6 +86,17 @@ class HomeActivity : AppCompatActivity() {
             
             binding = ActivityHomeBinding.inflate(layoutInflater)
             setContentView(binding.root)
+
+            // ✅ ATUALIZAÇÃO: CONFIGURA O NAVCONTROLLER PARA AS ABAS FUNCIONAREM
+            // O "as? NavHostFragment" evita erro se o ID não for encontrado
+            val navHostFragment = supportFragmentManager
+                .findFragmentById(R.id.nav_host_fragment) as? NavHostFragment
+            val navController = navHostFragment?.navController
+            
+            if (navController != null) {
+                // Isso conecta o menu de baixo (BottomNavigation) com as telas de Fragments
+                binding.bottomNavigation?.setupWithNavController(navController)
+            }
 
             // ✅ RECUPERA O PERFIL E A FOTO
             currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
@@ -194,6 +208,8 @@ class HomeActivity : AppCompatActivity() {
             }
         }
 
+        // Mantive seu Listener original abaixo para não remover nada.
+        // Nota: O setupWithNavController no onCreate terá prioridade para navegação.
         binding.bottomNavigation?.setOnItemSelectedListener { item ->
             when (item.itemId) {
                 R.id.nav_home -> true
@@ -231,12 +247,16 @@ class HomeActivity : AppCompatActivity() {
                 val seriesItems = localSeries.map { VodItem(it.series_id.toString(), it.name, it.cover ?: "") }
 
                 withContext(Dispatchers.Main) {
+                    // ATUALIZAÇÃO SEGURA: Usa findViewById para não quebrar se a View estiver no Fragment
+                    val rvRecentMovies = binding.root.findViewById<RecyclerView>(R.id.rvRecentlyAdded)
+                    val rvRecentSeries = binding.root.findViewById<RecyclerView>(R.id.rvRecentSeries)
+
                     if (movieItems.isNotEmpty()) {
                         // 🚀 TURBO: Otimização de RecyclerView
-                        binding.rvRecentlyAdded.setHasFixedSize(true)
-                        binding.rvRecentlyAdded.setItemViewCacheSize(20)
+                        rvRecentMovies?.setHasFixedSize(true)
+                        rvRecentMovies?.setItemViewCacheSize(20)
                         
-                        binding.rvRecentlyAdded.adapter = HomeRowAdapter(movieItems) { selectedItem ->
+                        rvRecentMovies?.adapter = HomeRowAdapter(movieItems) { selectedItem ->
                             val intent = Intent(this@HomeActivity, DetailsActivity::class.java)
                             intent.putExtra("stream_id", selectedItem.id.toIntOrNull() ?: 0)
                             intent.putExtra("name", selectedItem.name)
@@ -248,10 +268,10 @@ class HomeActivity : AppCompatActivity() {
                     }
                     if (seriesItems.isNotEmpty()) {
                         // 🚀 TURBO: Otimização de RecyclerView
-                        binding.rvRecentSeries.setHasFixedSize(true)
-                        binding.rvRecentSeries.setItemViewCacheSize(20)
+                        rvRecentSeries?.setHasFixedSize(true)
+                        rvRecentSeries?.setItemViewCacheSize(20)
 
-                        binding.rvRecentSeries.adapter = HomeRowAdapter(seriesItems) { selectedItem ->
+                        rvRecentSeries?.adapter = HomeRowAdapter(seriesItems) { selectedItem ->
                             val intent = Intent(this@HomeActivity, SeriesDetailsActivity::class.java)
                             intent.putExtra("series_id", selectedItem.id.toIntOrNull() ?: 0)
                             intent.putExtra("name", selectedItem.name)
@@ -844,11 +864,14 @@ class HomeActivity : AppCompatActivity() {
 
                 withContext(Dispatchers.Main) {
                     val tvTitle = binding.root.findViewById<TextView>(R.id.tvContinueWatching)
+                    // ATUALIZAÇÃO SEGURA: findViewById para evitar crash com Fragments
+                    val rvContWatching = binding.root.findViewById<RecyclerView>(R.id.rvContinueWatching)
+
                     if (vodItems.isNotEmpty()) {
                         tvTitle?.visibility = View.VISIBLE
-                        binding.rvContinueWatching.visibility = View.VISIBLE
+                        rvContWatching?.visibility = View.VISIBLE
                         
-                        binding.rvContinueWatching.adapter = HomeRowAdapter(vodItems) { selected ->
+                        rvContWatching?.adapter = HomeRowAdapter(vodItems) { selected ->
                             val isSeries = seriesMap[selected.id] ?: false
                             
                             val intent = if (isSeries) {
@@ -870,7 +893,7 @@ class HomeActivity : AppCompatActivity() {
                         }
                     } else {
                         tvTitle?.visibility = View.GONE
-                        binding.rvContinueWatching.visibility = View.GONE
+                        rvContWatching?.visibility = View.GONE
                     }
                 }
             } catch (e: Exception) {

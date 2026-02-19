@@ -68,47 +68,78 @@ class HomeFragment : Fragment() {
     private fun carregarDadosLocaisImediato() {
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val localMovies = database.streamDao().getRecentVods(20)
-                val movieItems = localMovies.map { VodItem(it.stream_id.toString(), it.name, it.stream_icon ?: "") }
+                // 🟢 BUSCA DE DADOS PARA AS ABAS
+                val recentVods = database.streamDao().getRecentVods(20)
+                val movieItems = recentVods.map { VodItem(it.stream_id.toString(), it.name, it.stream_icon ?: "") }
 
-                val localSeries = database.streamDao().getRecentSeries(20)
-                val seriesItems = localSeries.map { VodItem(it.series_id.toString(), it.name, it.cover ?: "") }
+                val recentSeries = database.streamDao().getRecentSeries(20)
+                val seriesItems = recentSeries.map { VodItem(it.series_id.toString(), it.name, it.cover ?: "") }
+
+                // Lógica de Recomendados (Ex: baseada no gênero do último assistido)
+                val recommendedMovies = database.streamDao().getRecentVods(10) // Aqui entra sua lógica de gênero depois
+                val recommendedItems = recommendedMovies.map { VodItem(it.stream_id.toString(), it.name, it.stream_icon ?: "") }
 
                 withContext(Dispatchers.Main) {
+                    // 1️⃣ ABA: ADICIONADOS RECENTEMENTE (Vertical 2:3)
                     if (movieItems.isNotEmpty()) {
                         binding.rvRecentlyAdded.setHasFixedSize(true)
-                        binding.rvRecentlyAdded.setItemViewCacheSize(20)
-                        // ✅ CORREÇÃO: Passando HomeRowAdapter.TYPE_VERTICAL
-                        binding.rvRecentlyAdded.adapter = HomeRowAdapter(movieItems, HomeRowAdapter.TYPE_VERTICAL) { selectedItem ->
-                            val intent = Intent(requireContext(), DetailsActivity::class.java)
-                            intent.putExtra("stream_id", selectedItem.id.toIntOrNull() ?: 0)
-                            intent.putExtra("name", selectedItem.name)
-                            intent.putExtra("icon", selectedItem.streamIcon)
-                            intent.putExtra("PROFILE_NAME", currentProfile)
-                            intent.putExtra("is_series", false)
-                            startActivity(intent)
+                        binding.rvRecentlyAdded.adapter = HomeRowAdapter(movieItems, HomeRowAdapter.TYPE_VERTICAL) { selected ->
+                            abrirDetalhes(selected, false)
                         }
                     }
-                    if (seriesItems.isNotEmpty()) {
-                        binding.rvRecentSeries.setHasFixedSize(true)
-                        binding.rvRecentSeries.setItemViewCacheSize(20)
-                        // ✅ CORREÇÃO: Passando HomeRowAdapter.TYPE_VERTICAL
-                        binding.rvRecentSeries.adapter = HomeRowAdapter(seriesItems, HomeRowAdapter.TYPE_VERTICAL) { selectedItem ->
-                            val intent = Intent(requireContext(), SeriesDetailsActivity::class.java)
-                            intent.putExtra("series_id", selectedItem.id.toIntOrNull() ?: 0)
-                            intent.putExtra("name", selectedItem.name)
-                            intent.putExtra("icon", selectedItem.streamIcon)
-                            intent.putExtra("PROFILE_NAME", currentProfile)
-                            intent.putExtra("is_series", true)
-                            startActivity(intent)
+
+                    // 2️⃣ ABA: RECOMENDADOS PARA VOCÊ (Vertical 2:3)
+                    if (recommendedItems.isNotEmpty()) {
+                        binding.rvRecentSeries.setHasFixedSize(true) // Usando rvRecentSeries para exemplificar a nova aba
+                        binding.rvRecentSeries.adapter = HomeRowAdapter(recommendedItems, HomeRowAdapter.TYPE_VERTICAL) { selected ->
+                            abrirDetalhes(selected, false)
                         }
                     }
-                    listaCompletaParaSorteio = (localMovies + localSeries)
+
+                    // 3️⃣ ABA: TOP 10 HOJE (Top 10)
+                    // Implementaremos uma RecyclerView específica no seu XML depois para o Top 10
+
+                    listaCompletaParaSorteio = (recentVods + recentSeries)
                     sortearBannerUnico()
                     carregarContinuarAssistindoLocal()
                 }
             } catch (e: Exception) { e.printStackTrace() }
         }
+    }
+
+    private fun carregarContinuarAssistindoLocal() {
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val historyList = database.streamDao().getWatchHistory(currentProfile, 20)
+                val vodItems = historyList.map { VodItem(it.stream_id.toString(), it.name, it.icon ?: "") }
+                val seriesMap = historyList.associate { it.stream_id.toString() to it.is_series }
+
+                withContext(Dispatchers.Main) {
+                    // 4️⃣ ABA: CONTINUAR ASSISTINDO (Horizontal 16:9)
+                    if (vodItems.isNotEmpty()) {
+                        binding.tvContinueWatching.visibility = View.VISIBLE
+                        binding.rvContinueWatching.visibility = View.VISIBLE
+                        binding.rvContinueWatching.adapter = HomeRowAdapter(vodItems, HomeRowAdapter.TYPE_HORIZONTAL) { selected ->
+                            abrirDetalhes(selected, seriesMap[selected.id] ?: false)
+                        }
+                    } else {
+                        binding.tvContinueWatching.visibility = View.GONE
+                        binding.rvContinueWatching.visibility = View.GONE
+                    }
+                }
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+    }
+
+    private fun abrirDetalhes(item: VodItem, isSeries: Boolean) {
+        val intent = if (isSeries) Intent(requireContext(), SeriesDetailsActivity::class.java)
+                     else Intent(requireContext(), DetailsActivity::class.java)
+        intent.putExtra(if (isSeries) "series_id" else "stream_id", item.id.toIntOrNull() ?: 0)
+        intent.putExtra("name", item.name)
+        intent.putExtra("icon", item.streamIcon)
+        intent.putExtra("PROFILE_NAME", currentProfile)
+        intent.putExtra("is_series", isSeries)
+        startActivity(intent)
     }
 
     private fun sortearBannerUnico() {
@@ -130,39 +161,6 @@ class HomeFragment : Fragment() {
         }
         binding.cardKids.setOnClickListener {
             startActivity(Intent(requireContext(), KidsActivity::class.java).apply { putExtra("SHOW_PREVIEW", false); putExtra("PROFILE_NAME", "Kids") })
-        }
-    }
-
-    private fun carregarContinuarAssistindoLocal() {
-        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val historyList = database.streamDao().getWatchHistory(currentProfile, 20)
-                val vodItems = mutableListOf<VodItem>()
-                val seriesMap = mutableMapOf<String, Boolean>()
-
-                for (item in historyList) {
-                    vodItems.add(VodItem(item.stream_id.toString(), item.name, item.icon ?: ""))
-                    seriesMap[item.stream_id.toString()] = item.is_series
-                }
-
-                withContext(Dispatchers.Main) {
-                    if (vodItems.isNotEmpty()) {
-                        binding.tvContinueWatching.visibility = View.VISIBLE
-                        binding.rvContinueWatching.visibility = View.VISIBLE
-                        // ✅ CORREÇÃO: Passando HomeRowAdapter.TYPE_HORIZONTAL
-                        binding.rvContinueWatching.adapter = HomeRowAdapter(vodItems, HomeRowAdapter.TYPE_HORIZONTAL) { selected ->
-                            val isSer = seriesMap[selected.id] ?: false
-                            val intent = if (isSer) Intent(requireContext(), SeriesDetailsActivity::class.java).apply { putExtra("series_id", selected.id.toIntOrNull() ?: 0) }
-                            else Intent(requireContext(), DetailsActivity::class.java).apply { putExtra("stream_id", selected.id.toIntOrNull() ?: 0) }
-                            intent.putExtra("name", selected.name); intent.putExtra("icon", selected.streamIcon); intent.putExtra("PROFILE_NAME", currentProfile)
-                            startActivity(intent)
-                        }
-                    } else {
-                        binding.tvContinueWatching.visibility = View.GONE
-                        binding.rvContinueWatching.visibility = View.GONE
-                    }
-                }
-            } catch (e: Exception) { e.printStackTrace() }
         }
     }
 
@@ -191,7 +189,7 @@ class HomeFragment : Fragment() {
                             stream_icon = obj.optString("stream_icon"),
                             container_extension = obj.optString("container_extension"),
                             category_id = obj.optString("category_id"),
-                            rating = obj.optString("rating", "0"), // ✅ CORREÇÃO: Adicionado rating default
+                            rating = obj.optString("rating", "0"),
                             added = obj.optLong("added")
                         ))
                     }
@@ -201,7 +199,6 @@ class HomeFragment : Fragment() {
                     }
                 }
                 if (vodBatch.isNotEmpty()) database.streamDao().insertVodStreams(vodBatch)
-
                 withContext(Dispatchers.Main) { carregarDadosLocaisImediato() }
             } catch (e: Exception) { e.printStackTrace() }
         }

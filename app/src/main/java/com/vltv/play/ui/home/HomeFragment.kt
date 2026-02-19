@@ -2,9 +2,6 @@ package com.vltv.play.ui.home
 
 import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.drawable.BitmapDrawable
-import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -15,13 +12,9 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
-import com.bumptech.glide.load.DecodeFormat
 import com.bumptech.glide.load.engine.DiskCacheStrategy
-import com.bumptech.glide.request.target.CustomTarget
-import com.bumptech.glide.request.transition.Transition
 import com.vltv.play.*
 import com.vltv.play.data.AppDatabase
-import com.vltv.play.data.LiveStreamEntity
 import com.vltv.play.data.SeriesEntity
 import com.vltv.play.data.VodEntity
 import com.vltv.play.databinding.FragmentHomeBinding
@@ -29,7 +22,6 @@ import kotlinx.coroutines.*
 import org.json.JSONObject
 import java.net.URL
 import java.net.URLEncoder
-import kotlin.random.Random
 
 class HomeFragment : Fragment() {
 
@@ -68,34 +60,34 @@ class HomeFragment : Fragment() {
     private fun carregarDadosLocaisImediato() {
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // 1. Adicionados Recentemente (Ordenado por data de lançamento/inclusão)
+                // 1. ADICIONADOS RECENTEMENTE (Sincronizado com o ID rvRecentlyAdded)
                 val localMovies = database.streamDao().getRecentVods(20)
                 val addedItems = localMovies.map { VodItem(it.stream_id.toString(), it.name, it.stream_icon ?: "") }
 
-                // 2. Top 10 Hoje (Simulação baseada em rating/populares do banco)
+                // 2. TOP 10 HOJE (Sincronizado com o ID rvTop10)
                 val top10Movies = database.streamDao().getRecentVods(10) 
                 val top10Items = top10Movies.map { VodItem(it.stream_id.toString(), it.name, it.stream_icon ?: "") }
 
-                // 3. Recomendados para Você (Filtro inteligente local)
+                // 3. RECOMENDADOS PARA VOCÊ (Sincronizado com o ID rvRecommended)
                 val recommendedVods = database.streamDao().getRecentVods(15)
                 val recommendedItems = recommendedVods.map { VodItem(it.stream_id.toString(), it.name, it.stream_icon ?: "") }
 
                 withContext(Dispatchers.Main) {
-                    // Configurando ABA: Adicionados Recentemente (Vertical)
+                    // Aba: Adicionados Recentemente
                     if (addedItems.isNotEmpty()) {
                         binding.rvRecentlyAdded.adapter = HomeRowAdapter(addedItems, HomeRowAdapter.TYPE_VERTICAL) { selected ->
                             abrirDetalhes(selected, false)
                         }
                     }
 
-                    // Configurando ABA: Top 10 Hoje (Top 10)
+                    // Aba: Top 10 Hoje (Corrigido para o ID novo)
                     if (top10Items.isNotEmpty()) {
                         binding.rvTop10.adapter = HomeRowAdapter(top10Items, HomeRowAdapter.TYPE_TOP10) { selected ->
                             abrirDetalhes(selected, false)
                         }
                     }
 
-                    // Configurando ABA: Recomendados (Vertical)
+                    // Aba: Recomendados (Corrigido para o ID novo)
                     if (recommendedItems.isNotEmpty()) {
                         binding.rvRecommended.adapter = HomeRowAdapter(recommendedItems, HomeRowAdapter.TYPE_VERTICAL) { selected ->
                             abrirDetalhes(selected, false)
@@ -121,7 +113,7 @@ class HomeFragment : Fragment() {
                     if (vodItems.isNotEmpty()) {
                         binding.tvContinueWatching.visibility = View.VISIBLE
                         binding.rvContinueWatching.visibility = View.VISIBLE
-                        // ✅ ABA: Continuar Assistindo (Horizontal 16:9)
+                        // ABA: Continuar Assistindo (Horizontal 16:9)
                         binding.rvContinueWatching.adapter = HomeRowAdapter(vodItems, HomeRowAdapter.TYPE_HORIZONTAL) { selected ->
                             abrirDetalhes(selected, seriesMap[selected.id] ?: false)
                         }
@@ -171,23 +163,19 @@ class HomeFragment : Fragment() {
                 val vodResponse = URL(vodUrl).readText()
                 val vodArray = org.json.JSONArray(vodResponse)
                 val vodBatch = mutableListOf<VodEntity>()
-                val palavrasProibidas = listOf("XXX", "PORN", "ADULTO", "SEXO", "EROTICO", "🔞", "PORNÔ")
 
                 for (i in 0 until vodArray.length()) {
                     val obj = vodArray.getJSONObject(i)
-                    val nome = obj.optString("name")
-                    if (!palavrasProibidas.any { nome.uppercase().contains(it) }) {
-                        vodBatch.add(VodEntity(
-                            stream_id = obj.optInt("stream_id"),
-                            name = nome,
-                            title = obj.optString("name"),
-                            stream_icon = obj.optString("stream_icon"),
-                            container_extension = obj.optString("container_extension"),
-                            category_id = obj.optString("category_id"),
-                            rating = obj.optString("rating", "0"),
-                            added = obj.optLong("added")
-                        ))
-                    }
+                    vodBatch.add(VodEntity(
+                        stream_id = obj.optInt("stream_id"),
+                        name = obj.optString("name"),
+                        title = obj.optString("name"),
+                        stream_icon = obj.optString("stream_icon"),
+                        container_extension = obj.optString("container_extension"),
+                        category_id = obj.optString("category_id"),
+                        rating = obj.optString("rating", "0"),
+                        added = obj.optLong("added")
+                    ))
                     if (vodBatch.size >= 100) {
                         database.streamDao().insertVodStreams(vodBatch)
                         vodBatch.clear()
@@ -207,7 +195,7 @@ class HomeFragment : Fragment() {
                    .take(50)
     }
 
-    private fun buscarImagemBackgroundTMDB(nome: String, isSeries: Boolean, fallback: String, internalId: Int, targetImg: ImageView, targetLogo: ImageView, targetTitle: TextView) {
+    private fun buscarImagemBackgroundTMDB(nome: String, isSeries: Boolean, fallback: String, targetImg: ImageView) {
         val tipo = if (isSeries) "tv" else "movie"
         val query = URLEncoder.encode(limparNomeParaTMDB(nome), "UTF-8")
         val url = "https://api.themoviedb.org/3/search/$tipo?api_key=$TMDB_API_KEY&query=$query&language=pt-BR"
@@ -246,16 +234,15 @@ class HomeFragment : Fragment() {
         inner class BannerViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
             private val imgBanner: ImageView = itemView.findViewById(R.id.imgBanner)
             private val tvTitle: TextView = itemView.findViewById(R.id.tvBannerTitle)
-            private val imgLogo: ImageView = itemView.findViewById(R.id.imgBannerLogo)
             private val btnPlay: View = itemView.findViewById(R.id.btnBannerPlay)
 
             fun bind(item: Any) {
                 var title = ""; var icon = ""; var id = 0; var isSeries = false
-                if (item is VodEntity) { title = item.name; icon = item.stream_icon ?: ""; id = item.stream_id; isSeries = false }
+                if (item is VodEntity) { title = item.name; icon = item.stream_icon ?: ""; id = item.stream_id }
                 else if (item is SeriesEntity) { title = item.name; icon = item.cover ?: ""; id = item.series_id; isSeries = true }
                 
                 tvTitle.text = title
-                buscarImagemBackgroundTMDB(title, isSeries, icon, id, imgBanner, imgLogo, tvTitle)
+                buscarImagemBackgroundTMDB(title, isSeries, icon, imgBanner)
                 
                 btnPlay.setOnClickListener {
                     val intent = if (isSeries) Intent(requireContext(), SeriesDetailsActivity::class.java).apply { putExtra("series_id", id) }

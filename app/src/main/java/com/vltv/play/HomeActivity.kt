@@ -47,8 +47,9 @@ class HomeActivity : AppCompatActivity() {
                 .findFragmentById(R.id.nav_host_fragment) as? NavHostFragment
             val navController = navHostFragment?.navController
             
+            // ✅ CORREÇÃO LINHA 51: Adicionado ?. para satisfazer o compilador
             navController?.let {
-                binding.bottomNavigation.setupWithNavController(it)
+                binding.bottomNavigation?.setupWithNavController(it)
             }
 
             // 4. Recuperar dados do Perfil
@@ -73,7 +74,6 @@ class HomeActivity : AppCompatActivity() {
         try {
             DownloadHelper.registerReceiver(this)
             // O CastContext pode falhar se o Google Play Services não estiver ok. 
-            // Envolvido em try/catch para não fechar o app todo.
             CastContext.getSharedInstance(this) 
         } catch (e: Exception) {
             e.printStackTrace()
@@ -93,27 +93,34 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun isTVDevice(): Boolean {
-        return packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK) ||
-               packageManager.hasSystemFeature(PackageManager.FEATURE_TELEVISION) ||
-               (resources.configuration.uiMode and Configuration.UI_MODE_TYPE_MASK) == Configuration.UI_MODE_TYPE_TELEVISION
+        return try {
+            packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK) ||
+            packageManager.hasSystemFeature(PackageManager.FEATURE_TELEVISION) ||
+            (resources.configuration.uiMode and Configuration.UI_MODE_TYPE_MASK) == 
+            Configuration.UI_MODE_TYPE_TELEVISION
+        } catch (e: Exception) {
+            false
+        }
     }
 
     private fun setupBottomNavigation() {
-        val nav = binding.bottomNavigation
-        val profileItem = nav.menu.findItem(R.id.nav_profile)
-        profileItem?.title = currentProfile
+        // ✅ CORREÇÃO LINHA 103: Acesso seguro à bottomNavigation
+        binding.bottomNavigation?.let { nav ->
+            val profileItem = nav.menu.findItem(R.id.nav_profile)
+            profileItem?.title = currentProfile
 
-        if (!currentProfileIcon.isNullOrEmpty()) {
-            Glide.with(this)
-                .asBitmap()
-                .load(currentProfileIcon)
-                .circleCrop()
-                .into(object : CustomTarget<Bitmap>() {
-                    override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
-                        profileItem?.icon = BitmapDrawable(resources, resource)
-                    }
-                    override fun onLoadCleared(placeholder: Drawable?) {}
-                })
+            if (!currentProfileIcon.isNullOrEmpty()) {
+                Glide.with(this)
+                    .asBitmap()
+                    .load(currentProfileIcon)
+                    .circleCrop()
+                    .into(object : CustomTarget<Bitmap>() {
+                        override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
+                            profileItem?.icon = BitmapDrawable(resources, resource)
+                        }
+                        override fun onLoadCleared(placeholder: Drawable?) {}
+                    })
+            }
         }
     }
 

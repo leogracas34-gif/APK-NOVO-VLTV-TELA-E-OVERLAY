@@ -1,0 +1,367 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000">
+
+    <ImageView
+        android:id="@+id/imgBackground"
+        android:layout_width="match_parent"
+        android:layout_height="420dp"
+        android:scaleType="centerCrop"
+        android:alpha="0.8"
+        android:gravity="top" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="420dp"
+        android:background="@drawable/bg_gradient_details" />
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingBottom="80dp"> <View
+                android:layout_width="match_parent"
+                android:layout_height="160dp" />
+
+            <ImageView
+                android:id="@+id/imgTitleLogo"
+                android:layout_width="280dp"
+                android:layout_height="110dp"
+                android:layout_gravity="center_horizontal"
+                android:scaleType="fitCenter" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="2dp">
+
+                <TextView
+                    android:id="@+id/tvRating"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="#333333"
+                    android:paddingHorizontal="6dp"
+                    android:paddingVertical="1dp"
+                    android:textColor="#FFFFFF"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvYear"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:textColor="#BBBBBB"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="HD • 5.1"
+                    android:textColor="#BBBBBB"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvGenre"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="2dp"
+                android:textColor="#BBBBBB"
+                android:textSize="12sp" />
+
+            <LinearLayout
+                android:id="@+id/layoutProgress"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginHorizontal="25dp"
+                android:layout_marginTop="15dp"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <ProgressBar
+                        android:id="@+id/progressBarMovie"
+                        style="?android:attr/progressBarStyleHorizontal"
+                        android:layout_width="0dp"
+                        android:layout_height="4dp"
+                        android:layout_weight="1"
+                        android:progressDrawable="@drawable/progress_horizontal_disney" />
+
+                    <TextView
+                        android:id="@+id/tvTimeRemaining"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:text="Restam 0h0min"
+                        android:textColor="#BBBBBB"
+                        android:textSize="10sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnPlay"
+                android:layout_width="match_parent"
+                android:layout_height="55dp"
+                android:layout_marginHorizontal="20dp"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_btn_white"
+                android:text="▶  ASSISTIR"
+                android:textColor="#000000"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="15dp"
+                android:orientation="horizontal"
+                android:gravity="center">
+
+                <LinearLayout
+                    android:id="@+id/btnRestartAction"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:visibility="gone">
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@android:drawable/ic_menu_rotate"
+                        app:tint="#FFFFFF" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="REINICIAR"
+                        android:textColor="#FFFFFF"
+                        android:textSize="9sp"
+                        android:layout_marginTop="4dp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/btnTrailerAction"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:clickable="true"
+                    android:focusable="true">
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_details_trailer" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="TRAILER"
+                        android:textColor="#FFFFFF"
+                        android:textSize="9sp"
+                        android:layout_marginTop="4dp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/btnFavoriteLayout"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:clickable="true"
+                    android:focusable="true">
+                    <ImageButton
+                        android:id="@+id/btnFavorite"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:background="@android:color/transparent"
+                        android:src="@drawable/ic_details_add"
+                        app:tint="#FFFFFF" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="MINHA LISTA"
+                        android:textColor="#FFFFFF"
+                        android:textSize="9sp"
+                        android:layout_marginTop="4dp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/btnDownloadAction"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:clickable="true"
+                    android:focusable="true">
+                    <ImageView
+                        android:id="@+id/imgDownloadState"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_details_download" />
+                    <TextView
+                        android:id="@+id/tvDownloadState"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="BAIXAR"
+                        android:textColor="#FFFFFF"
+                        android:textSize="9sp"
+                        android:layout_marginTop="4dp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvPlot"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="20dp"
+                android:layout_marginTop="15dp"
+                android:textColor="#FFFFFF"
+                android:textSize="13sp"
+                android:maxLines="3"
+                android:ellipsize="end" />
+
+            <com.google.android.material.tabs.TabLayout
+                android:id="@+id/tabLayoutDetails"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="15dp"
+                android:background="#000000"
+                app:tabIndicator="@drawable/custom_tab_indicator"
+                app:tabIndicatorColor="#FFFFFF"
+                app:tabIndicatorGravity="bottom"
+                app:tabIndicatorHeight="2dp"
+                app:tabSelectedTextColor="#FFFFFF"
+                app:tabTextColor="#88FFFFFF"
+                app:tabMode="fixed">
+                <com.google.android.material.tabs.TabItem android:text="SUGESTÕES" />
+                <com.google.android.material.tabs.TabItem android:text="EXTRAS" />
+                <com.google.android.material.tabs.TabItem android:text="DETALHES" />
+            </com.google.android.material.tabs.TabLayout>
+
+            <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#33FFFFFF" />
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="10dp">
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/recyclerSuggestions"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:visibility="visible" />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/recyclerEpisodes"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone" />
+
+                <LinearLayout
+                    android:id="@+id/layoutTabDetails"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingHorizontal="20dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/tvDetailFullTitle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="#FFFFFF"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="8dp" />
+
+                    <TextView
+                        android:id="@+id/tvDetailFullPlot"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="#BBBBBB"
+                        android:textSize="13sp"
+                        android:layout_marginBottom="16dp" />
+
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Duração:" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="12sp" />
+                    <TextView android:id="@+id/tvDetailDuration" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#BBBBBB" android:textSize="12sp" android:layout_marginBottom="8dp" />
+
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Data de lançamento:" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="12sp" />
+                    <TextView android:id="@+id/tvDetailReleaseDate" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#BBBBBB" android:textSize="12sp" android:layout_marginBottom="8dp" />
+
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Gênero:" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="12sp" />
+                    <TextView android:id="@+id/tvDetailGenre" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#BBBBBB" android:textSize="12sp" android:layout_marginBottom="16dp" />
+
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Disponível nos seguintes formatos:" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="12sp" />
+                    <com.google.android.flexbox.FlexboxLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:layout_marginBottom="16dp"
+                        app:flexWrap="wrap">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="IMAX ENHANCED" android:background="@drawable/bg_format_tag" android:textColor="#FFFFFF" android:textSize="10sp" android:textStyle="bold" android:layout_margin="2dp" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="4K ULTRA HD" android:background="@drawable/bg_format_tag" android:textColor="#FFFFFF" android:textSize="10sp" android:textStyle="bold" android:layout_margin="2dp" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="5.1" android:background="@drawable/bg_format_tag" android:textColor="#FFFFFF" android:textSize="10sp" android:textStyle="bold" android:layout_margin="2dp" />
+                    </com.google.android.flexbox.FlexboxLayout>
+
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Direção:" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="12sp" />
+                    <TextView android:id="@+id/tvDetailDirector" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#BBBBBB" android:textSize="12sp" android:layout_marginBottom="8dp" />
+
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Elenco:" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="12sp" />
+                    <TextView android:id="@+id/tvCast" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#BBBBBB" android:textSize="12sp" />
+                </LinearLayout>
+            </FrameLayout>
+
+            <TextView android:id="@+id/tvTitle" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
+            <ImageView android:id="@+id/imgPoster" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
+            <Button android:id="@+id/btnSettings" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
+            <androidx.appcompat.widget.AppCompatButton android:id="@+id/btnResume" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
+            <TextView android:id="@+id/tvEpisodesTitle" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
+            <androidx.recyclerview.widget.RecyclerView android:id="@+id/recyclerCast" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+    <ImageButton
+        android:id="@+id/btnClose"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_margin="16dp"
+        android:background="@drawable/bg_circle_dark"
+        android:src="@android:drawable/ic_menu_close_clear_cancel"
+        app:tint="#FFFFFF" />
+
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/bottomNavigation"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:background="#000000"
+        app:itemIconTint="@color/white"
+        app:itemTextColor="@color/white"
+        app:labelVisibilityMode="labeled"
+        app:menu="@menu/bottom_nav_menu" />
+
+</FrameLayout>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/action_download"
+        android:title="Baixar" />
+    <item
+        android:id="@+id/action_pause"
+        android:title="Pausar download" />
+    <item
+        android:id="@+id/action_cancel"
+        android:title="Cancelar download" />
+    <item
+        android:id="@+id/action_meus_downloads"
+        android:title="Meus downloads" />
+</menu>

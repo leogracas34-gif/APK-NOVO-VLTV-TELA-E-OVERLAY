@@ -68,38 +68,41 @@ class HomeFragment : Fragment() {
     private fun carregarDadosLocaisImediato() {
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // 🟢 BUSCA DE DADOS PARA AS ABAS
-                val recentVods = database.streamDao().getRecentVods(20)
-                val movieItems = recentVods.map { VodItem(it.stream_id.toString(), it.name, it.stream_icon ?: "") }
+                // 1. Adicionados Recentemente (Ordenado por data de lançamento/inclusão)
+                val localMovies = database.streamDao().getRecentVods(20)
+                val addedItems = localMovies.map { VodItem(it.stream_id.toString(), it.name, it.stream_icon ?: "") }
 
-                val recentSeries = database.streamDao().getRecentSeries(20)
-                val seriesItems = recentSeries.map { VodItem(it.series_id.toString(), it.name, it.cover ?: "") }
+                // 2. Top 10 Hoje (Simulação baseada em rating/populares do banco)
+                val top10Movies = database.streamDao().getRecentVods(10) 
+                val top10Items = top10Movies.map { VodItem(it.stream_id.toString(), it.name, it.stream_icon ?: "") }
 
-                // Lógica de Recomendados (Ex: baseada no gênero do último assistido)
-                val recommendedMovies = database.streamDao().getRecentVods(10) // Aqui entra sua lógica de gênero depois
-                val recommendedItems = recommendedMovies.map { VodItem(it.stream_id.toString(), it.name, it.stream_icon ?: "") }
+                // 3. Recomendados para Você (Filtro inteligente local)
+                val recommendedVods = database.streamDao().getRecentVods(15)
+                val recommendedItems = recommendedVods.map { VodItem(it.stream_id.toString(), it.name, it.stream_icon ?: "") }
 
                 withContext(Dispatchers.Main) {
-                    // 1️⃣ ABA: ADICIONADOS RECENTEMENTE (Vertical 2:3)
-                    if (movieItems.isNotEmpty()) {
-                        binding.rvRecentlyAdded.setHasFixedSize(true)
-                        binding.rvRecentlyAdded.adapter = HomeRowAdapter(movieItems, HomeRowAdapter.TYPE_VERTICAL) { selected ->
+                    // Configurando ABA: Adicionados Recentemente (Vertical)
+                    if (addedItems.isNotEmpty()) {
+                        binding.rvRecentlyAdded.adapter = HomeRowAdapter(addedItems, HomeRowAdapter.TYPE_VERTICAL) { selected ->
                             abrirDetalhes(selected, false)
                         }
                     }
 
-                    // 2️⃣ ABA: RECOMENDADOS PARA VOCÊ (Vertical 2:3)
+                    // Configurando ABA: Top 10 Hoje (Top 10)
+                    if (top10Items.isNotEmpty()) {
+                        binding.rvTop10.adapter = HomeRowAdapter(top10Items, HomeRowAdapter.TYPE_TOP10) { selected ->
+                            abrirDetalhes(selected, false)
+                        }
+                    }
+
+                    // Configurando ABA: Recomendados (Vertical)
                     if (recommendedItems.isNotEmpty()) {
-                        binding.rvRecentSeries.setHasFixedSize(true) // Usando rvRecentSeries para exemplificar a nova aba
-                        binding.rvRecentSeries.adapter = HomeRowAdapter(recommendedItems, HomeRowAdapter.TYPE_VERTICAL) { selected ->
+                        binding.rvRecommended.adapter = HomeRowAdapter(recommendedItems, HomeRowAdapter.TYPE_VERTICAL) { selected ->
                             abrirDetalhes(selected, false)
                         }
                     }
 
-                    // 3️⃣ ABA: TOP 10 HOJE (Top 10)
-                    // Implementaremos uma RecyclerView específica no seu XML depois para o Top 10
-
-                    listaCompletaParaSorteio = (recentVods + recentSeries)
+                    listaCompletaParaSorteio = localMovies
                     sortearBannerUnico()
                     carregarContinuarAssistindoLocal()
                 }
@@ -115,10 +118,10 @@ class HomeFragment : Fragment() {
                 val seriesMap = historyList.associate { it.stream_id.toString() to it.is_series }
 
                 withContext(Dispatchers.Main) {
-                    // 4️⃣ ABA: CONTINUAR ASSISTINDO (Horizontal 16:9)
                     if (vodItems.isNotEmpty()) {
                         binding.tvContinueWatching.visibility = View.VISIBLE
                         binding.rvContinueWatching.visibility = View.VISIBLE
+                        // ✅ ABA: Continuar Assistindo (Horizontal 16:9)
                         binding.rvContinueWatching.adapter = HomeRowAdapter(vodItems, HomeRowAdapter.TYPE_HORIZONTAL) { selected ->
                             abrirDetalhes(selected, seriesMap[selected.id] ?: false)
                         }
@@ -150,18 +153,10 @@ class HomeFragment : Fragment() {
     }
 
     private fun setupClicks() {
-        binding.cardLiveTv.setOnClickListener {
-            startActivity(Intent(requireContext(), LiveTvActivity::class.java).apply { putExtra("SHOW_PREVIEW", true); putExtra("PROFILE_NAME", currentProfile) })
-        }
-        binding.cardMovies.setOnClickListener {
-            startActivity(Intent(requireContext(), VodActivity::class.java).apply { putExtra("SHOW_PREVIEW", false); putExtra("PROFILE_NAME", currentProfile) })
-        }
-        binding.cardSeries.setOnClickListener {
-            startActivity(Intent(requireContext(), SeriesActivity::class.java).apply { putExtra("SHOW_PREVIEW", false); putExtra("PROFILE_NAME", currentProfile) })
-        }
-        binding.cardKids.setOnClickListener {
-            startActivity(Intent(requireContext(), KidsActivity::class.java).apply { putExtra("SHOW_PREVIEW", false); putExtra("PROFILE_NAME", "Kids") })
-        }
+        binding.cardLiveTv.setOnClickListener { startActivity(Intent(requireContext(), LiveTvActivity::class.java).apply { putExtra("PROFILE_NAME", currentProfile) }) }
+        binding.cardMovies.setOnClickListener { startActivity(Intent(requireContext(), VodActivity::class.java).apply { putExtra("PROFILE_NAME", currentProfile) }) }
+        binding.cardSeries.setOnClickListener { startActivity(Intent(requireContext(), SeriesActivity::class.java).apply { putExtra("PROFILE_NAME", currentProfile) }) }
+        binding.cardKids.setOnClickListener { startActivity(Intent(requireContext(), KidsActivity::class.java).apply { putExtra("PROFILE_NAME", "Kids") }) }
     }
 
     private fun sincronizarConteudoSilenciosamente() {
@@ -214,25 +209,20 @@ class HomeFragment : Fragment() {
 
     private fun buscarImagemBackgroundTMDB(nome: String, isSeries: Boolean, fallback: String, internalId: Int, targetImg: ImageView, targetLogo: ImageView, targetTitle: TextView) {
         val tipo = if (isSeries) "tv" else "movie"
-        val nomeLimpo = limparNomeParaTMDB(nome)
-        val query = URLEncoder.encode(nomeLimpo, "UTF-8")
-        val url = "https://api.themoviedb.org/3/search/$tipo?api_key=$TMDB_API_KEY&query=$query&language=pt-BR&region=BR"
+        val query = URLEncoder.encode(limparNomeParaTMDB(nome), "UTF-8")
+        val url = "https://api.themoviedb.org/3/search/$tipo?api_key=$TMDB_API_KEY&query=$query&language=pt-BR"
 
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val response = URL(url).readText()
                 val results = JSONObject(response).getJSONArray("results")
                 if (results.length() > 0) {
-                    val backdropPath = results.getJSONObject(0).optString("backdrop_path")
+                    val path = results.getJSONObject(0).optString("backdrop_path")
                     withContext(Dispatchers.Main) {
-                        if (backdropPath.isNotEmpty() && backdropPath != "null") {
-                            Glide.with(requireContext())
-                                .load("https://image.tmdb.org/t/p/original$backdropPath")
-                                .diskCacheStrategy(DiskCacheStrategy.ALL)
-                                .into(targetImg)
-                        } else {
-                            Glide.with(requireContext()).load(fallback).into(targetImg)
-                        }
+                        Glide.with(requireContext())
+                            .load("https://image.tmdb.org/t/p/original$path")
+                            .diskCacheStrategy(DiskCacheStrategy.ALL)
+                            .into(targetImg)
                     }
                 }
             } catch (e: Exception) {
@@ -248,9 +238,9 @@ class HomeFragment : Fragment() {
 
     inner class BannerAdapter(private var items: List<Any>) : RecyclerView.Adapter<BannerAdapter.BannerViewHolder>() {
         fun updateList(newItems: List<Any>) { items = newItems; notifyDataSetChanged() }
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): BannerViewHolder {
-            return BannerViewHolder(LayoutInflater.from(parent.context).inflate(R.layout.item_banner_home, parent, false))
-        }
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): BannerViewHolder =
+            BannerViewHolder(LayoutInflater.from(parent.context).inflate(R.layout.item_banner_home, parent, false))
+        
         override fun onBindViewHolder(holder: BannerViewHolder, position: Int) { if (items.isNotEmpty()) holder.bind(items[0]) }
         override fun getItemCount(): Int = items.size
         inner class BannerViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {

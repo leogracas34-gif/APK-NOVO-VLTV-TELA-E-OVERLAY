@@ -41,13 +41,13 @@ class HomeActivity : AppCompatActivity() {
             binding = ActivityHomeBinding.inflate(layoutInflater)
             setContentView(binding.root)
 
-            // ✅ CONFIGURAÇÃO DA NAVEGAÇÃO (A Mágica das Abas)
-            // Isso conecta o Menu Inferior com os Fragments (Home, Busca, Perfil)
+            // ✅ CONFIGURAÇÃO DA NAVEGAÇÃO
             val navHostFragment = supportFragmentManager
                 .findFragmentById(R.id.nav_host_fragment) as? NavHostFragment
             val navController = navHostFragment?.navController
             if (navController != null) {
-                binding.bottomNavigation.setupWithNavController(navController)
+                // CORREÇÃO LINHA 50: Adicionado ?. para evitar Unresolved reference/Nullability error
+                binding.bottomNavigation?.setupWithNavController(navController)
             }
 
             // Recupera dados do Perfil
@@ -60,7 +60,7 @@ class HomeActivity : AppCompatActivity() {
 
             DownloadHelper.registerReceiver(this)
 
-            // Inicializa o contexto do Cast (Chromecast) para o app todo
+            // Inicializa o contexto do Cast (Chromecast)
             try { 
                 CastContext.getSharedInstance(this) 
             } catch (e: Exception) {
@@ -87,7 +87,6 @@ class HomeActivity : AppCompatActivity() {
         return try {
             packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK) ||
             packageManager.hasSystemFeature(PackageManager.FEATURE_TELEVISION) ||
-            packageManager.hasSystemFeature("android.hardware.type.television") ||
             (resources.configuration.uiMode and Configuration.UI_MODE_TYPE_MASK) == 
             Configuration.UI_MODE_TYPE_TELEVISION
         } catch (e: Exception) {
@@ -96,8 +95,8 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun setupBottomNavigation() {
-        // Coloca a fotinha do perfil no menu inferior
-        binding.bottomNavigation.let { nav ->
+        // CORREÇÃO LINHA 101: Adicionado ?. para tratar o componente como nullable
+        binding.bottomNavigation?.let { nav ->
             val profileItem = nav.menu.findItem(R.id.nav_profile)
             profileItem?.title = currentProfile
 

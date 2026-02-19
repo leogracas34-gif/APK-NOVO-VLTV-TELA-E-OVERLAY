@@ -77,7 +77,9 @@ class HomeFragment : Fragment() {
                 withContext(Dispatchers.Main) {
                     if (movieItems.isNotEmpty()) {
                         binding.rvRecentlyAdded.setHasFixedSize(true)
-                        binding.rvRecentlyAdded.adapter = HomeRowAdapter(movieItems) { selectedItem ->
+                        binding.rvRecentlyAdded.setItemViewCacheSize(20)
+                        // ✅ CORREÇÃO: Passando HomeRowAdapter.TYPE_VERTICAL
+                        binding.rvRecentlyAdded.adapter = HomeRowAdapter(movieItems, HomeRowAdapter.TYPE_VERTICAL) { selectedItem ->
                             val intent = Intent(requireContext(), DetailsActivity::class.java)
                             intent.putExtra("stream_id", selectedItem.id.toIntOrNull() ?: 0)
                             intent.putExtra("name", selectedItem.name)
@@ -89,7 +91,9 @@ class HomeFragment : Fragment() {
                     }
                     if (seriesItems.isNotEmpty()) {
                         binding.rvRecentSeries.setHasFixedSize(true)
-                        binding.rvRecentSeries.adapter = HomeRowAdapter(seriesItems) { selectedItem ->
+                        binding.rvRecentSeries.setItemViewCacheSize(20)
+                        // ✅ CORREÇÃO: Passando HomeRowAdapter.TYPE_VERTICAL
+                        binding.rvRecentSeries.adapter = HomeRowAdapter(seriesItems, HomeRowAdapter.TYPE_VERTICAL) { selectedItem ->
                             val intent = Intent(requireContext(), SeriesDetailsActivity::class.java)
                             intent.putExtra("series_id", selectedItem.id.toIntOrNull() ?: 0)
                             intent.putExtra("name", selectedItem.name)
@@ -145,7 +149,8 @@ class HomeFragment : Fragment() {
                     if (vodItems.isNotEmpty()) {
                         binding.tvContinueWatching.visibility = View.VISIBLE
                         binding.rvContinueWatching.visibility = View.VISIBLE
-                        binding.rvContinueWatching.adapter = HomeRowAdapter(vodItems) { selected ->
+                        // ✅ CORREÇÃO: Passando HomeRowAdapter.TYPE_HORIZONTAL
+                        binding.rvContinueWatching.adapter = HomeRowAdapter(vodItems, HomeRowAdapter.TYPE_HORIZONTAL) { selected ->
                             val isSer = seriesMap[selected.id] ?: false
                             val intent = if (isSer) Intent(requireContext(), SeriesDetailsActivity::class.java).apply { putExtra("series_id", selected.id.toIntOrNull() ?: 0) }
                             else Intent(requireContext(), DetailsActivity::class.java).apply { putExtra("stream_id", selected.id.toIntOrNull() ?: 0) }
@@ -186,6 +191,7 @@ class HomeFragment : Fragment() {
                             stream_icon = obj.optString("stream_icon"),
                             container_extension = obj.optString("container_extension"),
                             category_id = obj.optString("category_id"),
+                            rating = obj.optString("rating", "0"), // ✅ CORREÇÃO: Adicionado rating default
                             added = obj.optLong("added")
                         ))
                     }

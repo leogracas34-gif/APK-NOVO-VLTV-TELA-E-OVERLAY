@@ -28,7 +28,6 @@ class HomeActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityHomeBinding
     
-    // Variáveis de Perfil
     private var currentProfile: String = "Padrao"
     private var currentProfileIcon: String? = null
 
@@ -36,36 +35,31 @@ class HomeActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         
         try {
-            configurarOrientacaoAutomatica()
-            
+            // 1. Inflar o layout primeiro
             binding = ActivityHomeBinding.inflate(layoutInflater)
             setContentView(binding.root)
 
-            // ✅ CONFIGURAÇÃO DA NAVEGAÇÃO
+            // 2. Configurar orientação após o layout estar pronto
+            configurarOrientacaoAutomatica()
+
+            // 3. Configurar Navegação (FragmentContainerView)
             val navHostFragment = supportFragmentManager
                 .findFragmentById(R.id.nav_host_fragment) as? NavHostFragment
             val navController = navHostFragment?.navController
-            if (navController != null) {
-                // CORREÇÃO LINHA 50: Adicionado ?. para evitar Unresolved reference/Nullability error
-                binding.bottomNavigation?.setupWithNavController(navController)
+            
+            navController?.let {
+                binding.bottomNavigation.setupWithNavController(it)
             }
 
-            // Recupera dados do Perfil
+            // 4. Recuperar dados do Perfil
             currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
             currentProfileIcon = intent.getStringExtra("PROFILE_ICON")
 
-            // Configuração da Barra de Status
-            val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
-            windowInsetsController.isAppearanceLightStatusBars = false 
+            // 5. Estética da Barra de Status
+            WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = false 
 
-            DownloadHelper.registerReceiver(this)
-
-            // Inicializa o contexto do Cast (Chromecast)
-            try { 
-                CastContext.getSharedInstance(this) 
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+            // 6. Inicializações de Background (Protegidas contra Crash)
+            inicializarServicosSeguros()
 
             setupBottomNavigation()
             setupFirebaseRemoteConfig()
@@ -75,63 +69,77 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
+    private fun inicializarServicosSeguros() {
+        try {
+            DownloadHelper.registerReceiver(this)
+            // O CastContext pode falhar se o Google Play Services não estiver ok. 
+            // Envolvido em try/catch para não fechar o app todo.
+            CastContext.getSharedInstance(this) 
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     private fun configurarOrientacaoAutomatica() {
-        if (isTVDevice()) {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-        } else {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        try {
+            if (isTVDevice()) {
+                requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            } else {
+                requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
     private fun isTVDevice(): Boolean {
-        return try {
-            packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK) ||
-            packageManager.hasSystemFeature(PackageManager.FEATURE_TELEVISION) ||
-            (resources.configuration.uiMode and Configuration.UI_MODE_TYPE_MASK) == 
-            Configuration.UI_MODE_TYPE_TELEVISION
-        } catch (e: Exception) {
-            false
-        }
+        return packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK) ||
+               packageManager.hasSystemFeature(PackageManager.FEATURE_TELEVISION) ||
+               (resources.configuration.uiMode and Configuration.UI_MODE_TYPE_MASK) == Configuration.UI_MODE_TYPE_TELEVISION
     }
 
     private fun setupBottomNavigation() {
-        // CORREÇÃO LINHA 101: Adicionado ?. para tratar o componente como nullable
-        binding.bottomNavigation?.let { nav ->
-            val profileItem = nav.menu.findItem(R.id.nav_profile)
-            profileItem?.title = currentProfile
+        val nav = binding.bottomNavigation
+        val profileItem = nav.menu.findItem(R.id.nav_profile)
+        profileItem?.title = currentProfile
 
-            if (!currentProfileIcon.isNullOrEmpty()) {
-                Glide.with(this)
-                    .asBitmap()
-                    .load(currentProfileIcon)
-                    .circleCrop()
-                    .into(object : CustomTarget<Bitmap>() {
-                        override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
-                            profileItem?.icon = BitmapDrawable(resources, resource)
-                        }
-                        override fun onLoadCleared(placeholder: Drawable?) {}
-                    })
-            }
+        if (!currentProfileIcon.isNullOrEmpty()) {
+            Glide.with(this)
+                .asBitmap()
+                .load(currentProfileIcon)
+                .circleCrop()
+                .into(object : CustomTarget<Bitmap>() {
+                    override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
+                        profileItem?.icon = BitmapDrawable(resources, resource)
+                    }
+                    override fun onLoadCleared(placeholder: Drawable?) {}
+                })
         }
     }
 
     private fun setupFirebaseRemoteConfig() {
-        val remoteConfig = Firebase.remoteConfig
-        val configSettings = remoteConfigSettings { minimumFetchIntervalInSeconds = 60 }
-        remoteConfig.setConfigSettingsAsync(configSettings)
-        remoteConfig.fetchAndActivate()
+        try {
+            val remoteConfig = Firebase.remoteConfig
+            val configSettings = remoteConfigSettings { minimumFetchIntervalInSeconds = 3600 }
+            remoteConfig.setConfigSettingsAsync(configSettings)
+            remoteConfig.fetchAndActivate()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun mostrarDialogoSair() {
         AlertDialog.Builder(this)
-            .setTitle("Sair").setMessage("Deseja realmente sair?")
+            .setTitle("Sair")
+            .setMessage("Deseja realmente sair?")
             .setPositiveButton("Sim") { _, _ ->
-                getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE).edit().clear().apply()
                 val intent = Intent(this, LoginActivity::class.java)
                 intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                 startActivity(intent)
                 finish()
-            }.setNegativeButton("Não", null).show()
+            }
+            .setNegativeButton("Não", null)
+            .show()
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {

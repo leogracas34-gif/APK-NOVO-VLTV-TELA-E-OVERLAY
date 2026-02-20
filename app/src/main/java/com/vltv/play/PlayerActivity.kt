@@ -95,7 +95,8 @@ class PlayerActivity : AppCompatActivity() {
     private val extensoesTentativa = mutableListOf<String>()
     private var extIndex = 0
 
-    private val USER_AGENT = "IPTVSmartersPro"
+    // ✅ ALTERADO: User-Agent de navegador para evitar bloqueio nos DNS de backup
+    private val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
     // ✅ INSTÂNCIA DO BANCO DE DADOS ROOM
     private val database by lazy { AppDatabase.getDatabase(this) }
@@ -400,19 +401,20 @@ class PlayerActivity : AppCompatActivity() {
 
         player?.release()
 
+        // ✅ AJUSTADO: Fábrica de conexão com User-Agent e Redirecionamentos habilitados para evitar Erro de Conexão
         val dataSourceFactory = DefaultHttpDataSource.Factory()
             .setUserAgent(USER_AGENT)
             .setAllowCrossProtocolRedirects(true)
-            .setConnectTimeoutMs(12000)
-            .setReadTimeoutMs(15000)
+            .setConnectTimeoutMs(15000)
+            .setReadTimeoutMs(20000)
 
         val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
 
         val isLive = streamType == "live"
         val minBufferMs = 2000
-        val maxBufferMs = if (isLive) 5000 else 15000
-        val playBufferMs = 1000
-        val playRebufferMs = 2000
+        val maxBufferMs = if (isLive) 8000 else 15000
+        val playBufferMs = 1500
+        val playRebufferMs = 3000
 
         val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
             .setBufferDurationsMs(

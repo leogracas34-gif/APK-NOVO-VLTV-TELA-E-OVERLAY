@@ -159,11 +159,10 @@ class LoginActivity : AppCompatActivity() {
                 deferreds.forEach { if (it.isActive) it.cancel() }
 
                 if (dnsVencedor != null) {
-                    // ✅ IMPORTANTE: Limpa o banco de dados antigo antes de salvar o novo DNS
-                    // Isso garante que as categorias do DNS antigo não fiquem "presas"
+                    // ✅ CORREÇÃO: Usando clearAllTables() que é padrão do Room
+                    // Isso limpa os dados antigos para as categorias novas aparecerem sem erro
                     val db = AppDatabase.getDatabase(this@LoginActivity)
-                    db.streamDao().clearVodStreams()
-                    db.streamDao().clearSeriesStreams()
+                    db.clearAllTables()
 
                     salvarCredenciais(dnsVencedor!!, user, pass)
                     

@@ -38,11 +38,15 @@ class LoginActivity : AppCompatActivity() {
         "http://blackdeluxe.shop"
     )
 
+    // ✅ AJUSTADO: Timeouts aumentados e Retry habilitado para aceitar conexões mais rígidas
     private val client = OkHttpClient.Builder()
-        .connectTimeout(5, TimeUnit.SECONDS)
-        .readTimeout(10, TimeUnit.SECONDS)
-        .retryOnConnectionFailure(false)
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(20, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(true)
         .build()
+
+    // ✅ AJUSTADO: User-Agent para que todos os DNS aceitem a conexão do app
+    private val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -133,13 +137,14 @@ class LoginActivity : AppCompatActivity() {
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // 1. CORRIDA DE DNS
+                // 1. CORRIDA DE DNS (Agora identificando qual servidor aceita este login específico)
                 val deferreds = SERVERS.map { url -> async { testarConexaoIndividual(url, user, pass) } }
 
                 var dnsVencedor: String? = null
                 val startTime = System.currentTimeMillis()
                 
-                while (System.currentTimeMillis() - startTime < 10000) {
+                // Aguarda até 15 segundos para dar tempo de todos os servidores responderem
+                while (System.currentTimeMillis() - startTime < 15000) {
                     val completed = deferreds.filter { it.isCompleted }
                     for (job in completed) {
                         val result = job.getCompleted()
@@ -170,7 +175,7 @@ class LoginActivity : AppCompatActivity() {
                     }
                 } else {
                     withContext(Dispatchers.Main) {
-                        mostrarErro("Falha na conexão. Verifique seus dados.")
+                        mostrarErro("Login inválido ou servidor fora do ar.")
                     }
                 }
 
@@ -190,8 +195,12 @@ class LoginActivity : AppCompatActivity() {
             // --- FILMES (Pega os primeiros 60) ---
             try {
                 val vodUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_vod_streams"
-                val response = URL(vodUrl).readText()
-                val jsonArray = JSONArray(response)
+                
+                // ✅ AJUSTADO: Usando OkHttp com User-Agent em vez de URL.readText() para evitar bloqueios
+                val request = Request.Builder().url(vodUrl).header("User-Agent", USER_AGENT).build()
+                val responseBody = client.newCall(request).execute().body?.string() ?: ""
+                
+                val jsonArray = JSONArray(responseBody)
                 val batch = mutableListOf<VodEntity>()
                 
                 // Limita a 60 para ser rápido (apenas para o Banner e primeiras listas)
@@ -218,8 +227,12 @@ class LoginActivity : AppCompatActivity() {
             // --- SÉRIES (Pega as primeiras 60) ---
             try {
                 val seriesUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_series"
-                val response = URL(seriesUrl).readText()
-                val jsonArray = JSONArray(response)
+                
+                // ✅ AJUSTADO: Usando OkHttp com User-Agent para séries também
+                val request = Request.Builder().url(seriesUrl).header("User-Agent", USER_AGENT).build()
+                val responseBody = client.newCall(request).execute().body?.string() ?: ""
+                
+                val jsonArray = JSONArray(responseBody)
                 val batch = mutableListOf<SeriesEntity>()
                 
                 val limit = if (jsonArray.length() > 60) 60 else jsonArray.length()
@@ -250,10 +263,16 @@ class LoginActivity : AppCompatActivity() {
         val apiLogin = "$urlLimpa/player_api.php?username=$user&password=$pass"
 
         return try {
-            val request = Request.Builder().url(apiLogin).build()
+            // ✅ AJUSTADO: Adicionado User-Agent no teste de login para os outros 5 DNS não bloquearem
+            val request = Request.Builder()
+                .url(apiLogin)
+                .header("User-Agent", USER_AGENT)
+                .build()
+                
             client.newCall(request).execute().use { response ->
                 if (response.isSuccessful) {
                     val body = response.body?.string() ?: ""
+                    // Se o servidor retornar user_info, significa que este usuário e senha pertencem a ESTE DNS
                     if (body.contains("user_info") && body.contains("server_info")) {
                         return urlLimpa
                     }

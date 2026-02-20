@@ -38,15 +38,15 @@ class LoginActivity : AppCompatActivity() {
         "http://blackdeluxe.shop"
     )
 
-    // ✅ AJUSTADO: Timeouts aumentados e Retry habilitado para aceitar conexões mais rígidas
+    // ✅ AJUSTADO: Timeouts e Retry para garantir estabilidade nos DNS de backup
     private val client = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(20, TimeUnit.SECONDS)
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(15, TimeUnit.SECONDS)
         .retryOnConnectionFailure(true)
         .build()
 
-    // ✅ AJUSTADO: User-Agent para que todos os DNS aceitem a conexão do app
-    private val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    // ✅ IDENTIFICAÇÃO: Essencial para o painel liberar as categorias
+    private val USER_AGENT = "IPTVSmartersPro"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -137,14 +137,13 @@ class LoginActivity : AppCompatActivity() {
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // 1. CORRIDA DE DNS (Agora identificando qual servidor aceita este login específico)
+                // 1. CORRIDA DE DNS (Para identificar qual servidor pertence este login)
                 val deferreds = SERVERS.map { url -> async { testarConexaoIndividual(url, user, pass) } }
 
                 var dnsVencedor: String? = null
                 val startTime = System.currentTimeMillis()
                 
-                // Aguarda até 15 segundos para dar tempo de todos os servidores responderem
-                while (System.currentTimeMillis() - startTime < 15000) {
+                while (System.currentTimeMillis() - startTime < 12000) {
                     val completed = deferreds.filter { it.isCompleted }
                     for (job in completed) {
                         val result = job.getCompleted()
@@ -160,6 +159,12 @@ class LoginActivity : AppCompatActivity() {
                 deferreds.forEach { if (it.isActive) it.cancel() }
 
                 if (dnsVencedor != null) {
+                    // ✅ IMPORTANTE: Limpa o banco de dados antigo antes de salvar o novo DNS
+                    // Isso garante que as categorias do DNS antigo não fiquem "presas"
+                    val db = AppDatabase.getDatabase(this@LoginActivity)
+                    db.streamDao().clearVodStreams()
+                    db.streamDao().clearSeriesStreams()
+
                     salvarCredenciais(dnsVencedor!!, user, pass)
                     
                     // 2. PRÉ-CARREGAMENTO (A Mágica acontece aqui)
@@ -175,7 +180,7 @@ class LoginActivity : AppCompatActivity() {
                     }
                 } else {
                     withContext(Dispatchers.Main) {
-                        mostrarErro("Login inválido ou servidor fora do ar.")
+                        mostrarErro("Login inválido ou erro de conexão.")
                     }
                 }
 
@@ -196,7 +201,7 @@ class LoginActivity : AppCompatActivity() {
             try {
                 val vodUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_vod_streams"
                 
-                // ✅ AJUSTADO: Usando OkHttp com User-Agent em vez de URL.readText() para evitar bloqueios
+                // ✅ AJUSTADO: Usando OkHttp com User-Agent para garantir que o DNS libere a lista
                 val request = Request.Builder().url(vodUrl).header("User-Agent", USER_AGENT).build()
                 val responseBody = client.newCall(request).execute().body?.string() ?: ""
                 
@@ -228,7 +233,7 @@ class LoginActivity : AppCompatActivity() {
             try {
                 val seriesUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_series"
                 
-                // ✅ AJUSTADO: Usando OkHttp com User-Agent para séries também
+                // ✅ AJUSTADO: Usando OkHttp com User-Agent também para séries
                 val request = Request.Builder().url(seriesUrl).header("User-Agent", USER_AGENT).build()
                 val responseBody = client.newCall(request).execute().body?.string() ?: ""
                 
@@ -263,16 +268,15 @@ class LoginActivity : AppCompatActivity() {
         val apiLogin = "$urlLimpa/player_api.php?username=$user&password=$pass"
 
         return try {
-            // ✅ AJUSTADO: Adicionado User-Agent no teste de login para os outros 5 DNS não bloquearem
+            // ✅ AJUSTADO: Adicionado User-Agent padrão no teste de login
             val request = Request.Builder()
                 .url(apiLogin)
                 .header("User-Agent", USER_AGENT)
                 .build()
-                
+
             client.newCall(request).execute().use { response ->
                 if (response.isSuccessful) {
                     val body = response.body?.string() ?: ""
-                    // Se o servidor retornar user_info, significa que este usuário e senha pertencem a ESTE DNS
                     if (body.contains("user_info") && body.contains("server_info")) {
                         return urlLimpa
                     }

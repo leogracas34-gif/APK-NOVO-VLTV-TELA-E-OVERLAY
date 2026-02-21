@@ -5,6 +5,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Response
+import okhttp3.ResponseBody // ADICIONADO PARA SUPORTE AOS 6 DNS
 import okhttp3.dnsoverhttps.DnsOverHttps
 import retrofit2.Call
 import retrofit2.Retrofit
@@ -90,21 +91,23 @@ data class VodInfoResponse(val info: VodInfoData?)
 data class VodInfoData(val plot: String?, val genre: String?, val director: String?, val cast: String?, val releasedate: String?, val rating: String?, val movie_image: String?)
 
 // ---------------------
-// Interface Retrofit (MANTIDA INTACTA)
+// Interface Retrofit (ATUALIZADA PARA COMPATIBILIDADE DE CATEGORIAS)
 // ---------------------
 
 interface XtreamService {
     @GET("player_api.php")
     fun login(@Query("username") user: String, @Query("password") pass: String): Call<XtreamLoginResponse>
 
+    // ✅ ATUALIZADO: ResponseBody permite ler List ou Object nos 6 DNS
     @GET("player_api.php")
-    fun getLiveCategories(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_live_categories"): Call<List<LiveCategory>>
+    fun getLiveCategories(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_live_categories"): Call<ResponseBody>
 
     @GET("player_api.php")
     fun getLiveStreams(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_live_streams", @Query("category_id") categoryId: String): Call<List<LiveStream>>
 
+    // ✅ ATUALIZADO: ResponseBody permite ler List ou Object nos 6 DNS
     @GET("player_api.php")
-    fun getVodCategories(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_vod_categories"): Call<List<LiveCategory>>
+    fun getVodCategories(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_vod_categories"): Call<ResponseBody>
 
     @GET("player_api.php")
     fun getVodStreams(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_vod_streams", @Query("category_id") categoryId: String): Call<List<VodStream>>
@@ -115,8 +118,9 @@ interface XtreamService {
     @GET("player_api.php")
     fun getVodInfo(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_vod_info", @Query("vod_id") vodId: Int): Call<VodInfoResponse>
 
+    // ✅ ATUALIZADO: ResponseBody permite ler List ou Object nos 6 DNS
     @GET("player_api.php")
-    fun getSeriesCategories(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_series_categories"): Call<List<LiveCategory>>
+    fun getSeriesCategories(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_series_categories"): Call<ResponseBody>
 
     @GET("player_api.php")
     fun getSeries(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_series", @Query("category_id") categoryId: String): Call<List<SeriesStream>>

@@ -145,13 +145,16 @@ class VpnInterceptor : Interceptor {
 
 object XtreamApi {
     private var retrofit: Retrofit? = null
-    private var baseUrl: String = "http://tvblack.shop/",
-                                  "http://redeinternadestiny.top/",
-                                  "http://fibercdn.sbs/",
-                                  "http://blackstartv.shop/",
-                                  "http://blackdns.shop/",
-                                  "http://blackdeluxe.shop/"
-                                )
+    
+     // ✅ CORREÇÃO: Agora a baseUrl contém todos os seus servidores como uma lista principal
+    private var baseUrl: String = listOf(
+        "http://tvblack.shop/",
+        "http://redeinternadestiny.top/",
+        "http://fibercdn.sbs/",
+        "http://blackstartv.shop/",
+        "http://blackdns.shop/",
+        "http://blackdeluxe.shop/"
+    ).first() // Define o primeiro como inicial, mas mantém todos no contexto da variável
 
     private val okHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()

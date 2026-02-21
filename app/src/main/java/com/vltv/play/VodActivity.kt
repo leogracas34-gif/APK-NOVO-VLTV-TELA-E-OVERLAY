@@ -35,6 +35,12 @@ import org.json.JSONObject
 import java.net.URL
 import java.net.URLEncoder
 
+// --- IMPORTAÇÕES PARA SUPORTE AOS 6 DNS ---
+import okhttp3.ResponseBody
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import org.json.JSONArray
+
 class VodActivity : AppCompatActivity() {
     private lateinit var rvCategories: RecyclerView
     private lateinit var rvMovies: RecyclerView
@@ -173,25 +179,53 @@ class VodActivity : AppCompatActivity() {
         return n.contains("+18") || n.contains("adult") || n.contains("xxx") || n.contains("hot") || n.contains("sexo")
     }
 
+    // 🔥 FUNÇÃO ATUALIZADA PARA SUPORTAR TODOS OS 6 DNS (LISTA OU OBJETO)
     private fun carregarCategorias() {
         cachedCategories?.let { aplicarCategorias(it); return }
         progressBar.visibility = View.VISIBLE
-        XtreamApi.service.getVodCategories(username, password).enqueue(object : retrofit2.Callback<List<LiveCategory>> {
-            override fun onResponse(call: retrofit2.Call<List<LiveCategory>>, response: retrofit2.Response<List<LiveCategory>>) {
+        
+        XtreamApi.service.getVodCategories(username, password).enqueue(object : retrofit2.Callback<ResponseBody> {
+            override fun onResponse(call: retrofit2.Call<ResponseBody>, response: retrofit2.Response<ResponseBody>) {
                 progressBar.visibility = View.GONE
                 if (response.isSuccessful && response.body() != null) {
-                    val originais = response.body()!!
-                    var categorias = mutableListOf<LiveCategory>()
-                    categorias.add(LiveCategory(category_id = "FAV", category_name = "FAVORITOS"))
-                    categorias.addAll(originais)
-                    cachedCategories = categorias
-                    if (ParentalControlManager.isEnabled(this@VodActivity)) {
-                        categorias = categorias.filterNot { isAdultName(it.name) }.toMutableList()
+                    try {
+                        val rawJson = response.body()!!.string()
+                        val listaCategorias = mutableListOf<LiveCategory>()
+                        val gson = Gson()
+
+                        if (rawJson.trim().startsWith("[")) {
+                            val listType = object : TypeToken<List<LiveCategory>>() {}.type
+                            val list: List<LiveCategory> = gson.fromJson(rawJson, listType)
+                            listaCategorias.addAll(list)
+                        } else if (rawJson.trim().startsWith("{")) {
+                            val jsonObject = JSONObject(rawJson)
+                            val keys = jsonObject.keys()
+                            while (keys.hasNext()) {
+                                val key = keys.next()
+                                val catJson = jsonObject.getJSONObject(key).toString()
+                                val category: LiveCategory = gson.fromJson(catJson, LiveCategory::class.java)
+                                listaCategorias.add(category)
+                            }
+                        }
+
+                        var categorias = mutableListOf<LiveCategory>()
+                        categorias.add(LiveCategory(category_id = "FAV", category_name = "FAVORITOS"))
+                        categorias.addAll(listaCategorias)
+                        cachedCategories = categorias
+                        if (ParentalControlManager.isEnabled(this@VodActivity)) {
+                            categorias = categorias.filterNot { isAdultName(it.name) }.toMutableList()
+                        }
+                        aplicarCategorias(categorias)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        Toast.makeText(this@VodActivity, "Erro ao processar categorias", Toast.LENGTH_SHORT).show()
                     }
-                    aplicarCategorias(categorias)
                 }
             }
-            override fun onFailure(call: retrofit2.Call<List<LiveCategory>>, t: Throwable) { progressBar.visibility = View.GONE }
+            override fun onFailure(call: retrofit2.Call<ResponseBody>, t: Throwable) { 
+                progressBar.visibility = View.GONE 
+                Toast.makeText(this@VodActivity, "Falha na conexão", Toast.LENGTH_SHORT).show()
+            }
         })
     }
 

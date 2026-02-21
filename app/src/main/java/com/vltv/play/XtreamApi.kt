@@ -127,14 +127,14 @@ interface XtreamService {
     fun getShortEpg(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_short_epg", @Query("stream_id") streamId: String, @Query("limit") limit: Int = 2): Call<EpgWrapper>
 }
 
-// 🔥 CLASSE DA "VPN" (INTERCEPTOR) ADICIONADA
+// 🔥 CLASSE DA "VPN" (INTERCEPTOR) ATUALIZADA PARA MULTI-DNS
 class VpnInterceptor : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
         
-        // Camufla a requisição para parecer um navegador Desktop (evita bloqueio de ISP)
+        // Ajustado para User-Agent compatível com os 6 servidores de backup
         val requestWithHeaders = originalRequest.newBuilder()
-            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36")
+            .header("User-Agent", "IPTVSmartersPro")
             .header("Accept", "*/*")
             .header("Connection", "keep-alive")
             .build()
@@ -145,26 +145,39 @@ class VpnInterceptor : Interceptor {
 
 object XtreamApi {
     private var retrofit: Retrofit? = null
-    private var baseUrl: String = "http://tvblack.shop/"
+    
+    // ✅ CORREÇÃO: Começa vazia para obrigar o app a ler o DNS do login
+    private var baseUrl: String = ""
 
     private val okHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .connectTimeout(60, TimeUnit.SECONDS)
             .readTimeout(60, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
-            .addInterceptor(VpnInterceptor()) // ✅ VPN / INTERCEPTOR ATIVADO AQUI
+            .addInterceptor(VpnInterceptor())
             .build()
     }
 
     fun setBaseUrl(newUrl: String) {
-        baseUrl = if (newUrl.endsWith("/")) newUrl else "$newUrl/"
-        retrofit = null
+        if (newUrl.isEmpty()) return
+        
+        val urlFormatada = if (newUrl.endsWith("/")) newUrl else "$newUrl/"
+        
+        // ✅ CORREÇÃO: Só reconstrói se a URL for realmente diferente
+        if (baseUrl != urlFormatada) {
+            baseUrl = urlFormatada
+            retrofit = null 
+        }
     }
 
     val service: XtreamService get() {
+        // Se por algum motivo a baseUrl estiver vazia (primeiro acesso), 
+        // ela precisa ser preenchida antes de criar o retrofit.
+        val currentUrl = if (baseUrl.isEmpty()) "http://tvblack.shop/" else baseUrl
+        
         if (retrofit == null) {
             retrofit = Retrofit.Builder()
-                .baseUrl(baseUrl)
+                .baseUrl(currentUrl)
                 .client(okHttpClient)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build()

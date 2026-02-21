@@ -127,11 +127,12 @@ interface XtreamService {
     fun getShortEpg(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_short_epg", @Query("stream_id") streamId: String, @Query("limit") limit: Int = 2): Call<EpgWrapper>
 }
 
-// 🔥 CLASSE DA "VPN" (INTERCEPTOR) - MANTIDA CONFORME SEU ORIGINAL
+// 🔥 CLASSE DA "VPN" (INTERCEPTOR) ADICIONADA
 class VpnInterceptor : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
         
+        // Camufla a requisição para parecer um navegador Desktop (evita bloqueio de ISP)
         val requestWithHeaders = originalRequest.newBuilder()
             .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36")
             .header("Accept", "*/*")
@@ -144,35 +145,26 @@ class VpnInterceptor : Interceptor {
 
 object XtreamApi {
     private var retrofit: Retrofit? = null
-    
-    // ✅ INCLUÍDO OS DNS DENTRO DA API CONFORME SOLICITADO
-    private val SERVERS = listOf(
-        "http://tvblack.shop/",
-        "http://redeinternadestiny.top/",
-        "http://fibercdn.sbs/",
-        "http://blackstartv.shop/",
-        "http://blackdns.shop/",
-        "http://blackdeluxe.shop/"
-    )
-
-    private var baseUrl: String = SERVERS[0] // Começa com o primeiro da lista
+    private var baseUrl: String = "http://tvblack.shop/"
+                                  "http://redeinternadestiny.top/",
+                                   "http://fibercdn.sbs/",
+                                   "http://blackstartv.shop/",
+                                   "http://blackdns.shop/",
+                                   "http://blackdeluxe.shop/"
+                                )
 
     private val okHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS) // Ajustado para ser rápido no login
-            .readTimeout(30, TimeUnit.SECONDS)
+            .connectTimeout(60, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
-            .addInterceptor(VpnInterceptor())
+            .addInterceptor(VpnInterceptor()) // ✅ VPN / INTERCEPTOR ATIVADO AQUI
             .build()
     }
 
-    // Função para trocar o DNS dinamicamente
     fun setBaseUrl(newUrl: String) {
-        val urlFormatada = if (newUrl.endsWith("/")) newUrl else "$newUrl/"
-        if (baseUrl != urlFormatada) {
-            baseUrl = urlFormatada
-            retrofit = null // Força a recriação com o novo DNS
-        }
+        baseUrl = if (newUrl.endsWith("/")) newUrl else "$newUrl/"
+        retrofit = null
     }
 
     val service: XtreamService get() {

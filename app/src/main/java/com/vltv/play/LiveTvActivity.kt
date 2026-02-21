@@ -178,14 +178,14 @@ class LiveTvActivity : AppCompatActivity() {
                                 }
                             }
 
-                            var categorias = listaProcessada
+                            var categorias: List<LiveCategory> = listaProcessada
 
                             cachedCategories = categorias
 
                             if (ParentalControlManager.isEnabled(this@LiveTvActivity)) {
                                 categorias = categorias.filterNot { cat ->
                                     isAdultName(cat.name)
-                                }
+                                }.toMutableList() // ✅ CORREÇÃO: Converte para lista mutável para evitar erro de tipo
                             }
 
                             aplicarCategorias(categorias)

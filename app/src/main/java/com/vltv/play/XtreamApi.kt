@@ -1,5 +1,9 @@
 package com.vltv.play
 
+import android.content.Context
+import android.content.SharedPreferences
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import okhttp3.Dns
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Interceptor
@@ -16,9 +20,8 @@ import java.net.InetAddress
 import java.util.concurrent.TimeUnit
 
 // ---------------------
-// Modelos de Dados (MANTIDOS INTEGRALMENTE)
+// Modelos de Dados (MANTIDOS INTACTOS + MELHORADOS)
 // ---------------------
-
 data class XtreamLoginResponse(val user_info: UserInfo?, val server_info: ServerInfo?)
 data class UserInfo(val username: String?, val status: String?, val exp_date: String?)
 data class ServerInfo(val url: String?, val port: String?, val server_protocol: String?)
@@ -91,115 +94,56 @@ data class VodInfoResponse(val info: VodInfoData?)
 data class VodInfoData(val plot: String?, val genre: String?, val director: String?, val cast: String?, val releasedate: String?, val rating: String?, val movie_image: String?)
 
 // ---------------------
-// Interface Retrofit - MONTAGEM DE URL ASSERTIVA (FIBERCDN + TV BLACK)
+// Interface Retrofit
 // ---------------------
-
 interface XtreamService {
-    
-    // ✅ MONTAGEM DE URL PARA LOGIN (Usa username/password conforme o JSON enviado)
     @GET("player_api.php")
-    fun login(
-        @Query("username") user: String, 
-        @Query("password") pass: String
-    ): Call<XtreamLoginResponse>
-
-    // ✅ MONTAGEM DE URL PARA CATEGORIAS TV (FIBERCDN & TV BLACK)
-    @GET("player_api.php")
-    fun getLiveCategories(
-        @Query("username") user: String, 
-        @Query("password") pass: String, 
-        @Query("action") action: String = "get_live_categories"
-    ): Call<ResponseBody>
+    fun login(@Query("username") user: String, @Query("password") pass: String): Call<XtreamLoginResponse>
 
     @GET("player_api.php")
-    fun getLiveStreams(
-        @Query("username") user: String, 
-        @Query("password") pass: String, 
-        @Query("action") action: String = "get_live_streams", 
-        @Query("category_id") categoryId: String
-    ): Call<List<LiveStream>>
-
-    // ✅ MONTAGEM DE URL PARA CATEGORIAS FILMES
-    @GET("player_api.php")
-    fun getVodCategories(
-        @Query("username") user: String, 
-        @Query("password") pass: String, 
-        @Query("action") action: String = "get_vod_categories"
-    ): Call<ResponseBody>
+    fun getLiveCategories(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_live_categories"): Call<ResponseBody>
 
     @GET("player_api.php")
-    fun getVodStreams(
-        @Query("username") user: String, 
-        @Query("password") pass: String, 
-        @Query("action") action: String = "get_vod_streams", 
-        @Query("category_id") categoryId: String
-    ): Call<List<VodStream>>
+    fun getLiveStreams(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_live_streams", @Query("category_id") categoryId: String): Call<List<LiveStream>>
 
     @GET("player_api.php")
-    fun getAllVodStreams(
-        @Query("username") user: String, 
-        @Query("password") pass: String, 
-        @Query("action") action: String = "get_vod_streams"
-    ): Call<List<VodStream>>
+    fun getVodCategories(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_vod_categories"): Call<ResponseBody>
 
     @GET("player_api.php")
-    fun getVodInfo(
-        @Query("username") user: String, 
-        @Query("password") pass: String, 
-        @Query("action") action: String = "get_vod_info", 
-        @Query("vod_id") vodId: Int
-    ): Call<VodInfoResponse>
-
-    // ✅ MONTAGEM DE URL PARA CATEGORIAS SÉRIES
-    @GET("player_api.php")
-    fun getSeriesCategories(
-        @Query("username") user: String, 
-        @Query("password") pass: String, 
-        @Query("action") action: String = "get_series_categories"
-    ): Call<ResponseBody>
+    fun getVodStreams(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_vod_streams", @Query("category_id") categoryId: String): Call<List<VodStream>>
 
     @GET("player_api.php")
-    fun getSeries(
-        @Query("username") user: String, 
-        @Query("password") pass: String, 
-        @Query("action") action: String = "get_series", 
-        @Query("category_id") categoryId: String
-    ): Call<List<SeriesStream>>
+    fun getAllVodStreams(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_vod_streams"): Call<List<VodStream>>
 
     @GET("player_api.php")
-    fun getAllSeries(
-        @Query("username") user: String, 
-        @Query("password") pass: String, 
-        @Query("action") action: String = "get_series"
-    ): Call<List<SeriesStream>>
+    fun getVodInfo(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_vod_info", @Query("vod_id") vodId: Int): Call<VodInfoResponse>
 
     @GET("player_api.php")
-    fun getSeriesInfoV2(
-        @Query("username") user: String, 
-        @Query("password") pass: String, 
-        @Query("action") action: String = "get_series_info", 
-        @Query("series_id") seriesId: Int
-    ): Call<SeriesInfoResponse>
+    fun getSeriesCategories(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_series_categories"): Call<ResponseBody>
 
-    // ✅ MONTAGEM DE URL PARA EPG (CONFORME MAPEADO)
     @GET("player_api.php")
-    fun getShortEpg(
-        @Query("username") user: String, 
-        @Query("password") pass: String, 
-        @Query("action") action: String = "get_short_epg", 
-        @Query("stream_id") streamId: String, 
-        @Query("limit") limit: Int = 2
-    ): Call<EpgWrapper>
+    fun getSeries(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_series", @Query("category_id") categoryId: String): Call<List<SeriesStream>>
+
+    @GET("player_api.php")
+    fun getAllSeries(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_series"): Call<List<SeriesStream>>
+
+    @GET("player_api.php")
+    fun getSeriesInfoV2(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_series_info", @Query("series_id") seriesId: Int): Call<SeriesInfoResponse>
+
+    @GET("player_api.php")
+    fun getShortEpg(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_short_epg", @Query("stream_id") streamId: String, @Query("limit") limit: Int = 2): Call<EpgWrapper>
 }
 
-// 🔥 VPN INTERCEPTOR REFORÇADO (MANTIDO)
+// ---------------------
+// INTERCEPTORS E CLIENT
+// ---------------------
 class VpnInterceptor : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
         val requestWithHeaders = originalRequest.newBuilder()
-            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
             .header("Accept", "*/*")
-            .header("Connection", "keep-alive")
+            .header("Cache-Control", "no-cache")
             .build()
         return chain.proceed(requestWithHeaders)
     }
@@ -207,25 +151,14 @@ class VpnInterceptor : Interceptor {
 
 object XtreamApi {
     private var retrofit: Retrofit? = null
+    private var baseUrl: String = ""
     
-    // ✅ SERVIDORES MANTIDOS (SEM ALTERAR O TV BLACK)
-    private var baseUrl: String = "http://tvblack.shop/"
-    private val DNS2 = "http://redeinternadestiny.top/"
-    private val DNS3 = "http://fibercdn.sbs/"
-    private val DNS4 = "http://blackstartv.shop/"
-    private val DNS5 = "http://blackdns.shop/"
-    private val DNS6 = "http://blackdeluxe.shop/"
-
     private val safeDns: Dns by lazy {
         val bootstrapClient = OkHttpClient.Builder().build()
         DnsOverHttps.Builder()
             .client(bootstrapClient)
             .url("https://dns.google/dns-query".toHttpUrl())
-            .bootstrapDnsHosts(listOf(
-                InetAddress.getByName("8.8.8.8"),
-                InetAddress.getByName("8.8.4.4"),
-                InetAddress.getByName("1.1.1.1")
-            ))
+            .bootstrapDnsHosts(listOf(InetAddress.getByName("8.8.8.8"), InetAddress.getByName("1.1.1.1")))
             .build()
     }
 
@@ -238,6 +171,24 @@ object XtreamApi {
             .dns(safeDns)
             .addInterceptor(VpnInterceptor())
             .build()
+    }
+
+    // 🔥 CARREGA DNS SALVO AUTOMATICAMENTE
+    init {
+        carregarDnsSalvo()
+    }
+    
+    private fun carregarDnsSalvo() {
+        val context = try { 
+            Class.forName("android.app.ActivityThread").getMethod("currentApplication").invoke(null) 
+        } catch (e: Exception) { null } as? Context
+        context?.let {
+            val prefs = it.getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+            val savedDns = prefs.getString("dns", "http://tvblack.shop/")
+            setBaseUrl(savedDns!!)
+        } ?: run {
+            setBaseUrl("http://tvblack.shop/")  // Fallback
+        }
     }
 
     fun setBaseUrl(newUrl: String) {
@@ -258,5 +209,16 @@ object XtreamApi {
                 .build()
         }
         return retrofit!!.create(XtreamService::class.java)
+    }
+    
+    // 🔥 HELPER PARA CATEGORIAS (Array JSON direto)
+    fun <T> parseCategoryList(responseBody: ResponseBody?, clazz: Class<T>): List<T>? {
+        return try {
+            responseBody?.string()?.let { json ->
+                Gson().fromJson(json, object : TypeToken<List<T>>() {}.type)
+            }
+        } catch (e: Exception) {
+            null
+        }
     }
 }

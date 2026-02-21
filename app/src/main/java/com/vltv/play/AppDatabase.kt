@@ -4,10 +4,9 @@ import androidx.room.*
 import android.content.Context
 
 // ==========================================
-// 🚀 TABELAS (ENTITIES)
+// 🚀 TABELAS (CORRIGIDAS - FAVORITOS POR SERVIDOR)
 // ==========================================
 
-// ✅ NOVA TABELA DE PERFIS (TMDB)
 @Entity(tableName = "user_profiles")
 data class ProfileEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
@@ -18,26 +17,21 @@ data class ProfileEntity(
 
 @Entity(
     tableName = "live_streams",
-    indices = [
-        Index(value = ["category_id"]), 
-        Index(value = ["name"])
-    ]
+    indices = [Index(value = ["category_id"]), Index(value = ["name"])]
 )
 data class LiveStreamEntity(
     @PrimaryKey val stream_id: Int,
     val name: String,
     val stream_icon: String?,
     val epg_channel_id: String?,
-    val category_id: String
+    val category_id: String,
+    val serverUrl: String,      // ✅ NOVO: http://tvblack.shop
+    val username: String        // ✅ NOVO: 1961577
 )
 
 @Entity(
     tableName = "vod_streams", 
-    indices = [
-        Index(value = ["added"]), 
-        Index(value = ["category_id"]), 
-        Index(value = ["name"])
-    ]
+    indices = [Index(value = ["added"]), Index(value = ["category_id"]), Index(value = ["name"])]
 )
 data class VodEntity(
     @PrimaryKey val stream_id: Int,
@@ -48,16 +42,14 @@ data class VodEntity(
     val rating: String?,
     val category_id: String,
     val added: Long,
-    val logo_url: String? = null
+    val logo_url: String? = null,
+    val serverUrl: String,      // ✅ NOVO
+    val username: String        // ✅ NOVO
 )
 
 @Entity(
     tableName = "series_streams", 
-    indices = [
-        Index(value = ["last_modified"]), 
-        Index(value = ["category_id"]),
-        Index(value = ["name"])
-    ]
+    indices = [Index(value = ["last_modified"]), Index(value = ["category_id"]), Index(value = ["name"])]
 )
 data class SeriesEntity(
     @PrimaryKey val series_id: Int,
@@ -66,12 +58,14 @@ data class SeriesEntity(
     val rating: String?,
     val category_id: String,
     val last_modified: Long,
-    val logo_url: String? = null
+    val logo_url: String? = null,
+    val serverUrl: String,      // ✅ NOVO
+    val username: String        // ✅ NOVO
 )
 
 @Entity(
     tableName = "watch_history", 
-    primaryKeys = ["stream_id", "profile_name"],
+    primaryKeys = ["stream_id", "profile_name", "serverUrl", "username"],  // ✅ Adicionado server+user
     indices = [Index(value = ["timestamp"])]
 )
 data class WatchHistoryEntity(
@@ -82,14 +76,18 @@ data class WatchHistoryEntity(
     val last_position: Long,
     val duration: Long,
     val is_series: Boolean,
-    val timestamp: Long
+    val timestamp: Long,
+    val serverUrl: String,      // ✅ NOVO
+    val username: String        // ✅ NOVO
 )
 
 @Entity(tableName = "categories")
 data class CategoryEntity(
     @PrimaryKey val category_id: String,
     val category_name: String,
-    val type: String 
+    val type: String,
+    val serverUrl: String,      // ✅ NOVO
+    val username: String        // ✅ NOVO
 )
 
 @Entity(tableName = "epg_cache", indices = [Index(value = ["stream_id"])])
@@ -99,7 +97,9 @@ data class EpgEntity(
     val title: String?,
     val start: String?,
     val stop: String?,
-    val description: String?
+    val description: String?,
+    val serverUrl: String,      // ✅ NOVO
+    val username: String        // ✅ NOVO
 )
 
 @Entity(tableName = "downloads", indices = [Index(value = ["status"])])
@@ -114,47 +114,55 @@ data class DownloadEntity(
     val type: String, 
     val status: String, 
     val progress: Int = 0,
-    val total_size: String = "0MB"
+    val total_size: String = "0MB",
+    val serverUrl: String,      // ✅ NOVO
+    val username: String        // ✅ NOVO
 )
 
 // ==========================================
-// 🚀 DAO ATUALIZADO (INCLUINDO PERFIS)
+// 🚀 DAO CORRIGIDO (FAVORITOS POR SERVIDOR)
 // ==========================================
-
 @Dao
 interface StreamDao {
     
-    // --- PERFIS (NOVO) ---
+    // --- PERFIS ---
     @Query("SELECT * FROM user_profiles")
     suspend fun getAllProfiles(): List<ProfileEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertProfile(profile: ProfileEntity)
 
-    @Update
-    suspend fun updateProfile(profile: ProfileEntity)
+    @Update suspend fun updateProfile(profile: ProfileEntity)
+    @Delete suspend fun deleteProfile(profile: ProfileEntity)
 
-    @Delete
-    suspend fun deleteProfile(profile: ProfileEntity)
-
-    // --- STREAMS ---
+    // --- STREAMS FILTRADOS POR SERVIDOR ---
     @Transaction 
-    @Query("SELECT * FROM vod_streams ORDER BY added DESC LIMIT :limit")
-    suspend fun getRecentVods(limit: Int): List<VodEntity>
+    @Query("""
+        SELECT * FROM vod_streams 
+        WHERE serverUrl = :serverUrl AND username = :username
+        ORDER BY added DESC LIMIT :limit
+    """)
+    suspend fun getRecentVods(serverUrl: String, username: String, limit: Int): List<VodEntity>
 
-    @Query("SELECT COUNT(*) FROM vod_streams")
-    suspend fun getVodCount(): Int
+    @Query("SELECT COUNT(*) FROM vod_streams WHERE serverUrl = :serverUrl AND username = :username")
+    suspend fun getVodCount(serverUrl: String, username: String): Int
 
     @Transaction
-    @Query("SELECT * FROM series_streams ORDER BY last_modified DESC LIMIT :limit")
-    suspend fun getRecentSeries(limit: Int): List<SeriesEntity>
+    @Query("""
+        SELECT * FROM series_streams 
+        WHERE serverUrl = :serverUrl AND username = :username
+        ORDER BY last_modified DESC LIMIT :limit
+    """)
+    suspend fun getRecentSeries(serverUrl: String, username: String, limit: Int): List<SeriesEntity>
 
-    @Query("SELECT * FROM live_streams WHERE name LIKE '%' || :query || '%' LIMIT 100")
-    suspend fun searchLive(query: String): List<LiveStreamEntity>
+    @Query("""
+        SELECT * FROM live_streams 
+        WHERE serverUrl = :serverUrl AND username = :username 
+        AND name LIKE '%' || :query || '%' LIMIT 100
+    """)
+    suspend fun searchLive(serverUrl: String, username: String, query: String): List<LiveStreamEntity>
 
-    @Query("SELECT * FROM vod_streams WHERE name LIKE '%' || :query || '%' LIMIT 100")
-    suspend fun searchVod(query: String): List<VodEntity>
-
+    // Insert continua igual (você passa serverUrl/username)
     @Transaction
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertLiveStreams(streams: List<LiveStreamEntity>)
@@ -170,30 +178,35 @@ interface StreamDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCategories(categories: List<CategoryEntity>)
 
-    @Query("DELETE FROM live_streams")
-    suspend fun clearLive()
+    @Query("DELETE FROM live_streams WHERE serverUrl = :serverUrl AND username = :username")
+    suspend fun clearLive(serverUrl: String, username: String)
 
-    @Query("UPDATE series_streams SET logo_url = :logoUrl WHERE series_id = :id")
-    suspend fun updateSeriesLogo(id: Int, logoUrl: String)
+    @Query("UPDATE series_streams SET logo_url = :logoUrl WHERE series_id = :id AND serverUrl = :serverUrl AND username = :username")
+    suspend fun updateSeriesLogo(id: Int, logoUrl: String, serverUrl: String, username: String)
 
-    @Query("UPDATE vod_streams SET logo_url = :logoUrl WHERE stream_id = :id")
-    suspend fun updateVodLogo(id: Int, logoUrl: String)
+    @Query("UPDATE vod_streams SET logo_url = :logoUrl WHERE stream_id = :id AND serverUrl = :serverUrl AND username = :username")
+    suspend fun updateVodLogo(id: Int, logoUrl: String, serverUrl: String, username: String)
 
+    // WATCH HISTORY FILTRADA
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveWatchHistory(history: WatchHistoryEntity)
 
-    @Query("SELECT * FROM watch_history WHERE profile_name = :profile ORDER BY timestamp DESC LIMIT :limit")
-    suspend fun getWatchHistory(profile: String, limit: Int = 20): List<WatchHistoryEntity>
+    @Query("""
+        SELECT * FROM watch_history 
+        WHERE profile_name = :profile AND serverUrl = :serverUrl AND username = :username
+        ORDER BY timestamp DESC LIMIT :limit
+    """)
+    suspend fun getWatchHistory(profile: String, serverUrl: String, username: String, limit: Int = 20): List<WatchHistoryEntity>
 
-    // --- DOWNLOADS ---
+    // DOWNLOADS (igual, só adiciona server/user ao inserir)
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertDownload(download: DownloadEntity)
 
     @Query("SELECT * FROM downloads ORDER BY id DESC")
     fun getAllDownloads(): androidx.lifecycle.LiveData<List<DownloadEntity>>
 
-    @Query("SELECT * FROM downloads WHERE stream_id = :streamId AND type = :type LIMIT 1")
-    suspend fun getDownloadByStreamId(streamId: Int, type: String): DownloadEntity?
+    @Query("SELECT * FROM downloads WHERE stream_id = :streamId AND type = :type AND serverUrl = :serverUrl AND username = :username LIMIT 1")
+    suspend fun getDownloadByStreamId(streamId: Int, type: String, serverUrl: String, username: String): DownloadEntity?
 
     @Query("UPDATE downloads SET status = :status, progress = :progress WHERE android_download_id = :downloadId")
     suspend fun updateDownloadProgress(downloadId: Long, status: String, progress: Int)
@@ -212,41 +225,31 @@ interface StreamDao {
 }
 
 // ==========================================
-// 🚀 DATABASE ENGINE (VERSÃO ATUALIZADA)
+// DATABASE (VERSÃO 7)
 // ==========================================
-
 @Database(
     entities = [
-        LiveStreamEntity::class, 
-        VodEntity::class, 
-        SeriesEntity::class, 
-        CategoryEntity::class, 
-        EpgEntity::class, 
-        WatchHistoryEntity::class, 
-        DownloadEntity::class,
-        ProfileEntity::class // ✅ Adicionado
+        LiveStreamEntity::class, VodEntity::class, SeriesEntity::class, 
+        CategoryEntity::class, EpgEntity::class, WatchHistoryEntity::class, 
+        DownloadEntity::class, ProfileEntity::class
     ], 
-    version = 6, // ✅ Aumentado de 5 para 6
+    version = 7,  // ✅ Aumentado para incluir serverUrl/username
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun streamDao(): StreamDao
 
     companion object {
-        @Volatile
-        private var INSTANCE: AppDatabase? = null
+        @Volatile private var INSTANCE: AppDatabase? = null
 
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
-                    context.applicationContext,
-                    AppDatabase::class.java,
-                    "vltv_play_db"
+                    context.applicationContext, AppDatabase::class.java, "vltv_play_db"
                 )
                 .fallbackToDestructiveMigration() 
                 .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
                 .build()
-                
                 INSTANCE = instance
                 instance
             }

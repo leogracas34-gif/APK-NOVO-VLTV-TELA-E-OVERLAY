@@ -71,6 +71,7 @@ dependencies {
     implementation("com.github.bumptech.glide:glide:4.16.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0") // Para debug de rede
+    implementation("com.squareup.okhttp3:okhttp-dnsoverhttps:4.12.0")
 
     // Player de Vídeo (Media3/ExoPlayer)
     implementation("androidx.media3:media3-exoplayer:1.2.0")

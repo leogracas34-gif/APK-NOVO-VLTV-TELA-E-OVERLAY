@@ -38,15 +38,11 @@ class LoginActivity : AppCompatActivity() {
         "http://blackdeluxe.shop"
     )
 
-    // ✅ AJUSTADO: Timeouts e Retry para garantir estabilidade nos DNS de backup
     private val client = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
-        .retryOnConnectionFailure(true)
+        .connectTimeout(5, TimeUnit.SECONDS)
+        .readTimeout(10, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(false)
         .build()
-
-    // ✅ IDENTIFICAÇÃO: Essencial para o painel liberar as categorias
-    private val USER_AGENT = "IPTVSmartersPro"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -137,13 +133,13 @@ class LoginActivity : AppCompatActivity() {
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // 1. CORRIDA DE DNS (Para identificar qual servidor pertence este login)
+                // 1. CORRIDA DE DNS
                 val deferreds = SERVERS.map { url -> async { testarConexaoIndividual(url, user, pass) } }
 
                 var dnsVencedor: String? = null
                 val startTime = System.currentTimeMillis()
                 
-                while (System.currentTimeMillis() - startTime < 12000) {
+                while (System.currentTimeMillis() - startTime < 10000) {
                     val completed = deferreds.filter { it.isCompleted }
                     for (job in completed) {
                         val result = job.getCompleted()
@@ -159,11 +155,6 @@ class LoginActivity : AppCompatActivity() {
                 deferreds.forEach { if (it.isActive) it.cancel() }
 
                 if (dnsVencedor != null) {
-                    // ✅ CORREÇÃO: Usando clearAllTables() que é padrão do Room
-                    // Isso limpa os dados antigos para as categorias novas aparecerem sem erro
-                    val db = AppDatabase.getDatabase(this@LoginActivity)
-                    db.clearAllTables()
-
                     salvarCredenciais(dnsVencedor!!, user, pass)
                     
                     // 2. PRÉ-CARREGAMENTO (A Mágica acontece aqui)
@@ -179,7 +170,7 @@ class LoginActivity : AppCompatActivity() {
                     }
                 } else {
                     withContext(Dispatchers.Main) {
-                        mostrarErro("Login inválido ou erro de conexão.")
+                        mostrarErro("Falha na conexão. Verifique seus dados.")
                     }
                 }
 
@@ -199,12 +190,8 @@ class LoginActivity : AppCompatActivity() {
             // --- FILMES (Pega os primeiros 60) ---
             try {
                 val vodUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_vod_streams"
-                
-                // ✅ AJUSTADO: Usando OkHttp com User-Agent para garantir que o DNS libere a lista
-                val request = Request.Builder().url(vodUrl).header("User-Agent", USER_AGENT).build()
-                val responseBody = client.newCall(request).execute().body?.string() ?: ""
-                
-                val jsonArray = JSONArray(responseBody)
+                val response = URL(vodUrl).readText()
+                val jsonArray = JSONArray(response)
                 val batch = mutableListOf<VodEntity>()
                 
                 // Limita a 60 para ser rápido (apenas para o Banner e primeiras listas)
@@ -231,12 +218,8 @@ class LoginActivity : AppCompatActivity() {
             // --- SÉRIES (Pega as primeiras 60) ---
             try {
                 val seriesUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_series"
-                
-                // ✅ AJUSTADO: Usando OkHttp com User-Agent também para séries
-                val request = Request.Builder().url(seriesUrl).header("User-Agent", USER_AGENT).build()
-                val responseBody = client.newCall(request).execute().body?.string() ?: ""
-                
-                val jsonArray = JSONArray(responseBody)
+                val response = URL(seriesUrl).readText()
+                val jsonArray = JSONArray(response)
                 val batch = mutableListOf<SeriesEntity>()
                 
                 val limit = if (jsonArray.length() > 60) 60 else jsonArray.length()
@@ -267,12 +250,7 @@ class LoginActivity : AppCompatActivity() {
         val apiLogin = "$urlLimpa/player_api.php?username=$user&password=$pass"
 
         return try {
-            // ✅ AJUSTADO: Adicionado User-Agent padrão no teste de login
-            val request = Request.Builder()
-                .url(apiLogin)
-                .header("User-Agent", USER_AGENT)
-                .build()
-
+            val request = Request.Builder().url(apiLogin).build()
             client.newCall(request).execute().use { response ->
                 if (response.isSuccessful) {
                     val body = response.body?.string() ?: ""

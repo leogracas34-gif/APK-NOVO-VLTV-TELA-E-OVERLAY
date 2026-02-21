@@ -47,6 +47,11 @@ import androidx.lifecycle.lifecycleScope
 import com.vltv.play.data.AppDatabase
 import com.vltv.play.data.SeriesEntity
 
+// --- IMPORTAÇÕES PARA SUPORTE AOS 6 DNS ---
+import okhttp3.ResponseBody
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+
 class SeriesActivity : AppCompatActivity() {
 
     private lateinit var rvCategories: RecyclerView
@@ -276,6 +281,7 @@ class SeriesActivity : AppCompatActivity() {
                 n.contains("sexo")
     }
 
+    // 🔥 FUNÇÃO ATUALIZADA PARA ACEITAR OS 6 DNS (LISTA OU OBJETO)
     private fun carregarCategorias() {
         cachedCategories?.let { categoriasCacheadas ->
             aplicarCategorias(categoriasCacheadas)
@@ -285,39 +291,61 @@ class SeriesActivity : AppCompatActivity() {
         progressBar.visibility = View.VISIBLE
 
         XtreamApi.service.getSeriesCategories(username, password)
-            .enqueue(object : Callback<List<LiveCategory>> {
+            .enqueue(object : Callback<ResponseBody> {
                 override fun onResponse(
-                    call: Call<List<LiveCategory>>,
-                    response: Response<List<LiveCategory>>
+                    call: Call<ResponseBody>,
+                    response: Response<ResponseBody>
                 ) {
                     progressBar.visibility = View.GONE
                     if (response.isSuccessful && response.body() != null) {
-                        val originais = response.body()!!
+                        try {
+                            val rawJson = response.body()!!.string()
+                            val listaProcessada = mutableListOf<LiveCategory>()
+                            val gson = Gson()
 
-                        var categorias = mutableListOf<LiveCategory>()
-                        categorias.add(
-                            LiveCategory(
-                                category_id = "FAV_SERIES",
-                                category_name = "FAVORITOS"
+                            if (rawJson.trim().startsWith("[")) {
+                                val listType = object : TypeToken<List<LiveCategory>>() {}.type
+                                val list: List<LiveCategory> = gson.fromJson(rawJson, listType)
+                                listaProcessada.addAll(list)
+                            } else if (rawJson.trim().startsWith("{")) {
+                                val jsonObject = JSONObject(rawJson)
+                                val keys = jsonObject.keys()
+                                while (keys.hasNext()) {
+                                    val key = keys.next()
+                                    val catJson = jsonObject.getJSONObject(key).toString()
+                                    val category: LiveCategory = gson.fromJson(catJson, LiveCategory::class.java)
+                                    listaProcessada.add(category)
+                                }
+                            }
+
+                            var categorias = mutableListOf<LiveCategory>()
+                            categorias.add(
+                                LiveCategory(
+                                    category_id = "FAV_SERIES",
+                                    category_name = "FAVORITOS"
+                                )
                             )
-                        )
-                        categorias.addAll(originais)
+                            categorias.addAll(listaProcessada)
 
-                        cachedCategories = categorias
+                            cachedCategories = categorias
 
-                        if (ParentalControlManager.isEnabled(this@SeriesActivity)) {
-                            categorias = categorias.filterNot { cat ->
-                                isAdultName(cat.name)
-                            }.toMutableList()
+                            if (ParentalControlManager.isEnabled(this@SeriesActivity)) {
+                                categorias = categorias.filterNot { cat ->
+                                    isAdultName(cat.name)
+                                }.toMutableList()
+                            }
+
+                            aplicarCategorias(categorias)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            Toast.makeText(this@SeriesActivity, "Erro no formato dos dados", Toast.LENGTH_SHORT).show()
                         }
-
-                        aplicarCategorias(categorias)
                     } else {
                         Toast.makeText(this@SeriesActivity, "Erro ao carregar categorias", Toast.LENGTH_SHORT).show()
                     }
                 }
 
-                override fun onFailure(call: Call<List<LiveCategory>>, t: Throwable) {
+                override fun onFailure(call: Call<ResponseBody>, t: Throwable) {
                     progressBar.visibility = View.GONE
                     Toast.makeText(this@SeriesActivity, "Falha de conexão", Toast.LENGTH_SHORT).show()
                 }

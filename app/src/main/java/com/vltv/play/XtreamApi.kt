@@ -127,14 +127,13 @@ interface XtreamService {
     fun getShortEpg(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_short_epg", @Query("stream_id") streamId: String, @Query("limit") limit: Int = 2): Call<EpgWrapper>
 }
 
-// 🔥 CLASSE DA "VPN" (INTERCEPTOR) ATUALIZADA PARA MULTI-DNS
+// 🔥 CLASSE DA "VPN" (INTERCEPTOR) - MANTIDA CONFORME SEU ORIGINAL
 class VpnInterceptor : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
         
-        // Ajustado para User-Agent compatível com os 6 servidores de backup
         val requestWithHeaders = originalRequest.newBuilder()
-            .header("User-Agent", "IPTVSmartersPro")
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36")
             .header("Accept", "*/*")
             .header("Connection", "keep-alive")
             .build()
@@ -146,38 +145,40 @@ class VpnInterceptor : Interceptor {
 object XtreamApi {
     private var retrofit: Retrofit? = null
     
-    // ✅ CORREÇÃO: Começa vazia para obrigar o app a ler o DNS do login
-    private var baseUrl: String = ""
+    // ✅ INCLUÍDO OS DNS DENTRO DA API CONFORME SOLICITADO
+    private val SERVERS = listOf(
+        "http://tvblack.shop/",
+        "http://redeinternadestiny.top/",
+        "http://fibercdn.sbs/",
+        "http://blackstartv.shop/",
+        "http://blackdns.shop/",
+        "http://blackdeluxe.shop/"
+    )
+
+    private var baseUrl: String = SERVERS[0] // Começa com o primeiro da lista
 
     private val okHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
-            .connectTimeout(60, TimeUnit.SECONDS)
-            .readTimeout(60, TimeUnit.SECONDS)
+            .connectTimeout(30, TimeUnit.SECONDS) // Ajustado para ser rápido no login
+            .readTimeout(30, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
             .addInterceptor(VpnInterceptor())
             .build()
     }
 
+    // Função para trocar o DNS dinamicamente
     fun setBaseUrl(newUrl: String) {
-        if (newUrl.isEmpty()) return
-        
         val urlFormatada = if (newUrl.endsWith("/")) newUrl else "$newUrl/"
-        
-        // ✅ CORREÇÃO: Só reconstrói se a URL for realmente diferente
         if (baseUrl != urlFormatada) {
             baseUrl = urlFormatada
-            retrofit = null 
+            retrofit = null // Força a recriação com o novo DNS
         }
     }
 
     val service: XtreamService get() {
-        // Se por algum motivo a baseUrl estiver vazia (primeiro acesso), 
-        // ela precisa ser preenchida antes de criar o retrofit.
-        val currentUrl = if (baseUrl.isEmpty()) "http://tvblack.shop/" else baseUrl
-        
         if (retrofit == null) {
             retrofit = Retrofit.Builder()
-                .baseUrl(currentUrl)
+                .baseUrl(baseUrl)
                 .client(okHttpClient)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build()

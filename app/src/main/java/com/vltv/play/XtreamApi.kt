@@ -1,13 +1,17 @@
 package com.vltv.play
 
+import okhttp3.Dns
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Response
+import okhttp3.dnsoverhttps.DnsOverHttps
 import retrofit2.Call
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
 import retrofit2.http.Query
+import java.net.InetAddress
 import java.util.concurrent.TimeUnit
 
 // ---------------------
@@ -127,15 +131,16 @@ interface XtreamService {
     fun getShortEpg(@Query("username") user: String, @Query("password") pass: String, @Query("action") action: String = "get_short_epg", @Query("stream_id") streamId: String, @Query("limit") limit: Int = 2): Call<EpgWrapper>
 }
 
-// 🔥 CLASSE DA "VPN" (INTERCEPTOR) ADICIONADA
+// 🔥 OPÇÃO A: VPN INTERCEPTOR REFORÇADO (ANTI-BLOQUEIO)
 class VpnInterceptor : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
         
-        // Camufla a requisição para parecer um navegador Desktop (evita bloqueio de ISP)
         val requestWithHeaders = originalRequest.newBuilder()
-            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36")
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
             .header("Accept", "*/*")
+            .header("Cache-Control", "no-cache")
+            .header("Pragma", "no-cache")
             .header("Connection", "keep-alive")
             .build()
             
@@ -145,20 +150,47 @@ class VpnInterceptor : Interceptor {
 
 object XtreamApi {
     private var retrofit: Retrofit? = null
+    
+    // ✅ SERVIDORES PRINCIPAIS
     private var baseUrl: String = "http://tvblack.shop/"
+    private val DNS2 = "http://redeinternadestiny.top/"
+    private val DNS3 = "http://fibercdn.sbs/"
+    private val DNS4 = "http://blackstartv.shop/"
+    private val DNS5 = "http://blackdns.shop/"
+    private val DNS6 = "http://blackdeluxe.shop/"
+
+    // 🔥 OPÇÃO B: DNS SEGURO (DNS OVER HTTPS) - GOOGLE E CLOUDFLARE
+    private val safeDns: Dns by lazy {
+        val bootstrapClient = OkHttpClient.Builder().build()
+        DnsOverHttps.Builder()
+            .client(bootstrapClient)
+            .url("https://dns.google/dns-query".toHttpUrl())
+            .bootstrapDnsHosts(listOf(
+                InetAddress.getByName("8.8.8.8"),
+                InetAddress.getByName("8.8.4.4"),
+                InetAddress.getByName("1.1.1.1")
+            ))
+            .build()
+    }
 
     private val okHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .connectTimeout(60, TimeUnit.SECONDS)
             .readTimeout(60, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
-            .addInterceptor(VpnInterceptor()) // ✅ VPN / INTERCEPTOR ATIVADO AQUI
+            .dns(safeDns) // ✅ ATIVA DNS SEGURO CONTRA BLOQUEIO DE ISP
+            .addInterceptor(VpnInterceptor()) // ✅ ATIVA VPN / CABEÇALHOS CAMUFLADOS
             .build()
     }
 
     fun setBaseUrl(newUrl: String) {
-        baseUrl = if (newUrl.endsWith("/")) newUrl else "$newUrl/"
-        retrofit = null
+        if (newUrl.isEmpty()) return
+        val urlFormatada = if (newUrl.endsWith("/")) newUrl else "$newUrl/"
+        if (baseUrl != urlFormatada) {
+            baseUrl = urlFormatada
+            retrofit = null
+        }
     }
 
     val service: XtreamService get() {

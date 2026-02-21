@@ -145,12 +145,12 @@ class VpnInterceptor : Interceptor {
 
 object XtreamApi {
     private var retrofit: Retrofit? = null
-    private var baseUrl: String = "http://tvblack.shop/"
+    private var baseUrl: String = "http://tvblack.shop/",
                                   "http://redeinternadestiny.top/",
-                                   "http://fibercdn.sbs/",
-                                   "http://blackstartv.shop/",
-                                   "http://blackdns.shop/",
-                                   "http://blackdeluxe.shop/"
+                                  "http://fibercdn.sbs/",
+                                  "http://blackstartv.shop/",
+                                  "http://blackdns.shop/",
+                                  "http://blackdeluxe.shop/"
                                 )
 
     private val okHttpClient: OkHttpClient by lazy {

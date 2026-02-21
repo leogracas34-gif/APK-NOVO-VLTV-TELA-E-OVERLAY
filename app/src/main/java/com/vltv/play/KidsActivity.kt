@@ -29,6 +29,12 @@ import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
 
+// --- IMPORTAÇÕES PARA SUPORTE AOS 6 DNS ---
+import okhttp3.ResponseBody
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import org.json.JSONObject
+
 class KidsActivity : AppCompatActivity() {
     private lateinit var rvHubChannels: RecyclerView
     private lateinit var rvRecentKids: RecyclerView
@@ -149,7 +155,6 @@ class KidsActivity : AppCompatActivity() {
                         }
                     }
                     rvHubChannels.adapter = HubAdapter(listaHub) { canal ->
-                        // ✅ ATUALIZADO: Enviando Nome e EPG para o Player não ficar genérico
                         val intent = Intent(this@KidsActivity, PlayerActivity::class.java).apply {
                             putExtra("stream_id", canal.id)
                             putExtra("name", canal.name)
@@ -166,74 +171,110 @@ class KidsActivity : AppCompatActivity() {
     }
 
     private fun carregarConteudoKids() {
-        XtreamApi.service.getVodCategories(user, pass).enqueue(object : Callback<List<LiveCategory>> {
-            override fun onResponse(call: Call<List<LiveCategory>>, response: Response<List<LiveCategory>>) {
-                if (response.isSuccessful) {
-                    val kidsCats = response.body()?.filter {
-                        val n = it.name.lowercase()
-                        n.contains("kids") || n.contains("infantil") || n.contains("desenho") || n.contains("disney")
-                    }
-                    kidsCats?.forEach { cat ->
-                        XtreamApi.service.getVodStreams(user, pass, categoryId = cat.id).enqueue(object : Callback<List<VodStream>> {
-                            override fun onResponse(call: Call<List<VodStream>>, res: Response<List<VodStream>>) {
-                                if (res.isSuccessful && res.body() != null) {
-                                    val adapterExistente = rvMoviesKids.adapter as? KidsVodAdapter
-                                    if (adapterExistente != null) {
-                                        val listaAtual = adapterExistente.list.toMutableList()
-                                        listaAtual.addAll(res.body()!!)
-                                        rvMoviesKids.adapter = KidsVodAdapter(listaAtual.distinctBy { it.id }) { filme ->
-                                            salvarNosRecentes(filme.id.toString(), "movie")
-                                            abrirDetalhesFilme(filme)
-                                        }
-                                    } else {
-                                        rvMoviesKids.adapter = KidsVodAdapter(res.body()!!) { filme ->
-                                            salvarNosRecentes(filme.id.toString(), "movie")
-                                            abrirDetalhesFilme(filme)
+        XtreamApi.service.getVodCategories(user, pass).enqueue(object : Callback<ResponseBody> {
+            override fun onResponse(call: Call<ResponseBody>, response: Response<ResponseBody>) {
+                if (response.isSuccessful && response.body() != null) {
+                    try {
+                        val rawJson = response.body()!!.string()
+                        val listaCategorias = mutableListOf<LiveCategory>()
+                        val gson = Gson()
+
+                        if (rawJson.trim().startsWith("[")) {
+                            val listType = object : TypeToken<List<LiveCategory>>() {}.type
+                            listaCategorias.addAll(gson.fromJson(rawJson, listType))
+                        } else if (rawJson.trim().startsWith("{")) {
+                            val jsonObject = JSONObject(rawJson)
+                            jsonObject.keys().forEach { key ->
+                                val cat = gson.fromJson(jsonObject.getJSONObject(key).toString(), LiveCategory::class.java)
+                                listaCategorias.add(cat)
+                            }
+                        }
+
+                        val kidsCats = listaCategorias.filter {
+                            val n = it.name.lowercase()
+                            n.contains("kids") || n.contains("infantil") || n.contains("desenho") || n.contains("disney")
+                        }
+
+                        kidsCats.forEach { cat ->
+                            XtreamApi.service.getVodStreams(user, pass, categoryId = cat.id).enqueue(object : Callback<List<VodStream>> {
+                                override fun onResponse(call: Call<List<VodStream>>, res: Response<List<VodStream>>) {
+                                    if (res.isSuccessful && res.body() != null) {
+                                        val adapterExistente = rvMoviesKids.adapter as? KidsVodAdapter
+                                        if (adapterExistente != null) {
+                                            val listaAtual = adapterExistente.list.toMutableList()
+                                            listaAtual.addAll(res.body()!!)
+                                            rvMoviesKids.adapter = KidsVodAdapter(listaAtual.distinctBy { it.id }) { filme ->
+                                                salvarNosRecentes(filme.id.toString(), "movie")
+                                                abrirDetalhesFilme(filme)
+                                            }
+                                        } else {
+                                            rvMoviesKids.adapter = KidsVodAdapter(res.body()!!) { filme ->
+                                                salvarNosRecentes(filme.id.toString(), "movie")
+                                                abrirDetalhesFilme(filme)
+                                            }
                                         }
                                     }
                                 }
-                            }
-                            override fun onFailure(call: Call<List<VodStream>>, t: Throwable) {}
-                        })
-                    }
+                                override fun onFailure(call: Call<List<VodStream>>, t: Throwable) {}
+                            })
+                        }
+                    } catch (e: Exception) { e.printStackTrace() }
                 }
             }
-            override fun onFailure(call: Call<List<LiveCategory>>, t: Throwable) {}
+            override fun onFailure(call: Call<ResponseBody>, t: Throwable) {}
         })
 
-        XtreamApi.service.getSeriesCategories(user, pass).enqueue(object : Callback<List<LiveCategory>> {
-            override fun onResponse(call: Call<List<LiveCategory>>, response: Response<List<LiveCategory>>) {
-                if (response.isSuccessful) {
-                    val kidsSeriesCats = response.body()?.filter {
-                        val n = it.name.lowercase()
-                        n.contains("kids") || n.contains("infantil") || n.contains("desenho") || n.contains("disney")
-                    }
-                    kidsSeriesCats?.forEach { cat ->
-                        XtreamApi.service.getSeries(user, pass, categoryId = cat.id).enqueue(object : Callback<List<SeriesStream>> {
-                            override fun onResponse(call: Call<List<SeriesStream>>, res: Response<List<SeriesStream>>) {
-                                if (res.isSuccessful && res.body() != null) {
-                                    val adapterExistente = rvSeriesKids.adapter as? KidsSeriesAdapter
-                                    if (adapterExistente != null) {
-                                        val listaAtual = adapterExistente.list.toMutableList()
-                                        listaAtual.addAll(res.body()!!)
-                                        rvSeriesKids.adapter = KidsSeriesAdapter(listaAtual.distinctBy { it.id }) { serie ->
-                                            salvarNosRecentes(serie.id.toString(), "series")
-                                            abrirDetalhesSerie(serie)
-                                        }
-                                    } else {
-                                        rvSeriesKids.adapter = KidsSeriesAdapter(res.body()!!) { serie ->
-                                            salvarNosRecentes(serie.id.toString(), "series")
-                                            abrirDetalhesSerie(serie)
+        XtreamApi.service.getSeriesCategories(user, pass).enqueue(object : Callback<ResponseBody> {
+            override fun onResponse(call: Call<ResponseBody>, response: Response<ResponseBody>) {
+                if (response.isSuccessful && response.body() != null) {
+                    try {
+                        val rawJson = response.body()!!.string()
+                        val listaCategorias = mutableListOf<LiveCategory>()
+                        val gson = Gson()
+
+                        if (rawJson.trim().startsWith("[")) {
+                            val listType = object : TypeToken<List<LiveCategory>>() {}.type
+                            listaCategorias.addAll(gson.fromJson(rawJson, listType))
+                        } else if (rawJson.trim().startsWith("{")) {
+                            val jsonObject = JSONObject(rawJson)
+                            jsonObject.keys().forEach { key ->
+                                val cat = gson.fromJson(jsonObject.getJSONObject(key).toString(), LiveCategory::class.java)
+                                listaCategorias.add(cat)
+                            }
+                        }
+
+                        val kidsSeriesCats = listaCategorias.filter {
+                            val n = it.name.lowercase()
+                            n.contains("kids") || n.contains("infantil") || n.contains("desenho") || n.contains("disney")
+                        }
+
+                        kidsSeriesCats.forEach { cat ->
+                            XtreamApi.service.getSeries(user, pass, categoryId = cat.id).enqueue(object : Callback<List<SeriesStream>> {
+                                override fun onResponse(call: Call<List<SeriesStream>>, res: Response<List<SeriesStream>>) {
+                                    if (res.isSuccessful && res.body() != null) {
+                                        val adapterExistente = rvSeriesKids.adapter as? KidsSeriesAdapter
+                                        if (adapterExistente != null) {
+                                            val listaAtual = adapterExistente.list.toMutableList()
+                                            listaAtual.addAll(res.body()!!)
+                                            rvSeriesKids.adapter = KidsSeriesAdapter(listaAtual.distinctBy { it.id }) { serie ->
+                                                salvarNosRecentes(serie.id.toString(), "series")
+                                                abrirDetalhesSerie(serie)
+                                            }
+                                        } else {
+                                            rvSeriesKids.adapter = KidsSeriesAdapter(res.body()!!) { serie ->
+                                                salvarNosRecentes(serie.id.toString(), "series")
+                                                abrirDetalhesSerie(serie)
+                                            }
                                         }
                                     }
                                 }
-                            }
-                            override fun onFailure(call: Call<List<SeriesStream>>, t: Throwable) {}
-                        })
-                    }
+                                override fun onFailure(call: Call<List<SeriesStream>>, t: Throwable) {}
+                            })
+                        }
+                    } catch (e: Exception) { e.printStackTrace() }
                 }
             }
-            override fun onFailure(call: Call<List<LiveCategory>>, t: Throwable) {}
+            override fun onFailure(call: Call<ResponseBody>, t: Throwable) {}
         })
     }
 

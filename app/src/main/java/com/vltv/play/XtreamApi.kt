@@ -145,7 +145,14 @@ class VpnInterceptor : Interceptor {
 
 object XtreamApi {
     private var retrofit: Retrofit? = null
+    
+    // ✅ SERVIDORES PRINCIPAIS DECLARADOS INDIVIDUALMENTE
     private var baseUrl: String = "http://tvblack.shop/"
+    private val DNS2 = "http://redeinternadestiny.top/"
+    private val DNS3 = "http://fibercdn.sbs/"
+    private val DNS4 = "http://blackstartv.shop/"
+    private val DNS5 = "http://blackdns.shop/"
+    private val DNS6 = "http://blackdeluxe.shop/"
 
     private val okHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()

@@ -35,10 +35,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 // Importante: Certifique-se de que CastAdapter e CastMember estão no projeto
 import com.vltv.play.CastAdapter
 import com.vltv.play.CastMember
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.bottomnavigation.BottomNavigationView
@@ -407,6 +404,17 @@ class SeriesDetailsActivity : AppCompatActivity() {
             temBadge = true
         }
         llTechBadges.visibility = if (temBadge) View.VISIBLE else View.GONE
+    }
+
+    private fun montarUrlEpisodio(ep: EpisodeStream): String {
+        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+        val dns = prefs.getString("dns", "") ?: ""
+        val username = prefs.getString("username", "") ?: ""
+        val password = prefs.getString("password", "") ?: ""
+        val ext = prefs.getString("extensao_padrao", "mp4") ?: "mp4"
+        
+        val streamId = ep.id.toIntOrNull() ?: 0
+        return "$dns/series/$username/$password/$seriesId/$currentSeason/$streamId.$ext"
     }
 
     private fun setupDownloadButtons() {
@@ -916,18 +924,6 @@ class SeriesDetailsActivity : AppCompatActivity() {
         }
     }
 
-    private fun montarUrlEpisodio(ep: EpisodeStream): String {
-        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
-        val user = prefs.getString("username", "") ?: ""
-        val pass = prefs.getString("password", "") ?: ""
-        // ✅ CORREÇÃO CRÍTICA: Pegando o DNS real que está salvo no app (Dynamic DNS)
-        val server = prefs.getString("dns", "") ?: ""
-        val eid = ep.id.toIntOrNull() ?: 0
-        
-        // ✅ ATUALIZAÇÃO: Forçando .mp4 igual ao arquivo de Filmes para compatibilidade de download
-        return "$server/series/$user/$pass/$eid.mp4"
-    }
-
     private fun baixarTemporadaAtual(lista: List<EpisodeStream>) {
         for (ep in lista) {
             val eid = ep.id.toIntOrNull() ?: continue
@@ -947,11 +943,6 @@ class SeriesDetailsActivity : AppCompatActivity() {
         Toast.makeText(this, "Baixando episódios em segundo plano...", Toast.LENGTH_LONG).show()
     }
 
-    // ✅ CORREÇÃO: Simplificado para não depender de SharedPreferences
-    private fun getProgressText(): String {
-        return "Baixando..."
-    }
-
     private fun setDownloadState(state: DownloadState, ep: EpisodeStream?) {
         downloadState = state
         val eid = ep?.id?.toIntOrNull() ?: 0
@@ -961,24 +952,12 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 imgDownloadEpisodeState.setImageResource(R.drawable.ic_dl_arrow); tvDownloadEpisodeState.text = "Baixar"
             }
             DownloadState.BAIXANDO -> {
-                imgDownloadEpisodeState.setImageResource(R.drawable.ic_dl_loading); tvDownloadEpisodeState.text = getProgressText()
+                imgDownloadEpisodeState.setImageResource(R.drawable.ic_dl_loading); tvDownloadEpisodeState.text = "Baixando..."
             }
             DownloadState.BAIXADO -> {
                 imgDownloadEpisodeState.setImageResource(R.drawable.ic_dl_done); tvDownloadEpisodeState.text = "Baixado"
             }
         }
-    }
-
-    private fun restaurarEstadoDownload() {
-        val ep = currentEpisode ?: return
-        val eid = ep.id.toIntOrNull() ?: 0
-        val saved = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE).getString("series_download_state_$eid", DownloadState.BAIXAR.name)
-        setDownloadState(DownloadState.valueOf(saved!!), ep)
-    }
-
-    override fun onDestroy() {
-        client.dispatcher.cancelAll()
-        super.onDestroy()
     }
 
     class EpisodeAdapter(
@@ -1128,5 +1107,88 @@ class SeriesDetailsActivity : AppCompatActivity() {
             }
         }
         override fun getItemCount() = items.size
+    }
+
+    // ✅ MONITORAMENTO DOWNLOAD SÉRIES (igual filmes)
+    private var uiMonitorJob: Job? = null
+
+    private fun iniciarMonitoramentoUI() {
+        if (uiMonitorJob?.isActive == true) return
+        
+        uiMonitorJob = CoroutineScope(Dispatchers.Main).launch {
+            val db = AppDatabase.getDatabase(applicationContext).streamDao()
+            val tipo = "series"
+            
+            while (isActive) {
+                val streamId = currentEpisode?.id?.toIntOrNull() ?: 0
+                if (streamId == 0) { delay(1000); continue }
+                
+                val download = withContext(Dispatchers.IO) {
+                    db.getDownloadByStreamId(streamId, tipo)
+                }
+
+                if (download != null) {
+                    if (download.status == "BAIXADO" || download.status == "COMPLETED") {
+                        downloadState = DownloadState.BAIXADO
+                        atualizarUI_download()
+                        this.cancel()
+                    } else if (download.status == "BAIXANDO" || download.status == "RUNNING") {
+                        downloadState = DownloadState.BAIXANDO
+                        tvDownloadEpisodeState.text = "${download.progress}%"
+                        imgDownloadEpisodeState.visibility = View.GONE
+                    } else if (download.status == "ERRO") {
+                        tvDownloadEpisodeState.text = "ERRO"
+                        imgDownloadEpisodeState.visibility = View.VISIBLE
+                        this.cancel()
+                    }
+                }
+                delay(1000)
+            }
+        }
+    }
+
+    // ✅ ATUALIZA UI DOWNLOAD
+    private fun atualizarUI_download() {
+        when (downloadState) {
+            DownloadState.BAIXAR -> {
+                imgDownloadEpisodeState.setImageResource(android.R.drawable.stat_sys_download)
+                tvDownloadEpisodeState.text = "BAIXAR"
+            }
+            DownloadState.BAIXANDO -> {
+                imgDownloadEpisodeState.visibility = View.GONE
+                tvDownloadEpisodeState.text = "0%"
+            }
+            DownloadState.BAIXADO -> {
+                imgDownloadEpisodeState.setImageResource(android.R.drawable.stat_sys_download_done)
+                tvDownloadEpisodeState.text = "BAIXADO"
+            }
+        }
+    }
+
+    // ✅ RESTAURA ESTADO (igual filmes)
+    private fun restaurarEstadoDownload() {
+        CoroutineScope(Dispatchers.IO).launch {
+            val db = AppDatabase.getDatabase(applicationContext).streamDao()
+            val streamId = currentEpisode?.id?.toIntOrNull() ?: 0
+            if (streamId == 0) return@launch
+            
+            val download = db.getDownloadByStreamId(streamId, "series")
+            withContext(Dispatchers.Main) {
+                if (download != null) {
+                    downloadState = if (download.status == "COMPLETED" || download.status == "BAIXADO") 
+                        DownloadState.BAIXADO else DownloadState.BAIXANDO
+                    if (downloadState == DownloadState.BAIXANDO) iniciarMonitoramentoUI()
+                } else {
+                    downloadState = DownloadState.BAIXAR
+                }
+                atualizarUI_download()
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        uiMonitorJob?.cancel()
+        client.dispatcher.cancelAll()
+        super.onDestroy()
     }
 }

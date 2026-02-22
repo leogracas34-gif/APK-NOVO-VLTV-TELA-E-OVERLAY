@@ -219,9 +219,11 @@ class DetailsActivity : AppCompatActivity() {
                 btnDownloadAction?.addView(pbDownloadCircular, 0)
             }
 
+            // ✅ Oculta os botões de download globalmente
+            btnDownloadArea?.visibility = View.GONE
+            btnDownloadAction?.visibility = View.GONE
+
             if (isTelevisionDevice()) {
-                btnDownloadArea?.visibility = View.GONE
-                btnDownloadAction?.visibility = View.GONE
                 bottomNavigation?.visibility = View.GONE
             }
             
@@ -243,12 +245,11 @@ class DetailsActivity : AppCompatActivity() {
                     })
                     true
                 }
-                R.id.nav_downloads -> { startActivity(Intent(this, DownloadsActivity::class.java)); true }
-                R.id.nav_profile -> {
-                    startActivity(Intent(this, SettingsActivity::class.java).apply {
+                R.id.nav_novidades -> { 
+                    startActivity(Intent(this, NovidadesActivity::class.java).apply {
                         putExtra("PROFILE_NAME", currentProfile)
                     })
-                    true
+                    true 
                 }
                 else -> false
             }
@@ -752,17 +753,9 @@ class DetailsActivity : AppCompatActivity() {
         }
     }
     
+    // ✅ FUNÇÃO ESVAZIADA para não dar mais o erro do "nav_downloads"
     private fun atualizarNotificacaoDownload() {
-        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
-        val count = prefs.getInt("active_downloads_count", 0)
-        if (count > 0) {
-            bottomNavigation?.getOrCreateBadge(R.id.nav_downloads)?.apply {
-                isVisible = true
-                number = count
-            }
-        } else {
-            bottomNavigation?.removeBadge(R.id.nav_downloads)
-        }
+        // Função desativada pois o botão de Downloads foi removido do rodapé
     }
 
     private fun handleDownloadClick() {

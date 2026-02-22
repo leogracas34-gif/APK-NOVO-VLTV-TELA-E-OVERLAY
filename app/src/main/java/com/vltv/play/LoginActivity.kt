@@ -111,7 +111,7 @@ class LoginActivity : AppCompatActivity() {
                     binding = ActivityLoginBinding.inflate(layoutInflater)
                     setContentView(binding.root)
                     binding.progressBar.visibility = View.VISIBLE
-                    Toast.makeText(this@LoginActivity, "Atualizando conteúdo...", Toast.LENGTH_SHORT).show()
+                 // Toast.makeText(this@LoginActivity, "Atualizando conteúdo...", Toast.LENGTH_SHORT).show()
                 }
                 preCarregarConteudoInicial(dns, user, pass)
                 withContext(Dispatchers.Main) { abrirHomeDireto() }
@@ -152,7 +152,7 @@ class LoginActivity : AppCompatActivity() {
                     salvarCredenciais(dnsVencedor!!, user, pass)
                     
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(this@LoginActivity, "Conectado em $dnsVencedor", Toast.LENGTH_LONG).show()
+                    // Toast.makeText(this@LoginActivity, "Conectado em $dnsVencedor", Toast.LENGTH_LONG).show()
                     }
                     
                     preCarregarConteudoInicial(dnsVencedor!!, user, pass)

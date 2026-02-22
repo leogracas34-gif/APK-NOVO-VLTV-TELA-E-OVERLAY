@@ -48,6 +48,9 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
     private var catalogoCompleto: List<SearchResultItem> = emptyList()
     private var isCarregandoDados = false
     private var jobBuscaInstantanea: Job? = null
+    
+    // ✅ NOVA VARIÁVEL: Guarda de onde o usuário veio ("filmes", "series" ou "tudo")
+    private var tipoPesquisa: String = "tudo"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,6 +60,9 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
+        
+        // ✅ CAPTURA A ETIQUETA ENVIADA PELA TELA ANTERIOR (Padrão é "tudo")
+        tipoPesquisa = intent.getStringExtra("tipo_pesquisa") ?: "tudo"
 
         initViews()
         setupRecyclerView()
@@ -132,14 +138,22 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
 
         launch {
             try {
-                // TENTA CARREGAR DA DATABASE PRIMEIRO USANDO OS NOMES DO SEU DAO
+                // TENTA CARREGAR DA DATABASE PRIMEIRO
                 val resultadosLocal = withContext(Dispatchers.IO) {
-                    val filmes = database.streamDao().getRecentVods(2000).map {
-                        SearchResultItem(it.stream_id, it.name ?: "", "movie", it.rating, it.stream_icon)
-                    }
-                    val series = database.streamDao().getRecentSeries(2000).map {
-                        SearchResultItem(it.series_id, it.name ?: "", "series", it.rating, it.cover)
-                    }
+                    // ✅ OTIMIZAÇÃO: Só puxa filmes do BD se a etiqueta permitir
+                    val filmes = if (tipoPesquisa == "tudo" || tipoPesquisa == "filmes") {
+                        database.streamDao().getRecentVods(2000).map {
+                            SearchResultItem(it.stream_id, it.name ?: "", "movie", it.rating, it.stream_icon)
+                        }
+                    } else emptyList()
+
+                    // ✅ OTIMIZAÇÃO: Só puxa séries do BD se a etiqueta permitir
+                    val series = if (tipoPesquisa == "tudo" || tipoPesquisa == "series") {
+                        database.streamDao().getRecentSeries(2000).map {
+                            SearchResultItem(it.series_id, it.name ?: "", "series", it.rating, it.cover)
+                        }
+                    } else emptyList()
+                    
                     filmes + series
                 }
 
@@ -150,11 +164,16 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
 
                 // BUSCA NA API EM SEGUNDO PLANO
                 val resultadosAPI = withContext(Dispatchers.IO) {
-                    val deferredFilmes = async { buscarFilmes(username, password) }
-                    val deferredSeries = async { buscarSeries(username, password) }
-                    val deferredCanais = async { buscarCanais(username, password) }
+                    // ✅ OTIMIZAÇÃO: Só chama as rotas pesadas da API se for estritamente necessário
+                    val deferredFilmes = if (tipoPesquisa == "tudo" || tipoPesquisa == "filmes") async { buscarFilmes(username, password) } else null
+                    val deferredSeries = if (tipoPesquisa == "tudo" || tipoPesquisa == "series") async { buscarSeries(username, password) } else null
+                    val deferredCanais = if (tipoPesquisa == "tudo") async { buscarCanais(username, password) } else null
 
-                    deferredFilmes.await() + deferredSeries.await() + deferredCanais.await()
+                    val apiFilmes = deferredFilmes?.await() ?: emptyList()
+                    val apiSeries = deferredSeries?.await() ?: emptyList()
+                    val apiCanais = deferredCanais?.await() ?: emptyList()
+
+                    apiFilmes + apiSeries + apiCanais
                 }
 
                 if (resultadosAPI.isNotEmpty()) {
@@ -202,7 +221,17 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
         val qNorm = query.lowercase().trim()
 
         val resultadosFiltrados = catalogoCompleto.filter { item ->
-            item.title.lowercase().contains(qNorm)
+            // Checa se o nome bate
+            val matchNome = item.title.lowercase().contains(qNorm)
+            
+            // ✅ Checa se o tipo do item bate com a tela em que o usuário estava
+            val matchTipo = when (tipoPesquisa) {
+                "filmes" -> item.type == "movie"
+                "series" -> item.type == "series"
+                else -> true // Se for "tudo", mostra qualquer tipo
+            }
+            
+            matchNome && matchTipo
         }.take(100) 
 
         adapter.submitList(resultadosFiltrados)

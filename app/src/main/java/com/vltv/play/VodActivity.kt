@@ -96,6 +96,8 @@ class VodActivity : AppCompatActivity() {
             val intent = Intent(this, SearchActivity::class.java)
             intent.putExtra("initial_query", "")
             intent.putExtra("PROFILE_NAME", currentProfile)
+            // ✅ NOVA LINHA: Avisa a tela de pesquisa que o usuário está buscando FILMES
+            intent.putExtra("tipo_pesquisa", "filmes")
             startActivity(intent)
         }
 

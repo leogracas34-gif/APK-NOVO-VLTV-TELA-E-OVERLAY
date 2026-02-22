@@ -11,9 +11,9 @@
         android:title="Buscar" />
 
     <item
-        android:id="@+id/nav_downloads"
-        android:icon="@drawable/ic_download_disney"
-        android:title="Downloads" />
+        android:id="@+id/nav_novidades"
+        android:icon="@android:drawable/ic_menu_recent_history"
+        android:title="Novidades" />
 
     <item
         android:id="@+id/nav_profile"

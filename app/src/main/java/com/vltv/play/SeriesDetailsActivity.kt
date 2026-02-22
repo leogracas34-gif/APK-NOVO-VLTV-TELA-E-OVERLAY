@@ -39,6 +39,8 @@ import kotlinx.coroutines.*
 import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.bottomnavigation.BottomNavigationView
+import com.vltv.play.data.AppDatabase
+import kotlinx.coroutines.Job
 
 class SeriesDetailsActivity : AppCompatActivity() {
     private var seriesId: Int = 0
@@ -925,22 +927,12 @@ class SeriesDetailsActivity : AppCompatActivity() {
     }
 
     private fun baixarTemporadaAtual(lista: List<EpisodeStream>) {
-        for (ep in lista) {
-            val eid = ep.id.toIntOrNull() ?: continue
+        lista.forEach { ep ->
             val url = montarUrlEpisodio(ep)
             val nomeEp = "T${currentSeason}E${ep.episode_num.toString().padStart(2, '0')}"
-            // ✅ ATUALIZAÇÃO: Chama o download via DownloadHelper
-            DownloadHelper.iniciarDownload(
-                context = this,
-                url = url,
-                streamId = eid,
-                nomePrincipal = seriesName,
-                nomeEpisodio = nomeEp,
-                imagemUrl = seriesIcon,
-                isSeries = true
-            )
+            DownloadHelper.iniciarDownload(this, url, ep.id.toIntOrNull() ?: 0, seriesName, nomeEp, seriesIcon, true)
         }
-        Toast.makeText(this, "Baixando episódios em segundo plano...", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, "${lista.size} episódios adicionados!", Toast.LENGTH_SHORT).show()
     }
 
     private fun setDownloadState(state: DownloadState, ep: EpisodeStream?) {

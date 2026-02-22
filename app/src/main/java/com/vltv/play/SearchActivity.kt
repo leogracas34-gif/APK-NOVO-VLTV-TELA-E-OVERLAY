@@ -1,6 +1,8 @@
 package com.vltv.play
 
+import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -52,14 +54,26 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
     // ✅ NOVA VARIÁVEL: Guarda de onde o usuário veio ("filmes", "series" ou "tudo")
     private var tipoPesquisa: String = "tudo"
 
+    // ✅ ADICIONADO: Função para detectar se é TV ou Celular
+    private fun isTelevision(context: Context): Boolean {
+        val uiMode = context.resources.configuration.uiMode
+        return (uiMode and Configuration.UI_MODE_TYPE_MASK) == Configuration.UI_MODE_TYPE_TELEVISION
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_search)
 
         // Configuração de Tela Cheia / Barras
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
-        windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
+        windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        
+        // Mantém o comportamento de barras dependendo da tela (opcional, igual VOD)
+        if (isTelevision(this)) {
+            windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
+        } else {
+            windowInsetsController?.show(WindowInsetsCompat.Type.systemBars())
+        }
         
         // ✅ CAPTURA A ETIQUETA ENVIADA PELA TELA ANTERIOR (Padrão é "tudo")
         tipoPesquisa = intent.getStringExtra("tipo_pesquisa") ?: "tudo"
@@ -88,8 +102,10 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
             abrirDetalhes(item)
         }
 
-        // 5 Colunas (Grade)
-        rvResults.layoutManager = GridLayoutManager(this, 5)
+        // ✅ CORREÇÃO APLICADA: 5 colunas se for TV, 3 colunas se for Celular
+        val spanCount = if (isTelevision(this)) 5 else 3
+        
+        rvResults.layoutManager = GridLayoutManager(this, spanCount)
         rvResults.adapter = adapter
         rvResults.isFocusable = true
         rvResults.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS

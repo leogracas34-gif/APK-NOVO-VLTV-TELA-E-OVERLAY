@@ -715,14 +715,19 @@ class DetailsActivity : AppCompatActivity() {
 
     private fun iniciarDownload() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
-        val dns = prefs.getString("dns", "") ?: ""
+        
+        // ✅ Remove a barra dupla do final do DNS (se houver) para funcionar nos 6 servidores
+        val rawDns = prefs.getString("dns", "") ?: ""
+        val dnsLimpo = rawDns.removeSuffix("/")
+        
         val username = prefs.getString("username", "") ?: ""
         val password = prefs.getString("password", "") ?: ""
         
         // ✅ Pega extensão correta do servidor (não assume .mp4)
         val ext = prefs.getString("extensao_padrao", "mp4") ?: "mp4" 
         
-        val url = "$dns/movie/$username/$password/$streamId.$ext"
+        // ✅ URL montada de forma segura
+        val url = "$dnsLimpo/movie/$username/$password/$streamId.$ext"
         
         DownloadHelper.iniciarDownload(this, url, streamId, name, null, icon, false)
         

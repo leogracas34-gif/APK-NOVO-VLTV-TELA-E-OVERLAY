@@ -227,7 +227,6 @@ class SeriesDetailsActivity : AppCompatActivity() {
         }
 
         restaurarEstadoDownload()
-        setupDownloadButtons()
         tentarCarregarLogoCache()
         carregarSeriesInfo()
         sincronizarDadosTMDB()
@@ -243,15 +242,12 @@ class SeriesDetailsActivity : AppCompatActivity() {
                     Toast.makeText(this, "Abrindo Busca...", Toast.LENGTH_SHORT).show()
                     true
                 }
-                R.id.nav_downloads -> {
-                    // ✅ ATUALIZAÇÃO: Redireciona para a tela de Downloads (DownloadsActivity)
-                    try {
-                        val intentDl = Intent(this, DownloadsActivity::class.java)
-                        startActivity(intentDl)
-                    } catch (e: Exception) {
-                        Toast.makeText(this, "Abrindo Meus Downloads...", Toast.LENGTH_SHORT).show()
-                    }
-                    true
+                // ✅ Aponta para a nova tela de Novidades
+                R.id.nav_novidades -> { 
+                    startActivity(Intent(this, NovidadesActivity::class.java).apply {
+                        putExtra("PROFILE_NAME", currentProfile)
+                    })
+                    true 
                 }
                 R.id.nav_profile -> {
                     Toast.makeText(this, "Abrindo Meu Perfil...", Toast.LENGTH_SHORT).show()
@@ -374,10 +370,15 @@ class SeriesDetailsActivity : AppCompatActivity() {
         btnPlaySeries = findViewById(R.id.btnPlay)
         btnFavoriteSeries = findViewById(R.id.btnFavorite)
         btnResume = findViewById(R.id.btnResume)
+        
         btnDownloadEpisodeArea = findViewById(R.id.btnDownloadArea)
         imgDownloadEpisodeState = findViewById(R.id.imgDownloadState)
         tvDownloadEpisodeState = findViewById(R.id.tvDownloadState)
         btnDownloadSeason = findViewById(R.id.btnDownloadSeason)
+
+        // ✅ ESCONDER GLOBALMENTE OS BOTÕES DE DOWNLOAD
+        btnDownloadEpisodeArea.visibility = View.GONE
+        btnDownloadSeason.visibility = View.GONE
 
         // ✅ INICIALIZA VIEWS DE PROGRESSO (Igual Filmes)
         // Certifique-se de ter copiado o bloco XML do layout de filmes para o layout de séries
@@ -407,38 +408,6 @@ class SeriesDetailsActivity : AppCompatActivity() {
             temBadge = true
         }
         llTechBadges.visibility = if (temBadge) View.VISIBLE else View.GONE
-    }
-
-    private fun setupDownloadButtons() {
-        btnDownloadEpisodeArea.setOnClickListener {
-            val ep = currentEpisode ?: return@setOnClickListener
-            // ✅ ATUALIZAÇÃO: Lógica de download com DNS Dinâmico (Evita falha no download)
-            val url = montarUrlEpisodio(ep)
-            val nomeEp = "T${currentSeason}E${ep.episode_num.toString().padStart(2, '0')}"
-            
-            DownloadHelper.iniciarDownload(
-                context = this,
-                url = url,
-                streamId = ep.id.toIntOrNull() ?: 0,
-                nomePrincipal = seriesName,
-                nomeEpisodio = nomeEp,
-                imagemUrl = seriesIcon,
-                isSeries = true
-            )
-            Toast.makeText(this, "Adicionado aos Downloads!", Toast.LENGTH_SHORT).show()
-        }
-
-        btnDownloadSeason.setOnClickListener {
-            if (currentSeason.isBlank()) return@setOnClickListener
-            val lista = episodesBySeason[currentSeason] ?: emptyList()
-            if (lista.isEmpty()) return@setOnClickListener
-            AlertDialog.Builder(this)
-                .setTitle("Baixar temporada")
-                .setMessage("Baixar todos os ${lista.size} episódios?")
-                .setPositiveButton("Sim") { _, _ -> baixarTemporadaAtual(lista) }
-                .setNegativeButton("Não", null)
-                .show()
-        }
     }
 
     private fun sincronizarDadosTMDB() {
@@ -928,52 +897,13 @@ class SeriesDetailsActivity : AppCompatActivity() {
         return "$server/series/$user/$pass/$eid.mp4"
     }
 
-    private fun baixarTemporadaAtual(lista: List<EpisodeStream>) {
-        for (ep in lista) {
-            val eid = ep.id.toIntOrNull() ?: continue
-            val url = montarUrlEpisodio(ep)
-            val nomeEp = "T${currentSeason}E${ep.episode_num.toString().padStart(2, '0')}"
-            // ✅ ATUALIZAÇÃO: Chama o download via DownloadHelper
-            DownloadHelper.iniciarDownload(
-                context = this,
-                url = url,
-                streamId = eid,
-                nomePrincipal = seriesName,
-                nomeEpisodio = nomeEp,
-                imagemUrl = seriesIcon,
-                isSeries = true
-            )
-        }
-        Toast.makeText(this, "Baixando episódios em segundo plano...", Toast.LENGTH_LONG).show()
-    }
-
     // ✅ CORREÇÃO: Simplificado para não depender de SharedPreferences
     private fun getProgressText(): String {
         return "Baixando..."
     }
 
-    private fun setDownloadState(state: DownloadState, ep: EpisodeStream?) {
-        downloadState = state
-        val eid = ep?.id?.toIntOrNull() ?: 0
-        if (eid != 0) getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE).edit().putString("series_download_state_$eid", state.name).apply()
-        when (state) {
-            DownloadState.BAIXAR -> {
-                imgDownloadEpisodeState.setImageResource(R.drawable.ic_dl_arrow); tvDownloadEpisodeState.text = "Baixar"
-            }
-            DownloadState.BAIXANDO -> {
-                imgDownloadEpisodeState.setImageResource(R.drawable.ic_dl_loading); tvDownloadEpisodeState.text = getProgressText()
-            }
-            DownloadState.BAIXADO -> {
-                imgDownloadEpisodeState.setImageResource(R.drawable.ic_dl_done); tvDownloadEpisodeState.text = "Baixado"
-            }
-        }
-    }
-
     private fun restaurarEstadoDownload() {
-        val ep = currentEpisode ?: return
-        val eid = ep.id.toIntOrNull() ?: 0
-        val saved = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE).getString("series_download_state_$eid", DownloadState.BAIXAR.name)
-        setDownloadState(DownloadState.valueOf(saved!!), ep)
+        // Função de restaurar estado de download inutilizada pois botão foi removido
     }
 
     override fun onDestroy() {
@@ -1029,21 +959,8 @@ class SeriesDetailsActivity : AppCompatActivity() {
                 holder.pbEpisodeProgress?.visibility = View.GONE
             }
                 
-            // ✅ ATUALIZAÇÃO: Clique no download do episódio na lista
-            holder.btnDownloadItem.setOnClickListener {
-                val url = activity.montarUrlEpisodio(ep)
-                val nomeEp = "T${activity.currentSeason}E${ep.episode_num.toString().padStart(2, '0')}"
-                DownloadHelper.iniciarDownload(
-                    context = holder.itemView.context,
-                    url = url,
-                    streamId = ep.id.toIntOrNull() ?: 0,
-                    nomePrincipal = activity.seriesName,
-                    nomeEpisodio = nomeEp,
-                    imagemUrl = activity.seriesIcon,
-                    isSeries = true
-                )
-                Toast.makeText(holder.itemView.context, "Iniciando download de $nomeEp", Toast.LENGTH_SHORT).show()
-            }
+            // ✅ ESCONDE O BOTÃO DE DOWNLOAD NA LISTA
+            holder.btnDownloadItem.visibility = View.GONE
 
             holder.itemView.setOnClickListener { onClick(ep, position) }
             holder.itemView.setOnFocusChangeListener { view, hasFocus ->

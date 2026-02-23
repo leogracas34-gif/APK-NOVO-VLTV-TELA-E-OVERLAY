@@ -45,8 +45,8 @@ class NovidadesAdapter(
         val btnAssistirNovidade: LinearLayout = view.findViewById(R.id.btnAssistirNovidade)
         val btnMinhaListaNovidade: LinearLayout = view.findViewById(R.id.btnMinhaListaNovidade)
         
+        // CORREÇÃO: Usando apenas o container que existe no XML
         val containerBotaoAviso: LinearLayout = view.findViewById(R.id.containerBotaoAviso)
-        val btnReceberAviso: LinearLayout = view.findViewById(R.id.btnReceberAviso)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): NovidadeViewHolder {
@@ -99,7 +99,8 @@ class NovidadesAdapter(
             Toast.makeText(holder.itemView.context, "${item.titulo} adicionado à Minha Lista!", Toast.LENGTH_SHORT).show()
         }
 
-        holder.btnReceberAviso.setOnClickListener {
+        // CORREÇÃO: Clique direto no containerBotaoAviso
+        holder.containerBotaoAviso.setOnClickListener {
             Toast.makeText(holder.itemView.context, "Lembrete criado! Avisaremos quando chegar no servidor.", Toast.LENGTH_LONG).show()
         }
     }

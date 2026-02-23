@@ -203,8 +203,11 @@ class HomeActivity : AppCompatActivity() {
                     startActivity(intent)
                     false 
                 }
-                R.id.nav_downloads -> {
-                    startActivity(Intent(this, DownloadsActivity::class.java))
+                // ✅ Aponta para a nova tela de Novidades
+                R.id.nav_novidades -> {
+                    val intent = Intent(this, NovidadesActivity::class.java)
+                    intent.putExtra("PROFILE_NAME", currentProfile)
+                    startActivity(intent)
                     false
                 }
                 R.id.nav_profile -> {
@@ -574,17 +577,9 @@ class HomeActivity : AppCompatActivity() {
         }
     }
     
+    // ✅ FUNÇÃO ESVAZIADA para não dar erro do "nav_downloads"
     private fun atualizarNotificacaoDownload() {
-        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
-        val count = prefs.getInt("active_downloads_count", 0)
-        if (count > 0) {
-            binding.bottomNavigation?.getOrCreateBadge(R.id.nav_downloads)?.apply {
-                isVisible = true
-                number = count
-            }
-        } else {
-            binding.bottomNavigation?.removeBadge(R.id.nav_downloads)
-        }
+        // Função desativada pois o botão de Downloads foi removido do rodapé
     }
 
     private fun setupClicks() {

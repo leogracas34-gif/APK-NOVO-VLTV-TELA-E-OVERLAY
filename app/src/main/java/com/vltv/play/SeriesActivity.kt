@@ -170,8 +170,11 @@ class SeriesActivity : AppCompatActivity() {
                     startActivity(intent)
                     true
                 }
-                R.id.nav_downloads -> {
-                    startActivity(Intent(this, DownloadsActivity::class.java))
+                // ✅ Aponta para a nova tela de Novidades
+                R.id.nav_novidades -> {
+                    startActivity(Intent(this, NovidadesActivity::class.java).apply {
+                        putExtra("PROFILE_NAME", currentProfile)
+                    })
                     true
                 }
                 R.id.nav_profile -> {
@@ -185,19 +188,10 @@ class SeriesActivity : AppCompatActivity() {
         }
     }
     
-    // ✅ ADICIONADO: Atualiza bolinha de notificação do download ao voltar
+    // ✅ CORRIGIDO: Removido o código do nav_downloads para não dar crash
     override fun onResume() {
         super.onResume()
-        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
-        val count = prefs.getInt("active_downloads_count", 0)
-        if (count > 0) {
-            bottomNavigation?.getOrCreateBadge(R.id.nav_downloads)?.apply {
-                isVisible = true
-                number = count
-            }
-        } else {
-            bottomNavigation?.removeBadge(R.id.nav_downloads)
-        }
+        // Função de badge de download removida pois o botão não existe mais no rodapé
     }
 
     private fun preLoadImages(series: List<SeriesStream>) {

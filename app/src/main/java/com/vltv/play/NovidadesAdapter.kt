@@ -2,6 +2,7 @@ package com.vltv.play
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -13,7 +14,6 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 
-// 1. Atualizamos o modelo de dados para incluir a variável "isEmBreve"
 data class NovidadeItem(
     val id: Int,
     val titulo: String,
@@ -22,7 +22,7 @@ data class NovidadeItem(
     val tagline: String, 
     val isTop10: Boolean = false, 
     val posicaoTop10: Int = 0,    
-    val isEmBreve: Boolean = false, // <-- A MÁGICA DOS BOTÕES COMEÇA AQUI
+    val isEmBreve: Boolean = false,
     val trailerUrl: String? = null 
 )
 
@@ -32,7 +32,6 @@ class NovidadesAdapter(
 ) : RecyclerView.Adapter<NovidadesAdapter.NovidadeViewHolder>() {
 
     class NovidadeViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        // IDs novos que conectam com o item_novidade.xml premium
         val tvNumeroTop10: TextView = view.findViewById(R.id.tvNumeroTop10)
         val imgFundoNovidade: ImageView = view.findViewById(R.id.imgFundoNovidade)
         val btnPlayTrailer: ImageView = view.findViewById(R.id.btnPlayTrailer)
@@ -40,12 +39,10 @@ class NovidadesAdapter(
         val tvTagline: TextView = view.findViewById(R.id.tvTagline)
         val tvSinopseNovidade: TextView = view.findViewById(R.id.tvSinopseNovidade)
         
-        // Containers e botões novos
         val containerBotoesAtivos: LinearLayout = view.findViewById(R.id.containerBotoesAtivos)
         val btnAssistirNovidade: LinearLayout = view.findViewById(R.id.btnAssistirNovidade)
         val btnMinhaListaNovidade: LinearLayout = view.findViewById(R.id.btnMinhaListaNovidade)
         
-        // CORREÇÃO: Usando apenas o container que existe no XML
         val containerBotaoAviso: LinearLayout = view.findViewById(R.id.containerBotaoAviso)
     }
 
@@ -57,27 +54,29 @@ class NovidadesAdapter(
     override fun onBindViewHolder(holder: NovidadeViewHolder, position: Int) {
         val item = lista[position]
 
-        // Preenche os textos
         holder.tvTituloNovidade.text = item.titulo
         holder.tvSinopseNovidade.text = item.sinopse
         holder.tvTagline.text = item.tagline
 
-        // Carrega a imagem gigante
         Glide.with(holder.itemView.context)
             .load(item.imagemFundoUrl)
             .diskCacheStrategy(DiskCacheStrategy.ALL)
             .centerCrop()
             .into(holder.imgFundoNovidade)
 
-        // Lógica do Top 10 (Agora com o número gigante e sólido do XML)
+        // Lógica do Top 10 - EFEITO NETFLIX (Número vazado com borda)
         if (item.isTop10 && item.posicaoTop10 > 0) {
             holder.tvNumeroTop10.visibility = View.VISIBLE
             holder.tvNumeroTop10.text = item.posicaoTop10.toString().padStart(2, '0')
+            
+            // Desenha apenas a borda (stroke) na cor branca e deixa o meio transparente
+            holder.tvNumeroTop10.paint.style = android.graphics.Paint.Style.STROKE
+            holder.tvNumeroTop10.paint.strokeWidth = 6f
+            holder.tvNumeroTop10.setTextColor(Color.WHITE)
         } else {
             holder.tvNumeroTop10.visibility = View.GONE
         }
 
-        // Lógica da Aba Em Breve (Troca os botões)
         if (item.isEmBreve) {
             holder.containerBotoesAtivos.visibility = View.GONE
             holder.containerBotaoAviso.visibility = View.VISIBLE
@@ -86,7 +85,6 @@ class NovidadesAdapter(
             holder.containerBotaoAviso.visibility = View.GONE
         }
 
-        // Cliques
         holder.btnPlayTrailer.setOnClickListener {
             abrirTrailer(holder.itemView, item.trailerUrl)
         }
@@ -99,7 +97,6 @@ class NovidadesAdapter(
             Toast.makeText(holder.itemView.context, "${item.titulo} adicionado à Minha Lista!", Toast.LENGTH_SHORT).show()
         }
 
-        // CORREÇÃO: Clique direto no containerBotaoAviso
         holder.containerBotaoAviso.setOnClickListener {
             Toast.makeText(holder.itemView.context, "Lembrete criado! Avisaremos quando chegar no servidor.", Toast.LENGTH_LONG).show()
         }

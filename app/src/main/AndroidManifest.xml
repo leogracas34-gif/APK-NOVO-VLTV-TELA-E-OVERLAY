@@ -105,6 +105,11 @@
             android:theme="@style/Theme.AppCompat.NoActionBar" />
 
         <activity
+            android:name=".NovidadesActivity"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+
+        <activity
             android:name=".EditProfileActivity" />
 
     </application>

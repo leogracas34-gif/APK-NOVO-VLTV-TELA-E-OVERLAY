@@ -1,157 +1,156 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="32dp"
-    android:background="#000000">
+    android:layout_marginBottom="32dp">
 
     <TextView
-        android:id="@+id/tvTopNumber"
+        android:id="@+id/tvNumeroTop10"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
-        android:layout_marginTop="-20dp"
-        android:fontFamily="sans-serif-black"
         android:text="01"
-        android:textColor="#00000000"
-        android:textSize="110sp"
-        android:visibility="gone"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-    <androidx.cardview.widget.CardView
-        android:id="@+id/cardImagem"
+        android:textColor="#E6FFFFFF"
+        android:textSize="120sp"
+        android:textStyle="bold"
+        android:layout_alignParentStart="true"
+        android:layout_marginStart="-10dp"
+        android:layout_marginTop="20dp"
+        android:visibility="gone" />
+
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="220dp"
-        android:layout_marginHorizontal="16dp"
-        android:layout_marginTop="40dp"
-        app:cardBackgroundColor="#222222"
-        app:cardCornerRadius="12dp"
-        app:layout_constraintTop_toTopOf="parent">
+        android:layout_height="wrap_content"
+        android:layout_toEndOf="@id/tvNumeroTop10"
+        android:layout_marginStart="-40dp"
+        android:orientation="vertical">
 
         <RelativeLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
+            android:layout_height="220dp"
+            android:layout_marginHorizontal="16dp">
 
             <ImageView
-                android:id="@+id/imgBackdrop"
+                android:id="@+id/imgFundoNovidade"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:scaleType="centerCrop" />
 
             <ImageView
-                android:id="@+id/imgPlay"
-                android:layout_width="64dp"
-                android:layout_height="64dp"
+                android:id="@+id/btnPlayTrailer"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:layout_centerInParent="true"
-                android:src="@android:drawable/ic_media_play"
-                app:tint="#FFFFFF"
-                android:background="@drawable/bg_circle_transparente" />
+                android:src="@drawable/ic_play_circle_netflix"
+                android:clickable="true"
+                android:focusable="true"/>
         </RelativeLayout>
-    </androidx.cardview.widget.CardView>
 
-    <TextView
-        android:id="@+id/tvTituloNovidade"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginHorizontal="16dp"
-        android:layout_marginTop="16dp"
-        android:text="NOME DO FILME/SÉRIE"
-        android:textColor="#FFFFFF"
-        android:textSize="22sp"
-        android:textStyle="bold"
-        app:layout_constraintTop_toBottomOf="@id/cardImagem" />
+        <TextView
+            android:id="@+id/tvTituloNovidade"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginTop="12dp"
+            android:textColor="#FFFFFF"
+            android:textSize="22sp"
+            android:textStyle="bold" />
 
-    <TextView
-        android:id="@+id/tvTagline"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginHorizontal="16dp"
-        android:layout_marginTop="4dp"
-        android:text="Estreia dia 25 de Novembro"
-        android:textColor="#FFFFFF"
-        android:textSize="14sp"
-        android:textStyle="bold"
-        app:layout_constraintTop_toBottomOf="@id/tvTituloNovidade" />
+        <TextView
+            android:id="@+id/tvTagline"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginTop="4dp"
+            android:textColor="#AAAAAA"
+            android:textSize="14sp"
+            android:textStyle="bold" />
 
-    <TextView
-        android:id="@+id/tvSinopse"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginHorizontal="16dp"
-        android:layout_marginTop="8dp"
-        android:ellipsize="end"
-        android:lineSpacingExtra="4dp"
-        android:maxLines="3"
-        android:text="Uma família macabra se muda para um subúrbio sem graça, o plano de revitalização de um apresentador ameaça seu estilo de vida."
-        android:textColor="#B3B3B3"
-        android:textSize="13sp"
-        app:layout_constraintTop_toBottomOf="@id/tvTagline" />
+        <TextView
+            android:id="@+id/tvSinopseNovidade"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginTop="8dp"
+            android:maxLines="3"
+            android:ellipsize="end"
+            android:textColor="#CCCCCC"
+            android:textSize="14sp" />
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginHorizontal="16dp"
-        android:layout_marginTop="16dp"
-        android:orientation="horizontal"
-        app:layout_constraintTop_toBottomOf="@id/tvSinopse">
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginTop="16dp">
 
-        <LinearLayout
-            android:id="@+id/btnAssistir"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_marginEnd="8dp"
-            android:layout_weight="1"
-            android:background="#FFFFFF"
-            android:gravity="center"
-            android:orientation="horizontal"
-            android:focusable="true"
-            android:clickable="true">
-
-            <ImageView
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:src="@android:drawable/ic_media_play"
-                app:tint="#000000" />
-
-            <TextView
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:id="@+id/containerBotoesAtivos"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:text="Assistir"
-                android:textColor="#000000"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-        </LinearLayout>
+                android:orientation="horizontal"
+                android:weightSum="2">
 
-        <LinearLayout
-            android:id="@+id/btnMinhaLista"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_marginStart="8dp"
-            android:layout_weight="1"
-            android:background="#333333"
-            android:gravity="center"
-            android:orientation="horizontal"
-            android:focusable="true"
-            android:clickable="true">
+                <LinearLayout
+                    android:id="@+id/btnAssistirNovidade"
+                    android:layout_width="0dp"
+                    android:layout_height="45dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/bg_botao_branco"
+                    android:gravity="center"
+                    android:clickable="true"
+                    android:focusable="true">
+                    
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@android:drawable/ic_media_play"
+                        android:appTint="#000000" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Assistir"
+                        android:textColor="#000000"
+                        android:textStyle="bold"
+                        android:layout_marginStart="8dp" />
+                </LinearLayout>
 
-            <ImageView
-                android:id="@+id/iconMinhaLista"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:src="@android:drawable/ic_input_add"
-                app:tint="#FFFFFF" />
+                <LinearLayout
+                    android:id="@+id/btnMinhaListaNovidade"
+                    android:layout_width="0dp"
+                    android:layout_height="45dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_botao_cinza_escuro"
+                    android:gravity="center"
+                    android:clickable="true"
+                    android:focusable="true">
+                    
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="+ Minha Lista"
+                        android:textColor="#FFFFFF"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </LinearLayout>
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:text="Minha lista"
-                android:textColor="#FFFFFF"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-        </LinearLayout>
+            <LinearLayout
+                android:id="@+id/containerBotaoAviso"
+                android:layout_width="match_parent"
+                android:layout_height="45dp"
+                android:background="@drawable/bg_botao_branco"
+                android:gravity="center"
+                android:clickable="true"
+                android:focusable="true"
+                android:visibility="gone">
+                
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🔔 Receber aviso"
+                    android:textColor="#000000"
+                    android:textStyle="bold"
+                    android:textSize="16sp" />
+            </LinearLayout>
+        </FrameLayout>
     </LinearLayout>
-
-</androidx.constraintlayout.widget.ConstraintLayout>
+</RelativeLayout>

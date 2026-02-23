@@ -137,21 +137,31 @@
 
             <LinearLayout
                 android:id="@+id/containerBotaoAviso"
-                android:layout_width="match_parent"
-                android:layout_height="45dp"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_gravity="start"
                 android:background="#FFFFFF"
-                android:gravity="center"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="20dp"
                 android:clickable="true"
                 android:focusable="true"
                 android:visibility="gone">
                 
+                <ImageView
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:src="@android:drawable/ic_lock_idle_alarm"
+                    app:tint="#000000" />
+                
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="🔔 Receber aviso"
+                    android:layout_marginStart="8dp"
+                    android:text="Receber aviso"
                     android:textColor="#000000"
                     android:textStyle="bold"
-                    android:textSize="16sp" />
+                    android:textSize="14sp" />
             </LinearLayout>
         </FrameLayout>
     </LinearLayout>

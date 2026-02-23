@@ -112,6 +112,6 @@
         android:background="#000000"
         app:itemIconTint="@color/white"
         app:itemTextColor="@color/white"
-        app:menu="@menu/bottom_navigation" />
+        app:menu="@menu/bottom_nav_menu" />
 
 </RelativeLayout>

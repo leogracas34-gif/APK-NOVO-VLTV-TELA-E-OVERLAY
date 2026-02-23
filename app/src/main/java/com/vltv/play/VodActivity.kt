@@ -131,13 +131,19 @@ class VodActivity : AppCompatActivity() {
         carregarCategorias()
     }
     
-    // ✅ LÓGICA DO MENU
+    // ✅ LÓGICA DO MENU CORRIGIDA
     private fun setupBottomNavigation() {
         bottomNavigation?.setOnItemSelectedListener { item ->
             when (item.itemId) {
                 R.id.nav_home -> { finish(); true }
                 R.id.nav_search -> { startActivity(Intent(this, SearchActivity::class.java).apply { putExtra("PROFILE_NAME", currentProfile) }); true }
-                R.id.nav_downloads -> { startActivity(Intent(this, DownloadsActivity::class.java)); true }
+                // ✅ Aponta para a nova tela de Novidades
+                R.id.nav_novidades -> { 
+                    startActivity(Intent(this, NovidadesActivity::class.java).apply { 
+                        putExtra("PROFILE_NAME", currentProfile) 
+                    })
+                    true 
+                }
                 R.id.nav_profile -> { startActivity(Intent(this, SettingsActivity::class.java).apply { putExtra("PROFILE_NAME", currentProfile) }); true }
                 else -> false
             }
@@ -149,11 +155,9 @@ class VodActivity : AppCompatActivity() {
         atualizarNotificacaoDownload()
     }
 
+    // ✅ FUNÇÃO ESVAZIADA para não dar o erro do "nav_downloads"
     private fun atualizarNotificacaoDownload() {
-        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
-        val count = prefs.getInt("active_downloads_count", 0)
-        if (count > 0) bottomNavigation?.getOrCreateBadge(R.id.nav_downloads)?.apply { isVisible = true; number = count }
-        else bottomNavigation?.removeBadge(R.id.nav_downloads)
+        // Função desativada pois o botão de Downloads foi removido do rodapé
     }
 
     private fun setupRecyclerFocus() {

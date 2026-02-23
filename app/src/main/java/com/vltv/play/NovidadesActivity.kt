@@ -187,11 +187,54 @@ class NovidadesActivity : AppCompatActivity() {
                             dataEstreia = formatarData(releaseDate)
                         }
 
+                        // LÓGICA PARA BUSCAR O TRAILER DO YOUTUBE
+                        var youtubeKey: String? = null
+                        val tipoMedia = if (url.contains("/tv")) "tv" else "movie"
+                        val videoUrl = "https://api.themoviedb.org/3/$tipoMedia/$id/videos?api_key=$apiKey&language=pt-BR"
+                        
+                        try {
+                            val videoReq = Request.Builder().url(videoUrl).build()
+                            val videoRes = client.newCall(videoReq).execute() // Pedido síncrono em background
+                            val videoBody = videoRes.body?.string()
+                            if (videoBody != null) {
+                                val videoJson = JSONObject(videoBody)
+                                val vResults = videoJson.optJSONArray("results")
+                                if (vResults != null && vResults.length() > 0) {
+                                    for (j in 0 until vResults.length()) {
+                                        val v = vResults.getJSONObject(j)
+                                        if (v.optString("site") == "YouTube" && v.optString("type") == "Trailer") {
+                                            youtubeKey = v.optString("key")
+                                            break
+                                        }
+                                    }
+                                    if (youtubeKey == null) youtubeKey = vResults.getJSONObject(0).optString("key")
+                                }
+                            }
+                        } catch (e: Exception) { }
+
+                        // Plano B: Se não encontrar em PT-BR, procura o trailer original (Inglês)
+                        if (youtubeKey == null) {
+                            try {
+                                val videoUrlEn = "https://api.themoviedb.org/3/$tipoMedia/$id/videos?api_key=$apiKey"
+                                val videoReqEn = Request.Builder().url(videoUrlEn).build()
+                                val videoResEn = client.newCall(videoReqEn).execute()
+                                val videoBodyEn = videoResEn.body?.string()
+                                if (videoBodyEn != null) {
+                                    val videoJsonEn = JSONObject(videoBodyEn)
+                                    val vResultsEn = videoJsonEn.optJSONArray("results")
+                                    if (vResultsEn != null && vResultsEn.length() > 0) {
+                                        youtubeKey = vResultsEn.getJSONObject(0).optString("key")
+                                    }
+                                }
+                            } catch (e: Exception) { }
+                        }
+
                         listaDestino.add(
                             NovidadeItem(
                                 id = id, titulo = titulo, sinopse = sinopse, 
                                 imagemFundoUrl = imagemUrl, tagline = dataEstreia, 
-                                isTop10 = isTop10, posicaoTop10 = i + 1, isEmBreve = isEmBreve
+                                isTop10 = isTop10, posicaoTop10 = i + 1, isEmBreve = isEmBreve,
+                                trailerUrl = youtubeKey // A chave do YouTube é enviada para o Adapter aqui!
                             )
                         )
                     }

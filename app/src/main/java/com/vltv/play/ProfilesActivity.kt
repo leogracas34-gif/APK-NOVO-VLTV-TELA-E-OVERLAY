@@ -15,6 +15,8 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.vltv.play.data.AppDatabase
 import com.vltv.play.data.ProfileEntity
+import com.vltv.play.data.VodEntity
+import com.vltv.play.data.SeriesEntity
 import com.vltv.play.databinding.ActivityProfileSelectionBinding
 import com.vltv.play.databinding.ItemProfileCircleBinding
 import com.vltv.play.ui.AvatarSelectionDialog
@@ -23,6 +25,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import org.json.JSONArray
+import java.net.URL
 
 class ProfilesActivity : AppCompatActivity() {
 
@@ -56,6 +60,9 @@ class ProfilesActivity : AppCompatActivity() {
         setupRecyclerView()
         loadProfilesFromDb()
 
+        // ✅ A MÁGICA ACONTECE AQUI: Inicia o download silencioso dos primeiros 120 itens!
+        sincronizarConteudoBackgroundSilencioso()
+
         binding.tvEditProfiles.setOnClickListener {
             isEditMode = !isEditMode
             binding.tvEditProfiles.text = if (isEditMode) "CONCLUÍDO" else "EDITAR PERFIS"
@@ -64,6 +71,67 @@ class ProfilesActivity : AppCompatActivity() {
 
         binding.layoutAddProfile.setOnClickListener {
             addNewProfile()
+        }
+    }
+
+    // ✅ FUNÇÃO DE DOWNLOAD INVISÍVEL (Transferida do Login)
+    private fun sincronizarConteudoBackgroundSilencioso() {
+        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+        val dns = prefs.getString("dns", null)
+        val user = prefs.getString("username", null)
+        val pass = prefs.getString("password", null)
+
+        if (dns.isNullOrEmpty() || user.isNullOrEmpty() || pass.isNullOrEmpty()) return
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                // --- FILMES ---
+                try {
+                    val vodUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_vod_streams"
+                    val response = URL(vodUrl).readText()
+                    val jsonArray = JSONArray(response)
+                    val batch = mutableListOf<VodEntity>()
+                    val limit = minOf(60, jsonArray.length())
+                    
+                    for (i in 0 until limit) {
+                        val obj = jsonArray.getJSONObject(i)
+                        batch.add(VodEntity(
+                            stream_id = obj.optInt("stream_id"),
+                            name = obj.optString("name"),
+                            title = obj.optString("name"),
+                            stream_icon = obj.optString("stream_icon"),
+                            container_extension = obj.optString("container_extension"),
+                            rating = obj.optString("rating"),
+                            category_id = obj.optString("category_id"),
+                            added = obj.optLong("added")
+                        ))
+                    }
+                    if (batch.isNotEmpty()) db.streamDao().insertVodStreams(batch)
+                } catch (e: Exception) { e.printStackTrace() }
+
+                // --- SÉRIES ---
+                try {
+                    val seriesUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_series"
+                    val response = URL(seriesUrl).readText()
+                    val jsonArray = JSONArray(response)
+                    val batch = mutableListOf<SeriesEntity>()
+                    val limit = minOf(60, jsonArray.length())
+                    
+                    for (i in 0 until limit) {
+                        val obj = jsonArray.getJSONObject(i)
+                        batch.add(SeriesEntity(
+                            series_id = obj.optInt("series_id"),
+                            name = obj.optString("name"),
+                            cover = obj.optString("cover"),
+                            rating = obj.optString("rating"),
+                            category_id = obj.optString("category_id"),
+                            last_modified = obj.optLong("last_modified")
+                        ))
+                    }
+                    if (batch.isNotEmpty()) db.streamDao().insertSeriesStreams(batch)
+                } catch (e: Exception) { e.printStackTrace() }
+
+            } catch (e: Exception) { e.printStackTrace() }
         }
     }
 

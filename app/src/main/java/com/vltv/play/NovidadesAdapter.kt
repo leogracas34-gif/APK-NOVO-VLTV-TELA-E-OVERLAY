@@ -1,7 +1,7 @@
 package com.vltv.play
 
+import android.content.Context
 import android.content.Intent
-import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -13,16 +13,17 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 
-// 1. Criamos um modelo de dados para organizar as informações que virão da API
+// 1. Atualizamos o modelo de dados para incluir a variável "isEmBreve"
 data class NovidadeItem(
     val id: Int,
     val titulo: String,
     val sinopse: String,
     val imagemFundoUrl: String,
-    val tagline: String, // Ex: "Estreia dia 25 de Novembro"
-    val isTop10: Boolean = false, // Avisa o Adapter se deve mostrar o número gigante
-    val posicaoTop10: Int = 0,    // O número em si (1, 2, 3...)
-    val trailerUrl: String? = null // Link do YouTube
+    val tagline: String, 
+    val isTop10: Boolean = false, 
+    val posicaoTop10: Int = 0,    
+    val isEmBreve: Boolean = false, // <-- A MÁGICA DOS BOTÕES COMEÇA AQUI
+    val trailerUrl: String? = null 
 )
 
 class NovidadesAdapter(
@@ -31,14 +32,21 @@ class NovidadesAdapter(
 ) : RecyclerView.Adapter<NovidadesAdapter.NovidadeViewHolder>() {
 
     class NovidadeViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        val tvTopNumber: TextView = view.findViewById(R.id.tvTopNumber)
-        val imgBackdrop: ImageView = view.findViewById(R.id.imgBackdrop)
-        val imgPlay: ImageView = view.findViewById(R.id.imgPlay)
-        val tvTitulo: TextView = view.findViewById(R.id.tvTituloNovidade)
+        // IDs novos que conectam com o item_novidade.xml premium
+        val tvNumeroTop10: TextView = view.findViewById(R.id.tvNumeroTop10)
+        val imgFundoNovidade: ImageView = view.findViewById(R.id.imgFundoNovidade)
+        val btnPlayTrailer: ImageView = view.findViewById(R.id.btnPlayTrailer)
+        val tvTituloNovidade: TextView = view.findViewById(R.id.tvTituloNovidade)
         val tvTagline: TextView = view.findViewById(R.id.tvTagline)
-        val tvSinopse: TextView = view.findViewById(R.id.tvSinopse)
-        val btnAssistir: LinearLayout = view.findViewById(R.id.btnAssistir)
-        val btnMinhaLista: LinearLayout = view.findViewById(R.id.btnMinhaLista)
+        val tvSinopseNovidade: TextView = view.findViewById(R.id.tvSinopseNovidade)
+        
+        // Containers e botões novos
+        val containerBotoesAtivos: LinearLayout = view.findViewById(R.id.containerBotoesAtivos)
+        val btnAssistirNovidade: LinearLayout = view.findViewById(R.id.btnAssistirNovidade)
+        val btnMinhaListaNovidade: LinearLayout = view.findViewById(R.id.btnMinhaListaNovidade)
+        
+        val containerBotaoAviso: LinearLayout = view.findViewById(R.id.containerBotaoAviso)
+        val btnReceberAviso: LinearLayout = view.findViewById(R.id.btnReceberAviso)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): NovidadeViewHolder {
@@ -50,49 +58,54 @@ class NovidadesAdapter(
         val item = lista[position]
 
         // Preenche os textos
-        holder.tvTitulo.text = item.titulo
-        holder.tvSinopse.text = item.sinopse
+        holder.tvTituloNovidade.text = item.titulo
+        holder.tvSinopseNovidade.text = item.sinopse
         holder.tvTagline.text = item.tagline
 
-        // Carrega a imagem gigante (Backdrop)
+        // Carrega a imagem gigante
         Glide.with(holder.itemView.context)
             .load(item.imagemFundoUrl)
             .diskCacheStrategy(DiskCacheStrategy.ALL)
             .centerCrop()
-            .into(holder.imgBackdrop)
+            .into(holder.imgFundoNovidade)
 
-        // A Mágica do Top 10 (Mostra ou Esconde o número gigante)
+        // Lógica do Top 10 (Agora com o número gigante e sólido do XML)
         if (item.isTop10 && item.posicaoTop10 > 0) {
-            holder.tvTopNumber.visibility = View.VISIBLE
-            // Formata para ficar com zero na frente (ex: "01", "02", "10")
-            holder.tvTopNumber.text = item.posicaoTop10.toString().padStart(2, '0')
-            
-            // Efeito visual para deixar a letra "vazada" com borda clara
-            holder.tvTopNumber.setTextColor(Color.TRANSPARENT)
-            holder.tvTopNumber.setShadowLayer(4f, 0f, 0f, Color.LTGRAY) 
+            holder.tvNumeroTop10.visibility = View.VISIBLE
+            holder.tvNumeroTop10.text = item.posicaoTop10.toString().padStart(2, '0')
         } else {
-            holder.tvTopNumber.visibility = View.GONE
+            holder.tvNumeroTop10.visibility = View.GONE
         }
 
-        // Clique no Play Gigante para abrir o Trailer no YouTube
-        holder.imgPlay.setOnClickListener {
+        // Lógica da Aba Em Breve (Troca os botões)
+        if (item.isEmBreve) {
+            holder.containerBotoesAtivos.visibility = View.GONE
+            holder.containerBotaoAviso.visibility = View.VISIBLE
+        } else {
+            holder.containerBotoesAtivos.visibility = View.VISIBLE
+            holder.containerBotaoAviso.visibility = View.GONE
+        }
+
+        // Cliques
+        holder.btnPlayTrailer.setOnClickListener {
             abrirTrailer(holder.itemView, item.trailerUrl)
         }
         
-        // Botão Assistir (Também abre o trailer, já que filmes 'Em Breve' ainda não tem no servidor)
-        holder.btnAssistir.setOnClickListener {
+        holder.btnAssistirNovidade.setOnClickListener {
             abrirTrailer(holder.itemView, item.trailerUrl)
         }
 
-        // Botão Minha Lista (Apenas um aviso por enquanto, depois você pode ligar ao seu sistema de Favoritos)
-        holder.btnMinhaLista.setOnClickListener {
+        holder.btnMinhaListaNovidade.setOnClickListener {
             Toast.makeText(holder.itemView.context, "${item.titulo} adicionado à Minha Lista!", Toast.LENGTH_SHORT).show()
+        }
+
+        holder.btnReceberAviso.setOnClickListener {
+            Toast.makeText(holder.itemView.context, "Lembrete criado! Avisaremos quando chegar no servidor.", Toast.LENGTH_LONG).show()
         }
     }
 
     override fun getItemCount(): Int = lista.size
 
-    // Função para atualizar a lista instantaneamente quando o usuário trocar de aba
     fun atualizarLista(novaLista: List<NovidadeItem>) {
         lista = novaLista
         notifyDataSetChanged()

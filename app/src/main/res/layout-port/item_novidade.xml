@@ -1,168 +1,59 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:orientation="vertical"
     android:layout_marginBottom="32dp">
 
-    <TextView
-        android:id="@+id/tvNumeroTop10"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="01"
-        android:textColor="#E6FFFFFF"
-        android:textSize="120sp"
-        android:textStyle="bold"
-        android:layout_alignParentStart="true"
-        android:layout_marginStart="-10dp"
-        android:layout_marginTop="20dp"
-        android:visibility="gone" />
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="220dp"
+        android:layout_marginHorizontal="16dp">
 
-    <LinearLayout
+        <ImageView
+            android:id="@+id/imgFundoNovidade"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop" />
+    </RelativeLayout>
+
+    <TextView
+        android:id="@+id/tvTituloNovidade"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_toEndOf="@id/tvNumeroTop10"
-        android:layout_marginStart="-40dp"
-        android:orientation="vertical">
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="12dp"
+        android:textColor="#FFFFFF"
+        android:textSize="20sp"
+        android:textStyle="bold" />
 
-        <RelativeLayout
-            android:layout_width="match_parent"
-            android:layout_height="220dp"
-            android:layout_marginHorizontal="16dp">
+    <TextView
+        android:id="@+id/tvTagline"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="4dp"
+        android:textColor="#AAAAAA"
+        android:textSize="14sp"
+        android:textStyle="bold" />
 
-            <ImageView
-                android:id="@+id/imgFundoNovidade"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:scaleType="centerCrop" />
+    <TextView
+        android:id="@+id/tvSinopseNovidade"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="8dp"
+        android:maxLines="4"
+        android:ellipsize="end"
+        android:textColor="#CCCCCC"
+        android:textSize="14sp"
+        android:lineSpacingExtra="2dp" />
 
-            <ImageView
-                android:id="@+id/btnPlayTrailer"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:layout_centerInParent="true"
-                android:src="@drawable/ic_play_circle_netflix"
-                android:clickable="true"
-                android:focusable="true"/>
-        </RelativeLayout>
+    <View android:id="@+id/tvNumeroTop10" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone"/>
+    <View android:id="@+id/btnPlayTrailer" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone"/>
+    <View android:id="@+id/containerBotoesAtivos" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone"/>
+    <View android:id="@+id/btnAssistirNovidade" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone"/>
+    <View android:id="@+id/btnMinhaListaNovidade" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone"/>
+    <View android:id="@+id/containerBotaoAviso" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone"/>
 
-        <TextView
-            android:id="@+id/tvTituloNovidade"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="16dp"
-            android:layout_marginTop="12dp"
-            android:textColor="#FFFFFF"
-            android:textSize="22sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/tvTagline"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="16dp"
-            android:layout_marginTop="4dp"
-            android:textColor="#AAAAAA"
-            android:textSize="14sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/tvSinopseNovidade"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="16dp"
-            android:layout_marginTop="8dp"
-            android:maxLines="3"
-            android:ellipsize="end"
-            android:textColor="#CCCCCC"
-            android:textSize="14sp" />
-
-        <FrameLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="16dp"
-            android:layout_marginTop="16dp">
-
-            <LinearLayout
-                android:id="@+id/containerBotoesAtivos"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:weightSum="2">
-
-                <LinearLayout
-                    android:id="@+id/btnAssistirNovidade"
-                    android:layout_width="0dp"
-                    android:layout_height="45dp"
-                    android:layout_weight="1"
-                    android:layout_marginEnd="8dp"
-                    android:background="#FFFFFF"
-                    android:gravity="center"
-                    android:clickable="true"
-                    android:focusable="true">
-                    
-                    <ImageView
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
-                        android:src="@android:drawable/ic_media_play"
-                        app:tint="#000000" />
-                    
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Assistir"
-                        android:textColor="#000000"
-                        android:textStyle="bold"
-                        android:layout_marginStart="8dp" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/btnMinhaListaNovidade"
-                    android:layout_width="0dp"
-                    android:layout_height="45dp"
-                    android:layout_weight="1"
-                    android:background="#333333"
-                    android:gravity="center"
-                    android:clickable="true"
-                    android:focusable="true">
-                    
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="+ Minha Lista"
-                        android:textColor="#FFFFFF"
-                        android:textStyle="bold" />
-                </LinearLayout>
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/containerBotaoAviso"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:layout_gravity="start"
-                android:background="#FFFFFF"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingHorizontal="20dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:visibility="gone">
-                
-                <ImageView
-                    android:layout_width="18dp"
-                    android:layout_height="18dp"
-                    android:src="@android:drawable/ic_lock_idle_alarm"
-                    app:tint="#000000" />
-                
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:text="Receber aviso"
-                    android:textColor="#000000"
-                    android:textStyle="bold"
-                    android:textSize="14sp" />
-            </LinearLayout>
-        </FrameLayout>
-    </LinearLayout>
-</RelativeLayout>
+</LinearLayout>

@@ -54,13 +54,11 @@ class NovidadesAdapter(
         
         holder.tvTitulo.text = item.titulo
         
-        // Exibe a sinopse e garante que o campo esteja visível para o cliente
         holder.tvSinopse.text = item.sinopse
         holder.tvSinopse.visibility = View.VISIBLE
         
         holder.tvTagline.text = if (item.isTop10) "Top ${item.posicaoTop10} hoje" else item.tagline
 
-        // Carregamento otimizado da imagem de fundo
         Glide.with(context)
             .load(item.imagemFundoUrl)
             .format(DecodeFormat.PREFER_RGB_565)
@@ -68,7 +66,6 @@ class NovidadesAdapter(
             .centerCrop()
             .into(holder.imgFundo)
 
-        // LÓGICA DE LOGO TMDB (Cacheada)
         val cachedLogo = gridCachePrefs.getString("logo_${item.titulo}", null)
         if (cachedLogo != null) {
             holder.tvTitulo.visibility = View.GONE
@@ -91,7 +88,6 @@ class NovidadesAdapter(
             }
         }
 
-        // Lógica de Sincronização com o Servidor
         if (item.isEmBreve) {
             holder.containerBotoes.visibility = View.GONE
         } else {
@@ -117,9 +113,10 @@ class NovidadesAdapter(
                                 Intent(context, DetailsActivity::class.java).apply { 
                                     putExtra("stream_id", streamEncontrado.stream_id)
                                     putExtra("name", streamEncontrado.name)
-                                    // Adicionado chaves de imagem para evitar fundo preto na tela de detalhes
+                                    // AJUSTADO: Usando "icon" para o fundo aparecer na DetailsActivity
                                     putExtra("poster", streamEncontrado.stream_icon)
-                                    putExtra("backdrop", item.imagemFundoUrl)
+                                    putExtra("icon", item.imagemFundoUrl ?: streamEncontrado.stream_icon)
+                                    putExtra("rating", streamEncontrado.rating)
                                     putExtra("container_extension", streamEncontrado.container_extension)
                                     putExtra("is_series", false) 
                                 }

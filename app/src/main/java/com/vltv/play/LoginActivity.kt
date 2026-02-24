@@ -152,7 +152,7 @@ class LoginActivity : AppCompatActivity() {
                     salvarCredenciais(dnsVencedor!!, user, pass)
                     
                     withContext(Dispatchers.Main) {
-                    // Toast.makeText(this@LoginActivity, "Conectado em $dnsVencedor", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this@LoginActivity, "Conectado em $dnsVencedor", Toast.LENGTH_LONG).show()
                     }
                     
                     preCarregarConteudoInicial(dnsVencedor!!, user, pass)

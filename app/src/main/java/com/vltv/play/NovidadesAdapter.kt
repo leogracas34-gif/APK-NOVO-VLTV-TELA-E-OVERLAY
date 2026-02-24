@@ -53,7 +53,11 @@ class NovidadesAdapter(
         holder.job?.cancel()
         
         holder.tvTitulo.text = item.titulo
+        
+        // Exibe a sinopse e garante que o campo esteja visível para o cliente
         holder.tvSinopse.text = item.sinopse
+        holder.tvSinopse.visibility = View.VISIBLE
+        
         holder.tvTagline.text = if (item.isTop10) "Top ${item.posicaoTop10} hoje" else item.tagline
 
         // Carregamento otimizado da imagem de fundo
@@ -64,7 +68,7 @@ class NovidadesAdapter(
             .centerCrop()
             .into(holder.imgFundo)
 
-        // LÓGICA DE LOGO TMDB (Cacheada para evitar requisições repetidas)
+        // LÓGICA DE LOGO TMDB (Cacheada)
         val cachedLogo = gridCachePrefs.getString("logo_${item.titulo}", null)
         if (cachedLogo != null) {
             holder.tvTitulo.visibility = View.GONE
@@ -87,12 +91,11 @@ class NovidadesAdapter(
             }
         }
 
-        // Lógica de Sincronização com o Servidor (Abre DetailsActivity ou SeriesDetailsActivity)
+        // Lógica de Sincronização com o Servidor
         if (item.isEmBreve) {
             holder.containerBotoes.visibility = View.GONE
         } else {
             CoroutineScope(Dispatchers.IO).launch {
-                // Tenta encontrar o conteúdo nas tabelas locais usando o nome limpo do TMDB
                 val streamEncontrado = if (item.isSerie) {
                     database.streamDao().getRecentSeries(5000).firstOrNull { it.name.contains(item.titulo, true) }
                 } else {
@@ -114,6 +117,9 @@ class NovidadesAdapter(
                                 Intent(context, DetailsActivity::class.java).apply { 
                                     putExtra("stream_id", streamEncontrado.stream_id)
                                     putExtra("name", streamEncontrado.name)
+                                    // Adicionado chaves de imagem para evitar fundo preto na tela de detalhes
+                                    putExtra("poster", streamEncontrado.stream_icon)
+                                    putExtra("backdrop", item.imagemFundoUrl)
                                     putExtra("container_extension", streamEncontrado.container_extension)
                                     putExtra("is_series", false) 
                                 }
@@ -125,14 +131,12 @@ class NovidadesAdapter(
                             }
                         }
                         
-                        // Configura o botão Minha Lista usando o ID real do servidor
                         holder.btnMinhaLista.setOnClickListener { 
                             val realId = if (item.isSerie) (streamEncontrado as SeriesEntity).series_id 
                                          else (streamEncontrado as VodEntity).stream_id
                             toggleFavorito(context, realId, item.isSerie) 
                         }
                     } else {
-                        // Se não encontrou no banco local, oculta botões para não dar erro
                         holder.containerBotoes.visibility = View.GONE
                     }
                 }

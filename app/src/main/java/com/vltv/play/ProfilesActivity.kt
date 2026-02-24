@@ -53,7 +53,7 @@ class ProfilesActivity : AppCompatActivity() {
         setupRecyclerView()
         loadProfilesFromDb()
 
-        // ✅ LOGICA DO LOGIN: Baixa e salva em bloco único para não travar a Home
+        // ✅ LÓGICA IDÊNTICA AO LOGIN ACTIVITY
         sincronizarConteudoBackgroundSilencioso()
 
         binding.tvEditProfiles.setOnClickListener {
@@ -67,6 +67,7 @@ class ProfilesActivity : AppCompatActivity() {
         }
     }
 
+    // ✅ FUNÇÃO REESCRITA COM A LÓGICA DO SEU ARQUIVO DE LOGIN
     private fun sincronizarConteudoBackgroundSilencioso() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val dns = prefs.getString("dns", null)
@@ -77,23 +78,17 @@ class ProfilesActivity : AppCompatActivity() {
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // 1. Busca os dados da API (Sem travar o banco ainda)
-                val vodUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_vod_streams"
-                val seriesUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_series"
-                
-                val vodResponse = try { URL(vodUrl).readText() } catch (e: Exception) { null }
-                val seriesResponse = try { URL(seriesUrl).readText() } catch (e: Exception) { null }
-
-                val vodBatch = mutableListOf<VodEntity>()
-                val seriesBatch = mutableListOf<SeriesEntity>()
-
-                // 2. Processa Filmes (Lote de 60 igual ao original do Login)
-                vodResponse?.let {
-                    val jsonArray = JSONArray(it)
+                // FILMES (Igual ao LoginActivity)
+                try {
+                    val vodUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_vod_streams"
+                    val response = URL(vodUrl).readText()
+                    val jsonArray = JSONArray(response)
+                    val batch = mutableListOf<VodEntity>()
                     val limit = minOf(60, jsonArray.length())
+                    
                     for (i in 0 until limit) {
                         val obj = jsonArray.getJSONObject(i)
-                        vodBatch.add(VodEntity(
+                        batch.add(VodEntity(
                             stream_id = obj.optInt("stream_id"),
                             name = obj.optString("name"),
                             title = obj.optString("name"),
@@ -104,15 +99,20 @@ class ProfilesActivity : AppCompatActivity() {
                             added = obj.optLong("added")
                         ))
                     }
-                }
+                    if (batch.isNotEmpty()) db.streamDao().insertVodStreams(batch)
+                } catch (e: Exception) { e.printStackTrace() }
 
-                // 3. Processa Séries (Lote de 60)
-                seriesResponse?.let {
-                    val jsonArray = JSONArray(it)
+                // SÉRIES (Igual ao LoginActivity)
+                try {
+                    val seriesUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_series"
+                    val response = URL(seriesUrl).readText()
+                    val jsonArray = JSONArray(response)
+                    val batch = mutableListOf<SeriesEntity>()
                     val limit = minOf(60, jsonArray.length())
+                    
                     for (i in 0 until limit) {
                         val obj = jsonArray.getJSONObject(i)
-                        seriesBatch.add(SeriesEntity(
+                        batch.add(SeriesEntity(
                             series_id = obj.optInt("series_id"),
                             name = obj.optString("name"),
                             cover = obj.optString("cover"),
@@ -121,18 +121,10 @@ class ProfilesActivity : AppCompatActivity() {
                             last_modified = obj.optLong("last_modified")
                         ))
                     }
-                }
+                    if (batch.isNotEmpty()) db.streamDao().insertSeriesStreams(batch)
+                } catch (e: Exception) { e.printStackTrace() }
 
-                // ✅ 4. TRANSAÇÃO ATÔMICA: Grava tudo de uma vez.
-                // Isso impede que a Home tente ler enquanto o banco está salvando um por um.
-                db.runInTransaction {
-                    if (vodBatch.isNotEmpty()) db.streamDao().insertVodStreams(vodBatch)
-                    if (seriesBatch.isNotEmpty()) db.streamDao().insertSeriesStreams(seriesBatch)
-                }
-
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+            } catch (e: Exception) { e.printStackTrace() }
         }
     }
 

@@ -24,7 +24,7 @@ data class NovidadeItem(
     val sinopse: String,
     val imagemFundoUrl: String,
     val tagline: String,
-    val isTop10: Boolean = false,
+    val isSerie: Boolean = false,
     val isEmBreve: Boolean = false
 )
 
@@ -38,12 +38,11 @@ class NovidadesAdapter(
         val tvTituloNovidade: TextView = view.findViewById(R.id.tvTituloNovidade)
         val tvTagline: TextView = view.findViewById(R.id.tvTagline)
         val tvSinopseNovidade: TextView = view.findViewById(R.id.tvSinopseNovidade)
-        
         val containerBotoesAtivos: LinearLayout = view.findViewById(R.id.containerBotoesAtivos)
         val btnAssistirNovidade: LinearLayout = view.findViewById(R.id.btnAssistirNovidade)
         val btnMinhaListaNovidade: LinearLayout = view.findViewById(R.id.btnMinhaListaNovidade)
-
-        // IDs que agora são View fantasmas para não quebrar o layout antigo
+        
+        // Elementos ignorados do layout base
         val tvNumeroTop10: View = view.findViewById(R.id.tvNumeroTop10)
         val btnPlayTrailer: View = view.findViewById(R.id.btnPlayTrailer)
         val containerBotaoAviso: View = view.findViewById(R.id.containerBotaoAviso)
@@ -62,6 +61,10 @@ class NovidadesAdapter(
         holder.tvTituloNovidade.text = item.titulo
         holder.tvSinopseNovidade.text = item.sinopse
         holder.tvTagline.text = item.tagline
+        
+        holder.tvNumeroTop10.visibility = View.GONE
+        holder.btnPlayTrailer.visibility = View.GONE
+        holder.containerBotaoAviso.visibility = View.GONE
 
         Glide.with(context)
             .load(item.imagemFundoUrl)
@@ -69,62 +72,91 @@ class NovidadesAdapter(
             .centerCrop()
             .into(holder.imgFundoNovidade)
 
-        // Esconde elementos removidos do design
-        holder.tvNumeroTop10.visibility = View.GONE
-        holder.btnPlayTrailer.visibility = View.GONE
-        holder.containerBotaoAviso.visibility = View.GONE
-
-        // Lógica de abas
         if (item.isEmBreve) {
             holder.containerBotoesAtivos.visibility = View.GONE
         } else {
-            // CRUZAMENTO COM SERVIDOR: Verifica se o filme existe no banco local
+            // Busca no Banco de Dados local para cruzar com o TMDb
             CoroutineScope(Dispatchers.IO).launch {
-                val filmeServidor = database.streamDao().searchVod(item.titulo).firstOrNull()
-                
+                var idServidor: Int? = null
+                var nomeServidor: String? = null
+                var iconServidor: String? = null
+                var ratingServidor: String? = null
+
+                if (item.isSerie) {
+                    val serie = database.streamDao().getRecentSeries(2000).firstOrNull { 
+                        it.name.contains(item.titulo, ignoreCase = true) 
+                    }
+                    idServidor = serie?.series_id
+                    nomeServidor = serie?.name
+                    iconServidor = serie?.cover
+                    ratingServidor = serie?.rating
+                } else {
+                    val filme = database.streamDao().searchVod(item.titulo).firstOrNull()
+                    idServidor = filme?.stream_id
+                    nomeServidor = filme?.name
+                    iconServidor = filme?.stream_icon
+                    ratingServidor = filme?.rating
+                }
+
                 withContext(Dispatchers.Main) {
-                    if (filmeServidor != null) {
+                    if (idServidor != null) {
                         holder.containerBotoesAtivos.visibility = View.VISIBLE
-                        
-                        // Botão Assistir -> Vai para Detalhes com o ID do seu servidor
                         holder.btnAssistirNovidade.setOnClickListener {
-                            val intent = Intent(context, DetailsActivity::class.java).apply {
-                                putExtra("stream_id", filmeServidor.stream_id)
-                                putExtra("name", filmeServidor.name)
-                                putExtra("icon", filmeServidor.stream_icon)
-                                putExtra("rating", filmeServidor.rating ?: "0.0")
+                            val intent = if (item.isSerie) {
+                                Intent(context, SeriesDetailsActivity::class.java).apply {
+                                    putExtra("series_id", idServidor)
+                                }
+                            } else {
+                                Intent(context, DetailsActivity::class.java).apply {
+                                    putExtra("stream_id", idServidor)
+                                    putExtra("is_series", false)
+                                }
+                            }
+                            
+                            intent.apply {
+                                putExtra("name", nomeServidor)
+                                putExtra("icon", iconServidor)
+                                putExtra("rating", ratingServidor ?: "0.0")
                                 putExtra("PROFILE_NAME", currentProfile)
                             }
                             context.startActivity(intent)
                         }
                     } else {
-                        // Se não tem no servidor, esconde os botões (apenas mostra a info)
                         holder.containerBotoesAtivos.visibility = View.GONE
                     }
                 }
             }
         }
 
-        // Lógica de Favoritos (Minha Lista)
         holder.btnMinhaListaNovidade.setOnClickListener {
-            favoritarFilme(context, item)
+            toggleFavorito(context, item)
         }
     }
 
-    private fun favoritarFilme(context: Context, item: NovidadeItem) {
-        val prefs = context.getSharedPreferences("vltv_favoritos", Context.MODE_PRIVATE)
-        val key = "${currentProfile}_favoritos"
-        val favoritos = prefs.getStringSet(key, emptySet())?.toMutableSet() ?: mutableSetOf()
+    private fun toggleFavorito(context: Context, item: NovidadeItem) {
+        val prefs = context.getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         
-        // Aqui usamos o ID do item para favoritar
-        if (favoritos.contains(item.id.toString())) {
-            favoritos.remove(item.id.toString())
+        // Usa a lógica de cada Activity: Filmes em "vltv_favoritos" e Séries em "vltv_prefs"
+        val key: String
+        val targetPrefs = if (!item.isSerie) {
+            key = "${currentProfile}_favoritos"
+            context.getSharedPreferences("vltv_favoritos", Context.MODE_PRIVATE)
+        } else {
+            key = "${currentProfile}_fav_series"
+            prefs
+        }
+
+        val favoritos = targetPrefs.getStringSet(key, emptySet())?.toMutableSet() ?: mutableSetOf()
+        val idString = item.id.toString()
+
+        if (favoritos.contains(idString)) {
+            favoritos.remove(idString)
             Toast.makeText(context, "Removido da Minha Lista", Toast.LENGTH_SHORT).show()
         } else {
-            favoritos.add(item.id.toString())
+            favoritos.add(idString)
             Toast.makeText(context, "Adicionado à Minha Lista!", Toast.LENGTH_SHORT).show()
         }
-        prefs.edit().putStringSet(key, favoritos).apply()
+        targetPrefs.edit().putStringSet(key, favoritos).apply()
     }
 
     override fun getItemCount(): Int = lista.size

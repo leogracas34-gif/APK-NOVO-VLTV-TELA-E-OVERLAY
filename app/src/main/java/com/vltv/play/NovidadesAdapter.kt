@@ -20,18 +20,6 @@ import org.json.JSONObject
 import java.net.URL
 import java.net.URLEncoder
 
-data class NovidadeItem(
-    val id: Int,
-    val titulo: String,
-    val sinopse: String,
-    val imagemFundoUrl: String,
-    val tagline: String,
-    val isSerie: Boolean = false,
-    val isEmBreve: Boolean = false,
-    val isTop10: Boolean = false,
-    val posicaoTop10: Int = 0
-)
-
 class NovidadesAdapter(
     private var lista: List<NovidadeItem>,
     private val currentProfile: String
@@ -61,9 +49,11 @@ class NovidadesAdapter(
         val gridCachePrefs = context.getSharedPreferences("vltv_grid_cache", Context.MODE_PRIVATE)
 
         holder.job?.cancel()
+        
+        // Se for Top 10, podemos customizar a Tagline se necessário
         holder.tvTitulo.text = item.titulo
         holder.tvSinopse.text = item.sinopse
-        holder.tvTagline.text = item.tagline
+        holder.tvTagline.text = if (item.isTop10) "Top ${item.posicaoTop10} hoje" else item.tagline
 
         // Carregar Fundo
         Glide.with(context)
@@ -96,7 +86,7 @@ class NovidadesAdapter(
             }
         }
 
-        // Lógica de Sincronização com o Servidor para o botão Assistir
+        // Lógica de Sincronização com o Servidor (Reconhece Filmes e Séries no Top 10)
         if (item.isEmBreve) {
             holder.containerBotoes.visibility = View.GONE
         } else {
@@ -112,15 +102,21 @@ class NovidadesAdapter(
                         holder.containerBotoes.visibility = View.VISIBLE
                         holder.btnAssistir.setOnClickListener {
                             val intent = if (item.isSerie) {
-                                Intent(context, SeriesDetailsActivity::class.java).apply { putExtra("series_id", (stream as com.vltv.play.data.SeriesEntity).series_id) }
+                                Intent(context, SeriesDetailsActivity::class.java).apply { 
+                                    putExtra("series_id", (stream as com.vltv.play.data.SeriesEntity).series_id) 
+                                }
                             } else {
-                                Intent(context, DetailsActivity::class.java).apply { putExtra("stream_id", (stream as com.vltv.play.data.VodEntity).stream_id); putExtra("is_series", false) }
+                                Intent(context, DetailsActivity::class.java).apply { 
+                                    putExtra("stream_id", (stream as com.vltv.play.data.VodEntity).stream_id)
+                                    putExtra("is_series", false) 
+                                }
                             }
                             intent.putExtra("name", item.titulo)
                             intent.putExtra("PROFILE_NAME", currentProfile)
                             context.startActivity(intent)
                         }
                     } else {
+                        // Se não tem no servidor, esconde botões (Sincronização rigorosa)
                         holder.containerBotoes.visibility = View.GONE
                     }
                 }

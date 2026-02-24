@@ -64,7 +64,7 @@ class NovidadesActivity : AppCompatActivity() {
         recyclerNovidades = findViewById(R.id.recyclerNovidades)
         bottomNavigation = findViewById(R.id.bottomNavigation)
         
-        tabTodoMundo.text = "Todo mundo está assistindo"
+        // Removida a linha que alterava o texto via código para respeitar o seu XML
     }
 
     private fun configurarRodape() {
@@ -164,7 +164,7 @@ class NovidadesActivity : AppCompatActivity() {
                             val itemJson = results.getJSONObject(i)
                             val titulo = itemJson.optString("title", itemJson.optString("name", "Sem Título"))
                             
-                            // Cruzamento rigoroso com o Servidor
+                            // Cruzamento rigoroso com o Servidor (exceto para aba Em Breve)
                             val existeNoServidor = if (isEmBreve) true else {
                                 if (isSerie) database.streamDao().getRecentSeries(2000).any { it.name.contains(titulo, true) }
                                 else database.streamDao().searchVod(titulo).isNotEmpty()

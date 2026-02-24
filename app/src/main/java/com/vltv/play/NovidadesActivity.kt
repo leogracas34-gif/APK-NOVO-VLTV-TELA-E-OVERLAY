@@ -63,8 +63,6 @@ class NovidadesActivity : AppCompatActivity() {
         tabTopFilmes = findViewById(R.id.tabTopFilmes)
         recyclerNovidades = findViewById(R.id.recyclerNovidades)
         bottomNavigation = findViewById(R.id.bottomNavigation)
-        
-        // Removida a linha que alterava o texto via código para respeitar o seu XML
     }
 
     private fun configurarRodape() {
@@ -89,6 +87,7 @@ class NovidadesActivity : AppCompatActivity() {
     }
 
     private fun configurarRecyclerView() {
+        // O Adapter agora recebe o perfil para gerenciar os favoritos corretamente
         adapter = NovidadesAdapter(emptyList(), currentProfile)
         recyclerNovidades.layoutManager = LinearLayoutManager(this)
         recyclerNovidades.adapter = adapter
@@ -115,17 +114,16 @@ class NovidadesActivity : AppCompatActivity() {
     }
 
     private fun carregarTodasAsListasTMDb() {
-        Toast.makeText(this, "Sincronizando conteúdos...", Toast.LENGTH_SHORT).show()
         val dataHoje = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()) 
         val dataRecente = "2024-01-01" 
         
-        // 1. Em Breve (Crescente)
+        // 1. Em Breve (Filmes que ainda vão estrear - Mostra Poster Vertical)
         val urlEmBreve = "https://api.themoviedb.org/3/discover/movie?api_key=$apiKey&language=pt-BR&region=BR&with_release_type=2|3&primary_release_date.gte=$dataHoje&sort_by=primary_release_date.asc"
         buscarDadosNaApi(urlEmBreve, listaEmBreve, isTop10 = false, tagFixa = "Estreia em Breve", isEmBreve = true, isSerie = false) {
             runOnUiThread { adapter.atualizarLista(listaEmBreve) }
         }
 
-        // 2. Todo Mundo Assistindo
+        // 2. Todo Mundo Assistindo (Populares no seu servidor)
         val urlTodoMundo = "https://api.themoviedb.org/3/discover/movie?api_key=$apiKey&language=pt-BR&primary_release_date.gte=$dataRecente&sort_by=popularity.desc"
         buscarDadosNaApi(urlTodoMundo, listaTodoMundo, isTop10 = false, tagFixa = "Bombando no Mundo", isEmBreve = false, isSerie = false) {}
 
@@ -162,33 +160,50 @@ class NovidadesActivity : AppCompatActivity() {
                             if (tempLista.size >= (if (isTop10) 10 else 20)) break
 
                             val itemJson = results.getJSONObject(i)
-                            val titulo = itemJson.optString("title", itemJson.optString("name", "Sem Título"))
+                            val tituloOrig = itemJson.optString("title", itemJson.optString("name", "Sem Título"))
                             
-                            // Cruzamento rigoroso com o Servidor (exceto para aba Em Breve)
-                            val existeNoServidor = if (isEmBreve) true else {
-                                if (isSerie) database.streamDao().getRecentSeries(2000).any { it.name.contains(titulo, true) }
-                                else database.streamDao().searchVod(titulo).isNotEmpty()
-                            }
-
-                            if (existeNoServidor) {
-                                val backdropPath = itemJson.optString("backdrop_path", "")
-                                if (backdropPath.isEmpty()) continue
+                            // --- CRUZAMENTO COM SEU SERVIDOR ---
+                            var idServidorValido = 0
+                            
+                            if (!isEmBreve) {
+                                if (isSerie) {
+                                    // Busca o series_id real no seu banco
+                                    val serieLocal = database.streamDao().getRecentSeries(5000)
+                                        .find { it.name.contains(tituloOrig, true) }
+                                    if (serieLocal != null) idServidorValido = serieLocal.series_id
+                                } else {
+                                    // Busca o stream_id real no seu banco
+                                    val filmeLocal = database.streamDao().searchVod(tituloOrig)
+                                        .firstOrNull()
+                                    if (filmeLocal != null) idServidorValido = filmeLocal.stream_id
+                                }
                                 
-                                val releaseDate = itemJson.optString("release_date", itemJson.optString("first_air_date", ""))
-                                val tagFinal = if (isEmBreve && releaseDate.isNotEmpty()) formatarData(releaseDate) else tagFixa
-
-                                tempLista.add(NovidadeItem(
-                                    id = itemJson.optInt("id"), 
-                                    titulo = titulo, 
-                                    sinopse = itemJson.optString("overview", "Descrição indisponível."), 
-                                    imagemFundoUrl = "https://image.tmdb.org/t/p/w780$backdropPath", 
-                                    tagline = tagFinal, 
-                                    isTop10 = isTop10, 
-                                    posicaoTop10 = posicaoCount++, 
-                                    isEmBreve = isEmBreve, 
-                                    isSerie = isSerie
-                                ))
+                                // Se não existe no seu servidor, pula (exceto em breve)
+                                if (idServidorValido == 0) continue
                             }
+
+                            // Define se usa Poster (Vertical) ou Backdrop (Horizontal)
+                            val pathImagem = if (isEmBreve) itemJson.optString("poster_path", "") 
+                                             else itemJson.optString("backdrop_path", "")
+                            
+                            if (pathImagem.isEmpty()) continue
+                                
+                            val releaseDate = itemJson.optString("release_date", itemJson.optString("first_air_date", ""))
+                            val tagFinal = if (isEmBreve && releaseDate.isNotEmpty()) formatarData(releaseDate) else tagFixa
+
+                            tempLista.add(NovidadeItem(
+                                idTMDB = itemJson.optInt("id"),
+                                stream_id = if (!isSerie) idServidorValido else 0,
+                                series_id = if (isSerie) idServidorValido else 0,
+                                titulo = tituloOrig, 
+                                sinopse = itemJson.optString("overview", "Descrição indisponível."), 
+                                imagemFundoUrl = "https://image.tmdb.org/t/p/w780$pathImagem", 
+                                tagline = tagFinal, 
+                                isTop10 = isTop10, 
+                                posicaoTop10 = posicaoCount++, 
+                                isEmBreve = isEmBreve, 
+                                isSerie = isSerie
+                            ))
                         }
                         withContext(Dispatchers.Main) {
                             listaDestino.clear()

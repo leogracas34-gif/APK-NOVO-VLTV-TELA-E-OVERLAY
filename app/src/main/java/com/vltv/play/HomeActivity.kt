@@ -312,7 +312,7 @@ class HomeActivity : AppCompatActivity() {
 
     private fun limparNomeParaTMDB(nome: String): String {
         return nome.replace(Regex("(?i)\\b(4K|FULL HD|HD|SD|720P|1080P|2160P|DUBLADO|LEGENDADO|DUAL|AUDIO|LATINO|PT-BR|PTBR|WEB-DL|BLURAY|MKV|MP4|AVI|REPACK|H264|H265|HEVC|WEB|S\\d+E\\d+|SEASON|TEMPORADA)\\b"), "")
-                   .replace(Regex("\\(\\d{4}\\)|\\[.*?\\]|\\{.*?\\}|\\(.*\\d{4}.*\\)|\\d{4}"), "")
+                   .replace(Regex("\\(\\d{4}\\)|\\[.*?\\]|\\{.*?\\}|\\(.*\\d{4}.*\\)"), "")
                    .replace(Regex("\\s+"), " ")
                    .trim()
                    .take(50)
@@ -538,7 +538,7 @@ class HomeActivity : AppCompatActivity() {
                     }
                 }
                 if (liveBatch.isNotEmpty()) {
-                    database.streamCache().insertLiveStreams(liveBatch)
+                    database.streamDao().insertLiveStreams(liveBatch)
                 }
 
                 withContext(Dispatchers.Main) {
@@ -901,9 +901,6 @@ class HomeActivity : AppCompatActivity() {
                 var id = 0
                 var isSeries = false
                 var logoSalva: String? = null
-                
-                // ✅ OCULTA O SINAL DE MAIS NO BANNER
-                itemView.findViewById<View>(R.id.btnBannerAdd)?.visibility = View.GONE
 
                 if (item is VodEntity) {
                     title = item.name; icon = item.stream_icon ?: ""; id = item.stream_id; isSeries = false; logoSalva = item.logo_url

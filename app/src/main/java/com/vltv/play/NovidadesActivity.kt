@@ -9,6 +9,11 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomnavigation.BottomNavigationView
+import com.vltv.play.data.AppDatabase
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.*
 import org.json.JSONObject
 import java.io.IOException
@@ -19,7 +24,7 @@ import java.util.Locale
 class NovidadesActivity : AppCompatActivity() {
 
     private lateinit var tabEmBreve: TextView
-    private lateinit var tabBombando: TextView
+    private lateinit var tabTodoMundo: TextView // Nome corrigido conforme combinado
     private lateinit var tabTopSeries: TextView
     private lateinit var tabTopFilmes: TextView
     private lateinit var recyclerNovidades: RecyclerView
@@ -28,13 +33,14 @@ class NovidadesActivity : AppCompatActivity() {
     private lateinit var adapter: NovidadesAdapter
 
     private var listaEmBreve = mutableListOf<NovidadeItem>()
-    private var listaBombando = mutableListOf<NovidadeItem>()
+    private var listaTodoMundo = mutableListOf<NovidadeItem>()
     private var listaTopSeries = mutableListOf<NovidadeItem>()
     private var listaTopFilmes = mutableListOf<NovidadeItem>()
 
     private val apiKey = "9b73f5dd15b8165b1b57419be2f29128"
     private val client = OkHttpClient()
     private var currentProfile: String = "Padrao"
+    private val database by lazy { AppDatabase.getDatabase(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,21 +58,21 @@ class NovidadesActivity : AppCompatActivity() {
 
     private fun inicializarViews() {
         tabEmBreve = findViewById(R.id.tabEmBreve)
-        tabBombando = findViewById(R.id.tabBombando)
+        tabTodoMundo = findViewById(R.id.tabBombando) // Mantive o ID original do XML para não dar erro
         tabTopSeries = findViewById(R.id.tabTopSeries)
         tabTopFilmes = findViewById(R.id.tabTopFilmes)
         recyclerNovidades = findViewById(R.id.recyclerNovidades)
         bottomNavigation = findViewById(R.id.bottomNavigation)
+        
+        // Texto visual da aba corrigido
+        tabTodoMundo.text = "Todo mundo está assistindo"
     }
 
     private fun configurarRodape() {
         bottomNavigation.selectedItemId = R.id.nav_novidades
         bottomNavigation.setOnItemSelectedListener { item ->
             when (item.itemId) {
-                R.id.nav_home -> {
-                    finish() 
-                    true
-                }
+                R.id.nav_home -> { finish(); true }
                 R.id.nav_search -> {
                     val intent = Intent(this, SearchActivity::class.java)
                     intent.putExtra("PROFILE_NAME", currentProfile)
@@ -99,9 +105,9 @@ class NovidadesActivity : AppCompatActivity() {
             adapter.atualizarLista(listaEmBreve)
             recyclerNovidades.scrollToPosition(0)
         }
-        tabBombando.setOnClickListener {
-            ativarAba(tabBombando)
-            adapter.atualizarLista(listaBombando)
+        tabTodoMundo.setOnClickListener {
+            ativarAba(tabTodoMundo)
+            adapter.atualizarLista(listaTodoMundo)
             recyclerNovidades.scrollToPosition(0)
         }
         tabTopSeries.setOnClickListener {
@@ -117,7 +123,7 @@ class NovidadesActivity : AppCompatActivity() {
     }
 
     private fun ativarAba(abaAtiva: TextView) {
-        val todasAsAbas = listOf(tabEmBreve, tabBombando, tabTopSeries, tabTopFilmes)
+        val todasAsAbas = listOf(tabEmBreve, tabTodoMundo, tabTopSeries, tabTopFilmes)
         for (aba in todasAsAbas) {
             if (aba == abaAtiva) {
                 aba.setBackgroundResource(R.drawable.bg_aba_selecionada)
@@ -130,26 +136,30 @@ class NovidadesActivity : AppCompatActivity() {
     }
 
     private fun carregarTodasAsListasTMDb() {
-        Toast.makeText(this, "Atualizando lançamentos...", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Sincronizando com o servidor...", Toast.LENGTH_SHORT).show()
 
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
         val dataHoje = sdf.format(Date()) 
         
+        // 1. Aba Em Breve (Não sincroniza, apenas mostra estreias)
         val urlEmBreve = "https://api.themoviedb.org/3/discover/movie?api_key=$apiKey&language=pt-BR&region=BR&with_release_type=2|3&primary_release_date.gte=$dataHoje&sort_by=primary_release_date.asc"
-        buscarDadosNaApi(urlEmBreve, listaEmBreve, isTop10 = false, tagFixa = "Estreia em Breve", isEmBreve = true) {
+        buscarDadosNaApi(urlEmBreve, listaEmBreve, isTop10 = false, tagFixa = "Estreia em Breve", isEmBreve = true, isSerie = false) {
             runOnUiThread { adapter.atualizarLista(listaEmBreve) }
         }
 
         val dataRecente = "2024-01-01" 
         
-        val urlBombando = "https://api.themoviedb.org/3/discover/movie?api_key=$apiKey&language=pt-BR&primary_release_date.gte=$dataRecente&sort_by=popularity.desc"
-        buscarDadosNaApi(urlBombando, listaBombando, isTop10 = false, tagFixa = "Em Alta no Mundo", isEmBreve = false) {}
+        // 2. Todo mundo está assistindo (Sincronizado)
+        val urlTodoMundo = "https://api.themoviedb.org/3/discover/movie?api_key=$apiKey&language=pt-BR&primary_release_date.gte=$dataRecente&sort_by=popularity.desc"
+        buscarDadosNaApi(urlTodoMundo, listaTodoMundo, isTop10 = false, tagFixa = "Bombando no Mundo", isEmBreve = false, isSerie = false) {}
 
+        // 3. Top 10 Séries (Sincronizado)
         val urlTopSeries = "https://api.themoviedb.org/3/discover/tv?api_key=$apiKey&language=pt-BR&first_air_date.gte=$dataRecente&sort_by=popularity.desc"
-        buscarDadosNaApi(urlTopSeries, listaTopSeries, isTop10 = true, tagFixa = "Top 10 Séries", isEmBreve = false) {}
+        buscarDadosNaApi(urlTopSeries, listaTopSeries, isTop10 = true, tagFixa = "Top 10 Séries", isEmBreve = false, isSerie = true) {}
 
+        // 4. Top 10 Filmes (Sincronizado)
         val urlTopFilmes = "https://api.themoviedb.org/3/discover/movie?api_key=$apiKey&language=pt-BR&primary_release_date.gte=$dataRecente&sort_by=popularity.desc"
-        buscarDadosNaApi(urlTopFilmes, listaTopFilmes, isTop10 = true, tagFixa = "Top 10 Filmes", isEmBreve = false) {}
+        buscarDadosNaApi(urlTopFilmes, listaTopFilmes, isTop10 = true, tagFixa = "Top 10 Filmes", isEmBreve = false, isSerie = false) {}
     }
 
     private fun buscarDadosNaApi(
@@ -158,6 +168,7 @@ class NovidadesActivity : AppCompatActivity() {
         isTop10: Boolean, 
         tagFixa: String, 
         isEmBreve: Boolean,
+        isSerie: Boolean,
         onSucesso: () -> Unit
     ) {
         val request = Request.Builder().url(url).build()
@@ -169,76 +180,56 @@ class NovidadesActivity : AppCompatActivity() {
                     val jsonObject = JSONObject(body)
                     val results = jsonObject.optJSONArray("results") ?: return
                     
-                    val limite = if (isTop10) 10 else Math.min(results.length(), 20)
-                    for (i in 0 until limite) {
-                        val itemJson = results.getJSONObject(i)
-                        val id = itemJson.optInt("id")
-                        val titulo = itemJson.optString("title", itemJson.optString("name", "Sem Título"))
-                        val sinopse = itemJson.optString("overview", "Descrição indisponível.")
-                        val backdropPath = itemJson.optString("backdrop_path", "")
+                    CoroutineScope(Dispatchers.IO).launch {
+                        val tempLista = mutableListOf<NovidadeItem>()
                         
-                        if (backdropPath.isEmpty()) continue
-                        
-                        val imagemUrl = "https://image.tmdb.org/t/p/w780$backdropPath"
-                        
-                        var dataEstreia = tagFixa
-                        val releaseDate = itemJson.optString("release_date", itemJson.optString("first_air_date", ""))
-                        if (releaseDate.isNotEmpty() && isEmBreve) {
-                            dataEstreia = formatarData(releaseDate)
-                        }
+                        for (i in 0 until results.length()) {
+                            if (tempLista.size >= (if (isTop10) 10 else 20)) break
 
-                        // LÓGICA PARA BUSCAR O TRAILER DO YOUTUBE
-                        var youtubeKey: String? = null
-                        val tipoMedia = if (url.contains("/tv")) "tv" else "movie"
-                        val videoUrl = "https://api.themoviedb.org/3/$tipoMedia/$id/videos?api_key=$apiKey&language=pt-BR"
-                        
-                        try {
-                            val videoReq = Request.Builder().url(videoUrl).build()
-                            val videoRes = client.newCall(videoReq).execute() // Pedido síncrono em background
-                            val videoBody = videoRes.body?.string()
-                            if (videoBody != null) {
-                                val videoJson = JSONObject(videoBody)
-                                val vResults = videoJson.optJSONArray("results")
-                                if (vResults != null && vResults.length() > 0) {
-                                    for (j in 0 until vResults.length()) {
-                                        val v = vResults.getJSONObject(j)
-                                        if (v.optString("site") == "YouTube" && v.optString("type") == "Trailer") {
-                                            youtubeKey = v.optString("key")
-                                            break
-                                        }
-                                    }
-                                    if (youtubeKey == null) youtubeKey = vResults.getJSONObject(0).optString("key")
+                            val itemJson = results.getJSONObject(i)
+                            val titulo = itemJson.optString("title", itemJson.optString("name", "Sem Título"))
+                            
+                            // LÓGICA DE SINCRONIZAÇÃO: Se não for "Em Breve", verifica se existe no servidor
+                            var existeNoServidor = true
+                            if (!isEmBreve) {
+                                existeNoServidor = if (isSerie) {
+                                    database.streamDao().getRecentSeries(2000).any { it.name.contains(titulo, true) }
+                                } else {
+                                    database.streamDao().searchVod(titulo).isNotEmpty()
                                 }
                             }
-                        } catch (e: Exception) { }
 
-                        // Plano B: Se não encontrar em PT-BR, procura o trailer original (Inglês)
-                        if (youtubeKey == null) {
-                            try {
-                                val videoUrlEn = "https://api.themoviedb.org/3/$tipoMedia/$id/videos?api_key=$apiKey"
-                                val videoReqEn = Request.Builder().url(videoUrlEn).build()
-                                val videoResEn = client.newCall(videoReqEn).execute()
-                                val videoBodyEn = videoResEn.body?.string()
-                                if (videoBodyEn != null) {
-                                    val videoJsonEn = JSONObject(videoBodyEn)
-                                    val vResultsEn = videoJsonEn.optJSONArray("results")
-                                    if (vResultsEn != null && vResultsEn.length() > 0) {
-                                        youtubeKey = vResultsEn.getJSONObject(0).optString("key")
-                                    }
+                            if (existeNoServidor) {
+                                val id = itemJson.optInt("id")
+                                val sinopse = itemJson.optString("overview", "Descrição indisponível.")
+                                val backdropPath = itemJson.optString("backdrop_path", "")
+                                if (backdropPath.isEmpty()) continue
+                                
+                                val imagemUrl = "https://image.tmdb.org/t/p/w780$backdropPath"
+                                var dataEstreia = tagFixa
+                                val releaseDate = itemJson.optString("release_date", itemJson.optString("first_air_date", ""))
+                                
+                                if (releaseDate.isNotEmpty() && isEmBreve) {
+                                    dataEstreia = formatarData(releaseDate)
                                 }
-                            } catch (e: Exception) { }
-                        }
 
-                        listaDestino.add(
-                            NovidadeItem(
-                                id = id, titulo = titulo, sinopse = sinopse, 
-                                imagemFundoUrl = imagemUrl, tagline = dataEstreia, 
-                                isTop10 = isTop10, posicaoTop10 = i + 1, isEmBreve = isEmBreve,
-                                trailerUrl = youtubeKey // A chave do YouTube é enviada para o Adapter aqui!
-                            )
-                        )
+                                tempLista.add(
+                                    NovidadeItem(
+                                        id = id, titulo = titulo, sinopse = sinopse, 
+                                        imagemFundoUrl = imagemUrl, tagline = dataEstreia, 
+                                        isTop10 = isTop10, posicaoTop10 = i + 1, 
+                                        isEmBreve = isEmBreve, isSerie = isSerie
+                                    )
+                                )
+                            }
+                        }
+                        
+                        withContext(Dispatchers.Main) {
+                            listaDestino.clear()
+                            listaDestino.addAll(tempLista)
+                            onSucesso()
+                        }
                     }
-                    onSucesso()
                 } catch (e: Exception) { }
             }
         })

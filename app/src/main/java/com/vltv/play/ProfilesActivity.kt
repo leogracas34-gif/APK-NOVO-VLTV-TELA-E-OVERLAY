@@ -36,13 +36,11 @@ class ProfilesActivity : AppCompatActivity() {
     private val db by lazy { AppDatabase.getDatabase(this) }
     private val listaPerfis = mutableListOf<ProfileEntity>()
     
-    // TRAVA DE SEGURANÇA (SEMÁFORO)
     private var isCreating = false
     private val mutex = Mutex()
 
     private val tmdbApiKey = "9b73f5dd15b8165b1b57419be2f29128" 
     
-    // URLs Padrão para os 4 perfis iniciais
     private val defaultAvatarUrl1 = "https://image.tmdb.org/t/p/original/ywe9S1cOyIhR5yWzK7511NuQ2YX.jpg"
     private val defaultAvatarUrl2 = "https://image.tmdb.org/t/p/original/4fLZUr1e65hKPPVw0R3PmKFKxj1.jpg"
     private val defaultAvatarUrl3 = "https://image.tmdb.org/t/p/original/53iAkBnBhqJh2ZmhCug4lSCSUq9.jpg"
@@ -54,13 +52,12 @@ class ProfilesActivity : AppCompatActivity() {
         binding = ActivityProfileSelectionBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // ✅ LÓGICA DE AUTO-LOGIN: Verifica se já tem um perfil salvo para entrar direto
         verificarPerfilSalvo()
 
         setupRecyclerView()
         loadProfilesFromDb()
 
-        // ✅ A MÁGICA ACONTECE AQUI: Inicia o download silencioso dos primeiros 120 itens!
+        // ✅ CARREGAMENTO TURBO: Baixa 100 itens de cada para a Home não abrir vazia
         sincronizarConteudoBackgroundSilencioso()
 
         binding.tvEditProfiles.setOnClickListener {
@@ -74,7 +71,7 @@ class ProfilesActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ FUNÇÃO DE DOWNLOAD INVISÍVEL (Transferida do Login)
+    // ✅ LÓGICA DE PRÉ-CARREGAMENTO (Igual a que tinha no Login, mas otimizada)
     private fun sincronizarConteudoBackgroundSilencioso() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val dns = prefs.getString("dns", null)
@@ -85,13 +82,15 @@ class ProfilesActivity : AppCompatActivity() {
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // --- FILMES ---
+                // --- FILMES (Primeiros 100) ---
                 try {
                     val vodUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_vod_streams"
                     val response = URL(vodUrl).readText()
                     val jsonArray = JSONArray(response)
                     val batch = mutableListOf<VodEntity>()
-                    val limit = minOf(60, jsonArray.length())
+                    
+                    // Aumentado para 100 para garantir que a Home preencha as listas
+                    val limit = minOf(100, jsonArray.length())
                     
                     for (i in 0 until limit) {
                         val obj = jsonArray.getJSONObject(i)
@@ -109,13 +108,15 @@ class ProfilesActivity : AppCompatActivity() {
                     if (batch.isNotEmpty()) db.streamDao().insertVodStreams(batch)
                 } catch (e: Exception) { e.printStackTrace() }
 
-                // --- SÉRIES ---
+                // --- SÉRIES (Primeiras 100) ---
                 try {
                     val seriesUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_series"
                     val response = URL(seriesUrl).readText()
                     val jsonArray = JSONArray(response)
                     val batch = mutableListOf<SeriesEntity>()
-                    val limit = minOf(60, jsonArray.length())
+                    
+                    // Aumentado para 100 para garantir que a Home preencha as listas
+                    val limit = minOf(100, jsonArray.length())
                     
                     for (i in 0 until limit) {
                         val obj = jsonArray.getJSONObject(i)
@@ -135,13 +136,11 @@ class ProfilesActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ FUNÇÃO QUE VERIFICA A "CADERNETA" (SHARED PREFERENCES)
     private fun verificarPerfilSalvo() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val salvoNome = prefs.getString("last_profile_name", null)
         val salvoIcon = prefs.getString("last_profile_icon", null)
         
-        // Se o usuário não estiver vindo de um "Trocar Perfil" e houver dados salvos, vai direto
         val forcarSelecao = intent.getBooleanExtra("FORCE_SELECTION", false)
         
         if (!forcarSelecao && salvoNome != null) {
@@ -160,7 +159,6 @@ class ProfilesActivity : AppCompatActivity() {
     }
 
     private fun loadProfilesFromDb() {
-        // Se já estiver no meio de uma criação, não faz nada para evitar duplicidade
         if (isCreating) return
 
         lifecycleScope.launch {
@@ -181,7 +179,6 @@ class ProfilesActivity : AppCompatActivity() {
     }
 
     private suspend fun createDefaultProfiles() {
-        // Ativa a trava para evitar que outra chamada entre aqui
         isCreating = true
 
         val padrao = listOf(
@@ -204,7 +201,6 @@ class ProfilesActivity : AppCompatActivity() {
             listaPerfis.clear()
             listaPerfis.addAll(perfisCriados)
             adapter.notifyDataSetChanged()
-            // Libera a trava após atualizar a tela
             isCreating = false
         }
     }
@@ -229,7 +225,6 @@ class ProfilesActivity : AppCompatActivity() {
             .show()
     }
 
-    // --- DIÁLOGO DE EDIÇÃO ---
     private fun showEditOptions(perfil: ProfileEntity) {
         val options = arrayOf("Editar Nome", "Trocar Avatar (Personagens)", "Excluir Perfil")
         AlertDialog.Builder(this)
@@ -284,7 +279,6 @@ class ProfilesActivity : AppCompatActivity() {
         }
     }
 
-    // --- ADAPTER ---
     inner class ProfileAdapter(private val perfis: List<ProfileEntity>) :
         RecyclerView.Adapter<ProfileAdapter.ProfileViewHolder>() {
 
@@ -311,7 +305,6 @@ class ProfilesActivity : AppCompatActivity() {
                     intent.putExtra("PROFILE_ID", perfil.id)
                     startActivity(intent)
                 } else {
-                    // ✅ SALVA NA CADERNETA ANTES DE ENTRAR
                     val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
                     prefs.edit().apply {
                         putString("last_profile_name", perfil.name)
@@ -322,7 +315,6 @@ class ProfilesActivity : AppCompatActivity() {
                     Toast.makeText(this@ProfilesActivity, "Entrando como: ${perfil.name}", Toast.LENGTH_SHORT).show()
                     val intent = Intent(this@ProfilesActivity, HomeActivity::class.java)
                     intent.putExtra("PROFILE_NAME", perfil.name)
-                    // ✅ ENVIA A FOTO TAMBÉM PARA A HOME NÃO FICAR SEM FOTO
                     intent.putExtra("PROFILE_ICON", perfil.imageUrl)
                     startActivity(intent)
                     finish()

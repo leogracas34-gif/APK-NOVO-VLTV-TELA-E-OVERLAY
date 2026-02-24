@@ -57,7 +57,7 @@ class ProfilesActivity : AppCompatActivity() {
         setupRecyclerView()
         loadProfilesFromDb()
 
-        // ✅ CARREGAMENTO TURBO: Baixa 100 itens de cada para a Home não abrir vazia
+        // Inicia o download em paralelo para não travar o banco
         sincronizarConteudoBackgroundSilencioso()
 
         binding.tvEditProfiles.setOnClickListener {
@@ -71,7 +71,6 @@ class ProfilesActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ LÓGICA DE PRÉ-CARREGAMENTO (Igual a que tinha no Login, mas otimizada)
     private fun sincronizarConteudoBackgroundSilencioso() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val dns = prefs.getString("dns", null)
@@ -80,17 +79,17 @@ class ProfilesActivity : AppCompatActivity() {
 
         if (dns.isNullOrEmpty() || user.isNullOrEmpty() || pass.isNullOrEmpty()) return
 
+        // ✅ LÓGICA EM PARALELO PARA FILMES E SÉRIES CARREGAREM JUNTOS
         lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                // --- FILMES (Primeiros 100) ---
+            
+            // Lançar download de Filmes
+            launch {
                 try {
                     val vodUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_vod_streams"
                     val response = URL(vodUrl).readText()
                     val jsonArray = JSONArray(response)
                     val batch = mutableListOf<VodEntity>()
-                    
-                    // Aumentado para 100 para garantir que a Home preencha as listas
-                    val limit = minOf(100, jsonArray.length())
+                    val limit = minOf(50, jsonArray.length())
                     
                     for (i in 0 until limit) {
                         val obj = jsonArray.getJSONObject(i)
@@ -107,16 +106,16 @@ class ProfilesActivity : AppCompatActivity() {
                     }
                     if (batch.isNotEmpty()) db.streamDao().insertVodStreams(batch)
                 } catch (e: Exception) { e.printStackTrace() }
+            }
 
-                // --- SÉRIES (Primeiras 100) ---
+            // Lançar download de Séries simultaneamente
+            launch {
                 try {
                     val seriesUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_series"
                     val response = URL(seriesUrl).readText()
                     val jsonArray = JSONArray(response)
                     val batch = mutableListOf<SeriesEntity>()
-                    
-                    // Aumentado para 100 para garantir que a Home preencha as listas
-                    val limit = minOf(100, jsonArray.length())
+                    val limit = minOf(50, jsonArray.length())
                     
                     for (i in 0 until limit) {
                         val obj = jsonArray.getJSONObject(i)
@@ -131,8 +130,7 @@ class ProfilesActivity : AppCompatActivity() {
                     }
                     if (batch.isNotEmpty()) db.streamDao().insertSeriesStreams(batch)
                 } catch (e: Exception) { e.printStackTrace() }
-
-            } catch (e: Exception) { e.printStackTrace() }
+            }
         }
     }
 
@@ -140,7 +138,6 @@ class ProfilesActivity : AppCompatActivity() {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val salvoNome = prefs.getString("last_profile_name", null)
         val salvoIcon = prefs.getString("last_profile_icon", null)
-        
         val forcarSelecao = intent.getBooleanExtra("FORCE_SELECTION", false)
         
         if (!forcarSelecao && salvoNome != null) {
@@ -160,19 +157,15 @@ class ProfilesActivity : AppCompatActivity() {
 
     private fun loadProfilesFromDb() {
         if (isCreating) return
-
         lifecycleScope.launch {
             mutex.withLock {
                 val perfis = withContext(Dispatchers.IO) { db.streamDao().getAllProfiles() }
-                
                 if (perfis.isEmpty()) {
                     createDefaultProfiles()
                 } else {
                     listaPerfis.clear()
                     listaPerfis.addAll(perfis)
-                    withContext(Dispatchers.Main) {
-                        adapter.notifyDataSetChanged()
-                    }
+                    withContext(Dispatchers.Main) { adapter.notifyDataSetChanged() }
                 }
             }
         }
@@ -180,23 +173,19 @@ class ProfilesActivity : AppCompatActivity() {
 
     private suspend fun createDefaultProfiles() {
         isCreating = true
-
         val padrao = listOf(
             ProfileEntity(name = "Meu Perfil 1", imageUrl = defaultAvatarUrl1),
             ProfileEntity(name = "Meu Perfil 2", imageUrl = defaultAvatarUrl2),
             ProfileEntity(name = "Meu Perfil 3", imageUrl = defaultAvatarUrl3),
             ProfileEntity(name = "Meu Perfil 4", imageUrl = defaultAvatarUrl4)
         )
-        
         withContext(Dispatchers.IO) {
             val checagem = db.streamDao().getAllProfiles()
             if (checagem.isEmpty()) {
                 padrao.forEach { db.streamDao().insertProfile(it) }
             }
         }
-        
         val perfisCriados = withContext(Dispatchers.IO) { db.streamDao().getAllProfiles() }
-        
         withContext(Dispatchers.Main) {
             listaPerfis.clear()
             listaPerfis.addAll(perfisCriados)
@@ -215,9 +204,7 @@ class ProfilesActivity : AppCompatActivity() {
                 if (nome.isNotEmpty()) {
                     lifecycleScope.launch(Dispatchers.IO) {
                         db.streamDao().insertProfile(ProfileEntity(name = nome, imageUrl = defaultAvatarUrl1))
-                        withContext(Dispatchers.Main) {
-                            loadProfilesFromDb()
-                        }
+                        withContext(Dispatchers.Main) { loadProfilesFromDb() }
                     }
                 }
             }
@@ -225,57 +212,10 @@ class ProfilesActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun showEditOptions(perfil: ProfileEntity) {
-        val options = arrayOf("Editar Nome", "Trocar Avatar (Personagens)", "Excluir Perfil")
-        AlertDialog.Builder(this)
-            .setTitle("O que deseja fazer?")
-            .setItems(options) { _, which ->
-                when (which) {
-                    0 -> editProfileName(perfil)
-                    1 -> openAvatarSelection(perfil)
-                    2 -> deleteProfile(perfil)
-                }
-            }
-            .show()
-    }
-
-    private fun editProfileName(perfil: ProfileEntity) {
-        val input = EditText(this)
-        input.setText(perfil.name)
-        AlertDialog.Builder(this)
-            .setTitle("Editar Nome")
-            .setView(input)
-            .setPositiveButton("Salvar") { _, _ ->
-                perfil.name = input.text.toString()
-                updateProfileInDb(perfil)
-            }
-            .setNegativeButton("Cancelar", null)
-            .show()
-    }
-
-    private fun openAvatarSelection(perfil: ProfileEntity) {
-        val dialog = AvatarSelectionDialog(this, tmdbApiKey) { imageUrl ->
-            perfil.imageUrl = imageUrl
-            updateProfileInDb(perfil)
-        }
-        dialog.show()
-    }
-
     private fun updateProfileInDb(perfil: ProfileEntity) {
         lifecycleScope.launch(Dispatchers.IO) {
             db.streamDao().updateProfile(perfil)
-            withContext(Dispatchers.Main) {
-                loadProfilesFromDb()
-            }
-        }
-    }
-
-    private fun deleteProfile(perfil: ProfileEntity) {
-        lifecycleScope.launch(Dispatchers.IO) {
-            db.streamDao().deleteProfile(perfil)
-            withContext(Dispatchers.Main) {
-                loadProfilesFromDb()
-            }
+            withContext(Dispatchers.Main) { loadProfilesFromDb() }
         }
     }
 
@@ -293,7 +233,6 @@ class ProfilesActivity : AppCompatActivity() {
         override fun onBindViewHolder(holder: ProfileViewHolder, position: Int) {
             val perfil = perfis[position]
             holder.itemBinding.tvProfileName.text = perfil.name
-
             Glide.with(this@ProfilesActivity)
                 .load(perfil.imageUrl ?: R.drawable.ic_profile_placeholder)
                 .circleCrop()
@@ -311,8 +250,6 @@ class ProfilesActivity : AppCompatActivity() {
                         putString("last_profile_icon", perfil.imageUrl)
                         apply()
                     }
-
-                    Toast.makeText(this@ProfilesActivity, "Entrando como: ${perfil.name}", Toast.LENGTH_SHORT).show()
                     val intent = Intent(this@ProfilesActivity, HomeActivity::class.java)
                     intent.putExtra("PROFILE_NAME", perfil.name)
                     intent.putExtra("PROFILE_ICON", perfil.imageUrl)
@@ -321,7 +258,6 @@ class ProfilesActivity : AppCompatActivity() {
                 }
             }
         }
-
         override fun getItemCount(): Int = perfis.size
     }
 

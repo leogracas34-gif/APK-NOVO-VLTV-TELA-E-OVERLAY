@@ -93,6 +93,7 @@
                         android:id="@+id/btnAddList"
                         android:layout_width="40dp"
                         android:layout_height="40dp"
+                        android:visibility="gone"
                         android:background="@drawable/bg_search_rounded"
                         android:backgroundTint="#404040"
                         android:src="@drawable/ic_add"

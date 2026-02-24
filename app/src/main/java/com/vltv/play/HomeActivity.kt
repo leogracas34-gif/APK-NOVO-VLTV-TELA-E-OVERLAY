@@ -26,7 +26,6 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.DecodeFormat
@@ -73,9 +72,6 @@ class HomeActivity : AppCompatActivity() {
     // --- VARIÁVEIS DO BANNER ---
     private var listaCompletaParaSorteio: List<Any> = emptyList()
     private lateinit var bannerAdapter: BannerAdapter 
-
-    // ✅ INJEÇÃO PRIORIDADE 3: Cache de Logos
-    private val logoCache by lazy { getSharedPreferences("vltv_logos_cache", Context.MODE_PRIVATE) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -238,11 +234,6 @@ class HomeActivity : AppCompatActivity() {
                 val seriesItems = localSeries.map { VodItem(it.series_id.toString(), it.name, it.cover ?: "") }
 
                 withContext(Dispatchers.Main) {
-                    // ✅ INJEÇÃO PRIORIDADE 4: Scroll Suave RV Horizontal
-                    binding.rvRecentlyAdded.layoutManager = LinearLayoutManager(this@HomeActivity, LinearLayoutManager.HORIZONTAL, false)
-                    binding.rvRecentSeries.layoutManager = LinearLayoutManager(this@HomeActivity, LinearLayoutManager.HORIZONTAL, false)
-                    binding.rvContinueWatching.layoutManager = LinearLayoutManager(this@HomeActivity, LinearLayoutManager.HORIZONTAL, false)
-
                     if (movieItems.isNotEmpty()) {
                         // 🚀 TURBO: Otimização de RecyclerView
                         binding.rvRecentlyAdded.setHasFixedSize(true)
@@ -293,17 +284,15 @@ class HomeActivity : AppCompatActivity() {
     // 🚀 MODO VELOCIDADE DA LUZ: Baixa imagens com cache RGB_565 (Mais leve)
     private fun ativarModoSupersonico(filmes: List<VodItem>, series: List<VodItem>) {
         CoroutineScope(Dispatchers.IO).launch {
-            // ✅ INJEÇÃO PRIORIDADE 1: take(8) para não sobrecarregar
-            val preloadList = filmes.take(8) + series.take(8)
+            val preloadList = filmes.take(20) + series.take(20)
             
             for (item in preloadList) {
                 try {
                     if (!item.streamIcon.isNullOrEmpty()) {
                         Glide.with(applicationContext)
                             .load(item.streamIcon) 
-                            .thumbnail(0.25f).override(180, 270) // ✅ INJEÇÃO PRIORIDADE 2
                             .format(DecodeFormat.PREFER_RGB_565) // 🚀 Otimização de Memória
-                            .diskCacheStrategy(DiskCacheStrategy.RESOURCE) // ✅ INJEÇÃO PRIORIDADE 1
+                            .diskCacheStrategy(DiskCacheStrategy.ALL)
                             .preload(180, 270) 
                     }
                 } catch (e: Exception) { }
@@ -322,8 +311,7 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun limparNomeParaTMDB(nome: String): String {
-        // ✅ INJEÇÃO VASSOURA: |\\d{4}
-        return nome.replace(Regex("(?i)\\b(4K|FULL HD|HD|SD|720P|1080P|2160P|DUBLADO|LEGENDADO|DUAL|AUDIO|LATINO|PT-BR|PTBR|WEB-DL|BLURAY|MKV|MP4|AVI|REPACK|H264|H265|HEVC|WEB|S\\d+E\\d+|SEASON|TEMPORADA|\\d{4})\\b"), "")
+        return nome.replace(Regex("(?i)\\b(4K|FULL HD|HD|SD|720P|1080P|2160P|DUBLADO|LEGENDADO|DUAL|AUDIO|LATINO|PT-BR|PTBR|WEB-DL|BLURAY|MKV|MP4|AVI|REPACK|H264|H265|HEVC|WEB|S\\d+E\\d+|SEASON|TEMPORADA)\\b"), "")
                    .replace(Regex("\\(\\d{4}\\)|\\[.*?\\]|\\{.*?\\}|\\(.*\\d{4}.*\\)"), "")
                    .replace(Regex("\\s+"), " ")
                    .trim()
@@ -341,7 +329,6 @@ class HomeActivity : AppCompatActivity() {
                 .load(fallback)
                 .centerCrop()
                 .dontAnimate()
-                .thumbnail(0.25f).override(400, 225) // ✅ INJEÇÃO PRIORIDADE 2
                 .format(DecodeFormat.PREFER_RGB_565) // 🚀 ECONOMIA DE MEMÓRIA
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .into(targetImg)
@@ -368,7 +355,6 @@ class HomeActivity : AppCompatActivity() {
                                     .load("https://image.tmdb.org/t/p/original$backdropPath")
                                     .centerCrop()
                                     .dontAnimate()
-                                    .thumbnail(0.25f).override(400, 225) // ✅ INJEÇÃO PRIORIDADE 2
                                     .format(DecodeFormat.PREFER_RGB_565) // 🚀 ECONOMIA DE MEMÓRIA
                                     .placeholder(targetImg.drawable)
                                     .into(targetImg)
@@ -383,18 +369,6 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun buscarLogoOverlayHome(tmdbId: String, tipo: String, internalId: Int, isSeries: Boolean, targetLogo: ImageView, targetTitle: TextView) {
-        // ✅ INJEÇÃO PRIORIDADE 3: Verificar cache local
-        val cacheKey = "$internalId-$tipo"
-        val cachedLogo = logoCache.getString(cacheKey, null)
-        if (!cachedLogo.isNullOrEmpty()) {
-            CoroutineScope(Dispatchers.Main).launch {
-                targetTitle.visibility = View.GONE
-                targetLogo.visibility = View.VISIBLE
-                Glide.with(this@HomeActivity).load(cachedLogo).into(targetLogo)
-            }
-            return
-        }
-
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val imagesUrl = "https://api.themoviedb.org/3/$tipo/$tmdbId/images?api_key=$TMDB_API_KEY&include_image_language=pt,null"
@@ -428,9 +402,6 @@ class HomeActivity : AppCompatActivity() {
                     if (bestPath != null) {
                         val fullLogoUrl = "https://image.tmdb.org/t/p/w500$bestPath"
 
-                        // ✅ INJEÇÃO PRIORIDADE 3: Salvar cache
-                        logoCache.edit().putString(cacheKey, fullLogoUrl).apply()
-
                         try {
                             if (isSeries) {
                                 database.streamDao().updateSeriesLogo(internalId, fullLogoUrl)
@@ -440,20 +411,14 @@ class HomeActivity : AppCompatActivity() {
                         } catch(e: Exception) {}
 
                         withContext(Dispatchers.Main) {
-                            if (fullLogoUrl != null && !fullLogoUrl.contains("null")) {
-                                targetTitle.visibility = View.GONE
-                                targetLogo.visibility = View.VISIBLE
-                                try {
-                                    Glide.with(this@HomeActivity)
-                                        .load(fullLogoUrl)
-                                        .thumbnail(0.25f).override(250, 80) // ✅ INJEÇÃO PRIORIDADE 2
-                                        .diskCacheStrategy(DiskCacheStrategy.ALL)
-                                        .into(targetLogo)
-                                } catch (e: Exception) {}
-                            } else {
-                                targetTitle.visibility = View.VISIBLE
-                                targetLogo.visibility = View.GONE
-                            }
+                            targetTitle.visibility = View.GONE
+                            targetLogo.visibility = View.VISIBLE
+                            try {
+                                Glide.with(this@HomeActivity)
+                                    .load(fullLogoUrl)
+                                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+                                    .into(targetLogo)
+                            } catch (e: Exception) {}
                         }
                     }
                 }
@@ -484,8 +449,7 @@ class HomeActivity : AppCompatActivity() {
                 val palavrasProibidas = listOf("XXX", "PORN", "ADULTO", "SEXO", "EROTICO", "🔞", "PORNÔ")
                 var firstVodBatchLoaded = false
 
-                // ✅ INJEÇÃO PRIORIDADE 1: minOf(80)
-                for (i in 0 until minOf(80, vodArray.length())) {
+                for (i in 0 until vodArray.length()) {
                     val obj = vodArray.getJSONObject(i)
                     val nome = obj.optString("name")
                     if (!palavrasProibidas.any { nome.uppercase().contains(it) }) {
@@ -523,8 +487,7 @@ class HomeActivity : AppCompatActivity() {
                 val seriesBatch = mutableListOf<SeriesEntity>()
                 var firstSeriesBatchLoaded = false
 
-                // ✅ INJEÇÃO PRIORIDADE 1: minOf(50)
-                for (i in 0 until minOf(50, seriesArray.length())) {
+                for (i in 0 until seriesArray.length()) {
                     val obj = seriesArray.getJSONObject(i)
                     val nome = obj.optString("name")
                     if (!palavrasProibidas.any { nome.uppercase().contains(it) }) {
@@ -559,8 +522,7 @@ class HomeActivity : AppCompatActivity() {
                 val liveArray = org.json.JSONArray(liveResponse)
                 val liveBatch = mutableListOf<LiveStreamEntity>()
 
-                // ✅ INJEÇÃO PRIORIDADE 1: minOf(200)
-                for (i in 0 until minOf(200, liveArray.length())) {
+                for (i in 0 until liveArray.length()) {
                     val obj = liveArray.getJSONObject(i)
                     liveBatch.add(LiveStreamEntity(
                         stream_id = obj.optInt("stream_id"),
@@ -775,7 +737,6 @@ class HomeActivity : AppCompatActivity() {
                                         .load(imageUrl)
                                         .centerCrop()
                                         .dontAnimate()
-                                        .thumbnail(0.25f).override(1280, 720) // ✅ INJEÇÃO PRIORIDADE 2
                                         .format(DecodeFormat.PREFER_RGB_565)
                                         .into(imgBannerView)
                                     imgBannerView.visibility = View.VISIBLE
@@ -956,7 +917,7 @@ class HomeActivity : AppCompatActivity() {
                     tvTitle.visibility = View.GONE
                     imgLogo.visibility = View.VISIBLE
                     try {
-                        Glide.with(itemView.context).load(logoSalva).thumbnail(0.25f).override(250, 80).into(imgLogo)
+                        Glide.with(itemView.context).load(logoSalva).into(imgLogo)
                     } catch (e: Exception) {}
                 }
 

@@ -87,7 +87,6 @@ class NovidadesActivity : AppCompatActivity() {
     }
 
     private fun configurarRecyclerView() {
-        // O Adapter agora recebe o perfil para gerenciar os favoritos corretamente
         adapter = NovidadesAdapter(emptyList(), currentProfile)
         recyclerNovidades.layoutManager = LinearLayoutManager(this)
         recyclerNovidades.adapter = adapter
@@ -117,13 +116,13 @@ class NovidadesActivity : AppCompatActivity() {
         val dataHoje = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()) 
         val dataRecente = "2024-01-01" 
         
-        // 1. Em Breve (Filmes que ainda vão estrear - Mostra Poster Vertical)
+        // 1. Em Breve
         val urlEmBreve = "https://api.themoviedb.org/3/discover/movie?api_key=$apiKey&language=pt-BR&region=BR&with_release_type=2|3&primary_release_date.gte=$dataHoje&sort_by=primary_release_date.asc"
         buscarDadosNaApi(urlEmBreve, listaEmBreve, isTop10 = false, tagFixa = "Estreia em Breve", isEmBreve = true, isSerie = false) {
             runOnUiThread { adapter.atualizarLista(listaEmBreve) }
         }
 
-        // 2. Todo Mundo Assistindo (Populares no seu servidor)
+        // 2. Todo Mundo Assistindo
         val urlTodoMundo = "https://api.themoviedb.org/3/discover/movie?api_key=$apiKey&language=pt-BR&primary_release_date.gte=$dataRecente&sort_by=popularity.desc"
         buscarDadosNaApi(urlTodoMundo, listaTodoMundo, isTop10 = false, tagFixa = "Bombando no Mundo", isEmBreve = false, isSerie = false) {}
 
@@ -162,27 +161,22 @@ class NovidadesActivity : AppCompatActivity() {
                             val itemJson = results.getJSONObject(i)
                             val tituloOrig = itemJson.optString("title", itemJson.optString("name", "Sem Título"))
                             
-                            // --- CRUZAMENTO COM SEU SERVIDOR ---
                             var idServidorValido = 0
                             
                             if (!isEmBreve) {
                                 if (isSerie) {
-                                    // Busca o series_id real no seu banco
                                     val serieLocal = database.streamDao().getRecentSeries(5000)
                                         .find { it.name.contains(tituloOrig, true) }
                                     if (serieLocal != null) idServidorValido = serieLocal.series_id
                                 } else {
-                                    // Busca o stream_id real no seu banco
                                     val filmeLocal = database.streamDao().searchVod(tituloOrig)
                                         .firstOrNull()
                                     if (filmeLocal != null) idServidorValido = filmeLocal.stream_id
                                 }
                                 
-                                // Se não existe no seu servidor, pula (exceto em breve)
                                 if (idServidorValido == 0) continue
                             }
 
-                            // Define se usa Poster (Vertical) ou Backdrop (Horizontal)
                             val pathImagem = if (isEmBreve) itemJson.optString("poster_path", "") 
                                              else itemJson.optString("backdrop_path", "")
                             

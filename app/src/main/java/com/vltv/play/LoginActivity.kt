@@ -28,7 +28,7 @@ class LoginActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityLoginBinding
 
-    // SEUS 6 SERVIDORES XTREAM (INTACTOS)
+    // SEUS 6 SERVIDORES XTREAM
     private val SERVERS = listOf(
         "http://tvblack.shop",
         "http://redeinternadestiny.top",
@@ -47,17 +47,18 @@ class LoginActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // ✅ 1. CHECAGEM SILENCIOSA (Auto-Login instantâneo)
+        // ✅ 1. CHECAGEM SILENCIOSA (Antes de desenhar a tela para evitar a piscada)
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         val savedUser = prefs.getString("username", null)
         val savedPass = prefs.getString("password", null)
         val savedDns = prefs.getString("dns", null)
 
         if (!savedUser.isNullOrBlank() && !savedPass.isNullOrBlank() && !savedDns.isNullOrBlank()) {
-            // Se já tem salvo, ignora tudo e abre a tela de perfis direto!
-            abrirHomeDireto()
+            // Se já está logado, chama a verificação e não executa o resto do onCreate desta tela
+            verificarEIniciar(savedDns!!, savedUser!!, savedPass!!)
+            // Não colocamos o setContentView aqui para a tela não piscar
         } else {
-            // ✅ 2. SÓ DESENHA SE NÃO TIVER LOGIN
+            // ✅ 2. SÓ DESENHA A TELA SE NÃO TIVER LOGIN (Evita carregar recursos à toa)
             binding = ActivityLoginBinding.inflate(layoutInflater)
             setContentView(binding.root)
 
@@ -99,17 +100,29 @@ class LoginActivity : AppCompatActivity() {
         binding.etUsername.requestFocus()
     }
 
-    // ✅ FUNÇÕES DE CACHE DE DNS INTELIGENTE (Sua Ideia)
-    private fun getDnsForCredentials(user: String, pass: String): String? {
-        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
-        val key = "${user.trim()}_${pass.trim()}_dns"
-        return prefs.getString(key, null)
-    }
-
-    private fun saveDnsForCredentials(user: String, pass: String, dns: String) {
-        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
-        val key = "${user.trim()}_${pass.trim()}_dns"
-        prefs.edit().putString(key, dns).apply()
+    // Verifica se precisa carregar dados antes de abrir a Home (Auto-Login)
+    private fun verificarEIniciar(dns: String, user: String, pass: String) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val db = AppDatabase.getDatabase(applicationContext)
+            val temFilmes = db.streamDao().getVodCount() > 0
+            
+            if (temFilmes) {
+                // Se já tem filmes no banco, entra NA HORA. Não deixa o cliente esperando.
+                withContext(Dispatchers.Main) { abrirHomeDireto() }
+            } else {
+                // Se o banco tá vazio (ex: primeira vez ou limpou dados), aí sim mostra o carregamento
+                withContext(Dispatchers.Main) { 
+                    // Como não chamamos o setContentView no onCreate, precisamos chamar agora 
+                    // apenas se precisarmos mostrar o progresso
+                    binding = ActivityLoginBinding.inflate(layoutInflater)
+                    setContentView(binding.root)
+                    binding.progressBar.visibility = View.VISIBLE
+                    Toast.makeText(this@LoginActivity, "Atualizando conteúdo...", Toast.LENGTH_SHORT).show()
+                }
+                preCarregarConteudoInicial(dns, user, pass)
+                withContext(Dispatchers.Main) { abrirHomeDireto() }
+            }
+        }
     }
 
     private fun iniciarLoginTurbo(user: String, pass: String) {
@@ -120,49 +133,44 @@ class LoginActivity : AppCompatActivity() {
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
+                // 1. CORRIDA DE DNS
+                val deferreds = SERVERS.map { url -> async { testarConexaoIndividual(url, user, pass) } }
+
                 var dnsVencedor: String? = null
-
-                // 🔥 1. TENTA O DNS SALVO ESPECÍFICO DESTE CLIENTE PRIMEIRO
-                val cachedDns = getDnsForCredentials(user, pass)
-                if (cachedDns != null) {
-                    val validUrl = testarConexaoIndividual(cachedDns, user, pass)
-                    if (validUrl != null) {
-                        dnsVencedor = validUrl
-                    }
-                }
-
-                // 🔥 2. SE O CACHE FALHOU OU NÃO EXISTE, FAZ A SUA CORRIDA DE DNS (100% INTACTA)
-                if (dnsVencedor == null) {
-                    val deferreds = SERVERS.map { url -> async { testarConexaoIndividual(url, user, pass) } }
-                    val startTime = System.currentTimeMillis()
-                    
-                    while (System.currentTimeMillis() - startTime < 10000) {
-                        val completed = deferreds.filter { it.isCompleted }
-                        for (job in completed) {
-                            val result = job.getCompleted()
-                            if (result != null) {
-                                dnsVencedor = result
-                                break
-                            }
+                val startTime = System.currentTimeMillis()
+                
+                while (System.currentTimeMillis() - startTime < 10000) {
+                    val completed = deferreds.filter { it.isCompleted }
+                    for (job in completed) {
+                        val result = job.getCompleted()
+                        if (result != null) {
+                            dnsVencedor = result
+                            break
                         }
-                        if (dnsVencedor != null) break
-                        delay(100)
                     }
-                    deferreds.forEach { if (it.isActive) it.cancel() }
+                    if (dnsVencedor != null) break
+                    delay(100)
                 }
+
+                deferreds.forEach { if (it.isActive) it.cancel() }
 
                 if (dnsVencedor != null) {
-                    // Salva o DNS vitorioso atrelado a este usuário e senha
-                    saveDnsForCredentials(user, pass, dnsVencedor)
+                    salvarCredenciais(dnsVencedor!!, user, pass)
                     
-                    // Salva as credenciais globais e o baseUrl
-                    salvarCredenciais(dnsVencedor, user, pass)
+                    // 2. PRÉ-CARREGAMENTO (A Mágica acontece aqui)
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@LoginActivity, "Preparando seu ambiente...", Toast.LENGTH_LONG).show()
+                    }
                     
-                    // 🚀 VAI DIRETO PARA A TELA DE PERFIS (Sem travar baixando banco de dados)
-                    withContext(Dispatchers.Main) { abrirHomeDireto() }
+                    // Baixa os primeiros itens ANTES de abrir a Home
+                    preCarregarConteudoInicial(dnsVencedor!!, user, pass)
+                    
+                    withContext(Dispatchers.Main) {
+                        abrirHomeDireto()
+                    }
                 } else {
                     withContext(Dispatchers.Main) {
-                        mostrarErro("Nenhum servidor respondeu. Verifique dados.")
+                        mostrarErro("Falha na conexão. Verifique seus dados.")
                     }
                 }
 
@@ -171,6 +179,69 @@ class LoginActivity : AppCompatActivity() {
                     mostrarErro("Erro: ${e.message}")
                 }
             }
+        }
+    }
+
+    // 🔥 PRE-CARREGAMENTO: Baixa 60 itens de cada para a Home abrir cheia
+    private suspend fun preCarregarConteudoInicial(dns: String, user: String, pass: String) {
+        try {
+            val db = AppDatabase.getDatabase(this)
+            
+            // --- FILMES (Pega os primeiros 60) ---
+            try {
+                val vodUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_vod_streams"
+                val response = URL(vodUrl).readText()
+                val jsonArray = JSONArray(response)
+                val batch = mutableListOf<VodEntity>()
+                
+                // Limita a 60 para ser rápido (apenas para o Banner e primeiras listas)
+                val limit = if (jsonArray.length() > 60) 60 else jsonArray.length()
+                
+                for (i in 0 until limit) {
+                    val obj = jsonArray.getJSONObject(i)
+                    batch.add(VodEntity(
+                        stream_id = obj.optInt("stream_id"),
+                        name = obj.optString("name"),
+                        title = obj.optString("name"),
+                        stream_icon = obj.optString("stream_icon"),
+                        container_extension = obj.optString("container_extension"),
+                        rating = obj.optString("rating"),
+                        category_id = obj.optString("category_id"),
+                        added = obj.optLong("added")
+                    ))
+                }
+                if (batch.isNotEmpty()) {
+                    db.streamDao().insertVodStreams(batch)
+                }
+            } catch (e: Exception) { e.printStackTrace() }
+
+            // --- SÉRIES (Pega as primeiras 60) ---
+            try {
+                val seriesUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_series"
+                val response = URL(seriesUrl).readText()
+                val jsonArray = JSONArray(response)
+                val batch = mutableListOf<SeriesEntity>()
+                
+                val limit = if (jsonArray.length() > 60) 60 else jsonArray.length()
+                
+                for (i in 0 until limit) {
+                    val obj = jsonArray.getJSONObject(i)
+                    batch.add(SeriesEntity(
+                        series_id = obj.optInt("series_id"),
+                        name = obj.optString("name"),
+                        cover = obj.optString("cover"),
+                        rating = obj.optString("rating"),
+                        category_id = obj.optString("category_id"),
+                        last_modified = obj.optLong("last_modified")
+                    ))
+                }
+                if (batch.isNotEmpty()) {
+                    db.streamDao().insertSeriesStreams(batch)
+                }
+            } catch (e: Exception) { e.printStackTrace() }
+
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
@@ -194,7 +265,6 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
-    // 🔥 CONFIGURA XtreamApi para multi-servidor
     private fun salvarCredenciais(dns: String, user: String, pass: String) {
         val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         prefs.edit().apply {
@@ -203,9 +273,6 @@ class LoginActivity : AppCompatActivity() {
             putString("password", pass)
             apply()
         }
-        
-        // Configura API para o DNS vencedor
-        XtreamApi.setBaseUrl("$dns/")
     }
 
     private fun abrirHomeDireto() {

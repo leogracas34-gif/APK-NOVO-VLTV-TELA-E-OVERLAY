@@ -110,6 +110,7 @@
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
         android:background="#000000"
+        app:labelVisibilityMode="labeled"
         app:itemIconTint="@color/white"
         app:itemTextColor="@color/white"
         app:menu="@menu/bottom_nav_menu" />

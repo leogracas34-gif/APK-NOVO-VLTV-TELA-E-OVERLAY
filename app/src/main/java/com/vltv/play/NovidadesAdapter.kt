@@ -15,6 +15,8 @@ import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.load.DecodeFormat
 import com.vltv.play.data.AppDatabase
+import com.vltv.play.data.VodEntity
+import com.vltv.play.data.SeriesEntity
 import kotlinx.coroutines.*
 import org.json.JSONObject
 import java.net.URL
@@ -50,12 +52,11 @@ class NovidadesAdapter(
 
         holder.job?.cancel()
         
-        // Se for Top 10, podemos customizar a Tagline se necessário
         holder.tvTitulo.text = item.titulo
         holder.tvSinopse.text = item.sinopse
         holder.tvTagline.text = if (item.isTop10) "Top ${item.posicaoTop10} hoje" else item.tagline
 
-        // Carregar Fundo
+        // Carregamento otimizado da imagem de fundo
         Glide.with(context)
             .load(item.imagemFundoUrl)
             .format(DecodeFormat.PREFER_RGB_565)
@@ -63,7 +64,7 @@ class NovidadesAdapter(
             .centerCrop()
             .into(holder.imgFundo)
 
-        // LÓGICA DE LOGO INSTANTÂNEA (VOD STYLE)
+        // LÓGICA DE LOGO TMDB (Cacheada para evitar requisições repetidas)
         val cachedLogo = gridCachePrefs.getString("logo_${item.titulo}", null)
         if (cachedLogo != null) {
             holder.tvTitulo.visibility = View.GONE
@@ -86,56 +87,74 @@ class NovidadesAdapter(
             }
         }
 
-        // Lógica de Sincronização com o Servidor (Reconhece Filmes e Séries no Top 10)
+        // Lógica de Sincronização com o Servidor (Abre DetailsActivity ou SeriesDetailsActivity)
         if (item.isEmBreve) {
             holder.containerBotoes.visibility = View.GONE
         } else {
             CoroutineScope(Dispatchers.IO).launch {
-                val stream = if (item.isSerie) {
-                    database.streamDao().getRecentSeries(2000).firstOrNull { it.name.contains(item.titulo, true) }
+                // Tenta encontrar o conteúdo nas tabelas locais usando o nome limpo do TMDB
+                val streamEncontrado = if (item.isSerie) {
+                    database.streamDao().getRecentSeries(5000).firstOrNull { it.name.contains(item.titulo, true) }
                 } else {
                     database.streamDao().searchVod(item.titulo).firstOrNull()
                 }
 
                 withContext(Dispatchers.Main) {
-                    if (stream != null) {
+                    if (streamEncontrado != null) {
                         holder.containerBotoes.visibility = View.VISIBLE
                         holder.btnAssistir.setOnClickListener {
-                            val intent = if (item.isSerie) {
+                            val intent = if (item.isSerie && streamEncontrado is SeriesEntity) {
                                 Intent(context, SeriesDetailsActivity::class.java).apply { 
-                                    putExtra("series_id", (stream as com.vltv.play.data.SeriesEntity).series_id) 
+                                    putExtra("series_id", streamEncontrado.series_id)
+                                    putExtra("name", streamEncontrado.name)
+                                    putExtra("icon", streamEncontrado.cover)
+                                    putExtra("rating", streamEncontrado.rating)
                                 }
-                            } else {
+                            } else if (streamEncontrado is VodEntity) {
                                 Intent(context, DetailsActivity::class.java).apply { 
-                                    putExtra("stream_id", (stream as com.vltv.play.data.VodEntity).stream_id)
+                                    putExtra("stream_id", streamEncontrado.stream_id)
+                                    putExtra("name", streamEncontrado.name)
+                                    putExtra("container_extension", streamEncontrado.container_extension)
                                     putExtra("is_series", false) 
                                 }
+                            } else { null }
+
+                            intent?.let {
+                                it.putExtra("PROFILE_NAME", currentProfile)
+                                context.startActivity(it)
                             }
-                            intent.putExtra("name", item.titulo)
-                            intent.putExtra("PROFILE_NAME", currentProfile)
-                            context.startActivity(intent)
+                        }
+                        
+                        // Configura o botão Minha Lista usando o ID real do servidor
+                        holder.btnMinhaLista.setOnClickListener { 
+                            val realId = if (item.isSerie) (streamEncontrado as SeriesEntity).series_id 
+                                         else (streamEncontrado as VodEntity).stream_id
+                            toggleFavorito(context, realId, item.isSerie) 
                         }
                     } else {
-                        // Se não tem no servidor, esconde botões (Sincronização rigorosa)
+                        // Se não encontrou no banco local, oculta botões para não dar erro
                         holder.containerBotoes.visibility = View.GONE
                     }
                 }
             }
         }
-
-        holder.btnMinhaLista.setOnClickListener { toggleFavorito(context, item) }
     }
 
     private suspend fun searchTmdbLogo(name: String, isSerie: Boolean, prefs: SharedPreferences): String? {
         val apiKey = "9b73f5dd15b8165b1b57419be2f29128"
         val type = if (isSerie) "tv" else "movie"
         try {
-            val searchUrl = "https://api.themoviedb.org/3/search/$type?api_key=$apiKey&query=${URLEncoder.encode(name, "UTF-8")}&language=pt-BR"
-            val results = JSONObject(URL(searchUrl).readText()).getJSONArray("results")
+            val encodedName = URLEncoder.encode(name, "UTF-8")
+            val searchUrl = "https://api.themoviedb.org/3/search/$type?api_key=$apiKey&query=$encodedName&language=pt-BR"
+            val searchResponse = URL(searchUrl).readText()
+            val results = JSONObject(searchResponse).getJSONArray("results")
+            
             if (results.length() > 0) {
-                val id = results.getJSONObject(0).getString("id")
-                val imagesUrl = "https://api.themoviedb.org/3/$type/$id/images?api_key=$apiKey&include_image_language=pt,en,null"
-                val logos = JSONObject(URL(imagesUrl).readText()).getJSONArray("logos")
+                val tmdbId = results.getJSONObject(0).getString("id")
+                val imagesUrl = "https://api.themoviedb.org/3/$type/$tmdbId/images?api_key=$apiKey&include_image_language=pt,en,null"
+                val imagesResponse = URL(imagesUrl).readText()
+                val logos = JSONObject(imagesResponse).getJSONArray("logos")
+                
                 if (logos.length() > 0) {
                     var path: String? = null
                     for (i in 0 until logos.length()) {
@@ -150,26 +169,27 @@ class NovidadesAdapter(
                     return finalUrl
                 }
             }
-        } catch (e: Exception) {}
+        } catch (e: Exception) { e.printStackTrace() }
         return null
     }
 
-    private fun toggleFavorito(context: Context, item: NovidadeItem) {
-        val targetPrefs = if (item.isSerie) {
+    private fun toggleFavorito(context: Context, idNoServidor: Int, isSerie: Boolean) {
+        val targetPrefs = if (isSerie) {
             context.getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         } else {
             context.getSharedPreferences("vltv_favoritos", Context.MODE_PRIVATE)
         }
-        val key = if (item.isSerie) "${currentProfile}_fav_series" else "${currentProfile}_favoritos"
+
+        val key = if (isSerie) "${currentProfile}_fav_series" else "${currentProfile}_favoritos"
         val favoritos = targetPrefs.getStringSet(key, emptySet())?.toMutableSet() ?: mutableSetOf()
-        val idStr = item.id.toString()
+        val idStr = idNoServidor.toString()
 
         if (favoritos.contains(idStr)) {
             favoritos.remove(idStr)
-            Toast.makeText(context, "Removido da lista", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Removido da sua lista", Toast.LENGTH_SHORT).show()
         } else {
             favoritos.add(idStr)
-            Toast.makeText(context, "Adicionado à lista!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Adicionado à sua lista!", Toast.LENGTH_SHORT).show()
         }
         targetPrefs.edit().putStringSet(key, favoritos).apply()
     }

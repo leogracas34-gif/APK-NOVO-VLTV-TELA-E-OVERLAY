@@ -185,14 +185,20 @@ class HomeActivity : AppCompatActivity() {
     private fun setupBottomNavigation() {
         // ✅ ATUALIZA O NOME E O ÍCONE NO MENU INFERIOR
         binding.bottomNavigation?.let { nav ->
-            val profileItem = nav.menu.findItem(R.id.nav_profile)
-            profileItem?.title = currentProfile
+            // Reforço: buscar direto da caderneta para garantir que se o Leandro trocou a foto, ela apareça aqui
+            val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+            val finalName = prefs.getString("last_profile_name", currentProfile)
+            val finalIcon = prefs.getString("last_profile_icon", currentProfileIcon)
 
-            if (!currentProfileIcon.isNullOrEmpty()) {
+            val profileItem = nav.menu.findItem(R.id.nav_profile)
+            profileItem?.title = finalName
+
+            if (!finalIcon.isNullOrEmpty()) {
                 Glide.with(this)
                     .asBitmap()
-                    .load(currentProfileIcon)
+                    .load(finalIcon)
                     .circleCrop()
+                    .diskCacheStrategy(DiskCacheStrategy.ALL) // Garante uso do cache para rapidez
                     .into(object : CustomTarget<Bitmap>() {
                         override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
                             profileItem?.icon = BitmapDrawable(resources, resource)

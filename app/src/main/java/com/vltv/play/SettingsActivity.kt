@@ -3,23 +3,44 @@ package com.vltv.play
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
+import com.vltv.play.data.AppDatabase
+import com.vltv.play.data.ProfileEntity
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class SettingsActivity : AppCompatActivity() {
+
+    // ✅ VARIÁVEIS PARA OS PERFIS NO TOPO
+    private lateinit var rvProfiles: RecyclerView
+    private val database by lazy { AppDatabase.getDatabase(this) }
+    private var currentProfileName: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
 
-        // -------- VIEWS --------
+        // ✅ RECUPERA O PERFIL ATUAL PARA DESTACAR NO TOPO
+        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+        currentProfileName = prefs.getString("last_profile_name", "Padrao")
+
+        // -------- VIEWS ORIGINAIS --------
         val switchParental: Switch = findViewById(R.id.switchParental)
         val etPin: EditText = findViewById(R.id.etPin)
         val btnSavePin: Button = findViewById(R.id.btnSavePin)
@@ -29,6 +50,10 @@ class SettingsActivity : AppCompatActivity() {
         val cardClearCache: LinearLayout? = findViewById(R.id.cardClearCache)
         val cardAbout: LinearLayout? = findViewById(R.id.cardAbout)
         val cardLogout: LinearLayout? = findViewById(R.id.cardLogout)
+
+        // ✅ NOVA VIEW: RECYCLERVIEW DE PERFIS (No topo do seu layout)
+        rvProfiles = findViewById(R.id.rvProfilesSettings)
+        setupProfilesHeader()
 
         // -------- VERSÃO DO APP (FIXA) --------
         tvVersion?.text = "Versão 1.0.0"
@@ -88,6 +113,80 @@ class SettingsActivity : AppCompatActivity() {
                 }
                 .setNegativeButton("Não", null)
                 .show()
+        }
+    }
+
+    // ✅ LÓGICA PARA CARREGAR OS PERFIS IGUAL À REFERÊNCIA
+    private fun setupProfilesHeader() {
+        rvProfiles.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        
+        lifecycleScope.launch(Dispatchers.IO) {
+            val profiles = database.profileDao().getAllProfiles()
+            withContext(Dispatchers.Main) {
+                rvProfiles.adapter = SettingsProfileAdapter(profiles) { selected ->
+                    trocarPerfilRapido(selected)
+                }
+            }
+        }
+    }
+
+    // ✅ LÓGICA DE TROCA RÁPIDA (SALVA NA CADERNETA E REINICIA)
+    private fun trocarPerfilRapido(profile: ProfileEntity) {
+        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+        prefs.edit().apply {
+            putString("last_profile_name", profile.name)
+            putString("last_profile_icon", profile.imageUrl)
+            apply()
+        }
+        
+        Toast.makeText(this, "Perfil alterado para: ${profile.name}", Toast.LENGTH_SHORT).show()
+        
+        // Reinicia a Home para aplicar a nova foto/nome no rodapé
+        val intent = Intent(this, HomeActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        startActivity(intent)
+        finish()
+    }
+
+    // ✅ ADAPTER INTERNO PARA OS CÍRCULOS DE PERFIL
+    inner class SettingsProfileAdapter(
+        private val list: List<ProfileEntity>,
+        private val onClick: (ProfileEntity) -> Unit
+    ) : RecyclerView.Adapter<SettingsProfileAdapter.ProfileVH>() {
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ProfileVH {
+            val view = LayoutInflater.from(parent.context).inflate(R.layout.item_profile_settings, parent, false)
+            return ProfileVH(view)
+        }
+
+        override fun onBindViewHolder(holder: ProfileVH, position: Int) {
+            val profile = list[position]
+            holder.tvName.text = profile.name
+            
+            // ✅ PROTEÇÃO ANTI-BRANCO: Se falhar ou expirar, carrega ic_profile_default
+            Glide.with(this@SettingsActivity)
+                .load(profile.imageUrl)
+                .placeholder(R.drawable.ic_profile_default) 
+                .error(R.drawable.ic_profile_default)
+                .circleCrop()
+                .into(holder.imgProfile)
+
+            // Destaque se for o perfil atual
+            if (profile.name == currentProfileName) {
+                holder.itemView.alpha = 1.0f
+                holder.imgProfile.borderWidth = 4 // Se usar CircleImageView
+            } else {
+                holder.itemView.alpha = 0.6f
+            }
+
+            holder.itemView.setOnClickListener { onClick(profile) }
+        }
+
+        override fun getItemCount() = list.size
+
+        inner class ProfileVH(v: View) : RecyclerView.ViewHolder(v) {
+            val imgProfile: ImageView = v.findViewById(R.id.imgProfileItem)
+            val tvName: TextView = v.findViewById(R.id.tvProfileNameItem)
         }
     }
 }

@@ -10,6 +10,12 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" 
+                     android:usesPermissionFlags="neverForLocation" 
+                     tools:targetApi="s" />
 
     <application
         android:allowBackup="true"
@@ -111,6 +117,10 @@
 
         <activity
             android:name=".EditProfileActivity" />
+
+        <meta-data
+            android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
+            android:value="com.vltv.play.CastOptionsProvider" />
 
     </application>
 

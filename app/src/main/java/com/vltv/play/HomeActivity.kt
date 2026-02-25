@@ -84,14 +84,14 @@ class HomeActivity : AppCompatActivity() {
             binding = ActivityHomeBinding.inflate(layoutInflater)
             setContentView(binding.root)
 
-            // ✅ RECUPERA O PERFIL E A FOTO
-            currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
-            currentProfileIcon = intent.getStringExtra("PROFILE_ICON")
+            // ✅ CORREÇÃO PRINCIPAL: LÊ DO SHARED PREFERENCES (GLOBAL)
+            val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+            currentProfile = prefs.getString("last_profile_name", "Padrao") ?: "Padrao"
+            currentProfileIcon = prefs.getString("last_profile_icon", null)
 
             // ✅ CORREÇÃO 1: BARRA DE NAVEGAÇÃO FIXA (BOTÕES VISÍVEIS)
             val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
             windowInsetsController.isAppearanceLightStatusBars = false 
-            // REMOVIDO: windowInsetsController?.hide(...) -> Isso garante que a barra preta com botões fique visível
 
             DownloadHelper.registerReceiver(this)
 
@@ -108,7 +108,6 @@ class HomeActivity : AppCompatActivity() {
             // ✅ INICIALIZA O LAYOUT
             setupSingleBanner()
             setupBottomNavigation()
-
             setupClicks() 
             setupFirebaseRemoteConfig()
             
@@ -175,16 +174,21 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun setupBottomNavigation() {
-        // ✅ ATUALIZA O NOME E O ÍCONE NO MENU INFERIOR
+        // ✅ CORREÇÃO: SEMPRE RECARREGA DO SHARED PREFERENCES
+        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+        val profileName = prefs.getString("last_profile_name", "Padrao") ?: "Padrao"
+        val profileIconUrl = prefs.getString("last_profile_icon", null)
+        
         binding.bottomNavigation?.let { nav ->
             val profileItem = nav.menu.findItem(R.id.nav_profile)
-            profileItem?.title = currentProfile
+            profileItem?.title = profileName
 
-            if (!currentProfileIcon.isNullOrEmpty()) {
+            if (!profileIconUrl.isNullOrEmpty()) {
                 Glide.with(this)
                     .asBitmap()
-                    .load(currentProfileIcon)
+                    .load(profileIconUrl)
                     .circleCrop()
+                    .placeholder(R.drawable.ic_profile_placeholder)
                     .into(object : CustomTarget<Bitmap>() {
                         override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
                             profileItem?.icon = BitmapDrawable(resources, resource)
@@ -199,21 +203,21 @@ class HomeActivity : AppCompatActivity() {
                 R.id.nav_home -> true
                 R.id.nav_search -> {
                     val intent = Intent(this, SearchActivity::class.java)
-                    intent.putExtra("PROFILE_NAME", currentProfile)
+                    intent.putExtra("PROFILE_NAME", profileName)
                     startActivity(intent)
                     false 
                 }
                 // ✅ Aponta para a nova tela de Novidades
                 R.id.nav_novidades -> {
                     val intent = Intent(this, NovidadesActivity::class.java)
-                    intent.putExtra("PROFILE_NAME", currentProfile)
+                    intent.putExtra("PROFILE_NAME", profileName)
                     startActivity(intent)
                     false
                 }
                 R.id.nav_profile -> {
                     val intent = Intent(this, SettingsActivity::class.java)
-                    intent.putExtra("PROFILE_NAME", currentProfile)
-                    intent.putExtra("PROFILE_ICON", currentProfileIcon)
+                    intent.putExtra("PROFILE_NAME", profileName)
+                    intent.putExtra("PROFILE_ICON", profileIconUrl)
                     startActivity(intent)
                     false
                 }
@@ -311,9 +315,9 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun limparNomeParaTMDB(nome: String): String {
-        return nome.replace(Regex("(?i)\\b(4K|FULL HD|HD|SD|720P|1080P|2160P|DUBLADO|LEGENDADO|DUAL|AUDIO|LATINO|PT-BR|PTBR|WEB-DL|BLURAY|MKV|MP4|AVI|REPACK|H264|H265|HEVC|WEB|S\\d+E\\d+|SEASON|TEMPORADA)\\b"), "")
-                   .replace(Regex("\\(\\d{4}\\)|\\[.*?\\]|\\{.*?\\}|\\(.*\\d{4}.*\\)"), "")
-                   .replace(Regex("\\s+"), " ")
+        return nome.replace(Regex("(?i)\\\\b(4K|FULL HD|HD|SD|720P|1080P|2160P|DUBLADO|LEGENDADO|DUAL|AUDIO|LATINO|PT-BR|PTBR|WEB-DL|BLURAY|MKV|MP4|AVI|REPACK|H264|H265|HEVC|WEB|S\\\\d+E\\\\d+|SEASON|TEMPORADA)\\\\b"), "")
+                   .replace(Regex("\\\\(\\\\d{4}\\\\)|\\\\[.*?\\\\]|\\\\{.*?\\\\}|\\\\(.*\\\\d{4}.*\\\\)"), "")
+                   .replace(Regex("\\\\s+"), " ")
                    .trim()
                    .take(50)
     }
@@ -781,7 +785,7 @@ class HomeActivity : AppCompatActivity() {
                         try {
                             // 1. LIMPEZA DE PREFIXOS NO INÍCIO (T1E1, S01E01, 1x01)
                             // A Regex "^..." garante que só remove se estiver no começo
-                            var cleanName = item.name.replace(Regex("(?i)^(S\\d+E\\d+|T\\d+E\\d+|\\d+x\\d+|E\\d+)\\s*(-|:)?\\s*"), "")
+                            var cleanName = item.name.replace(Regex("(?i)^(S\\\\d+E\\\\d+|T\\\\d+E\\\\d+|\\\\d+x\\\\d+|E\\\\d+)\\\\s*(-|:)?\\\\s*"), "")
                             
                             // 2. REMOVE DOIS PONTOS (Pega só o que vem antes de :)
                             // Ex: "Destiladores: Mestre..." -> "Destiladores"
@@ -790,7 +794,7 @@ class HomeActivity : AppCompatActivity() {
                             }
                             
                             // 3. LIMPEZA DE SUFIXOS (Temporada, Episódio no final)
-                            cleanName = cleanName.replace(Regex("(?i)\\s+(S\\d+|T\\d+|E\\d+|Ep\\d+|Temporada|Season|Episode|Capitulo|\\d+x\\d+).*"), "")
+                            cleanName = cleanName.replace(Regex("(?i)\\\\s+(S\\\\d+|T\\\\d+|E\\\\d+|Ep\\\\d+|Temporada|Season|Episode|Capitulo|\\\\d+x\\\\d+).*"), "")
                             
                             // 4. SEPARADOR " - " (Pega o que vem antes, se houver)
                             if (cleanName.contains(" - ")) {

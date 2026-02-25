@@ -121,7 +121,8 @@ class SettingsActivity : AppCompatActivity() {
         rvProfiles.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
         
         lifecycleScope.launch(Dispatchers.IO) {
-            val profiles = database.profileDao().getAllProfiles()
+            // ✅ ATUALIZADO: Usando streamDao() conforme seu arquivo AppDatabase.kt
+            val profiles = database.streamDao().getAllProfiles()
             withContext(Dispatchers.Main) {
                 rvProfiles.adapter = SettingsProfileAdapter(profiles) { selected ->
                     trocarPerfilRapido(selected)
@@ -171,12 +172,13 @@ class SettingsActivity : AppCompatActivity() {
                 .circleCrop()
                 .into(holder.imgProfile)
 
-            // Destaque se for o perfil atual
+            // ✅ ATUALIZADO: Destaque com borda usando o XML que criamos
             if (profile.name == currentProfileName) {
                 holder.itemView.alpha = 1.0f
-                holder.imgProfile.borderWidth = 4 // Se usar CircleImageView
+                holder.imgProfile.setBackgroundResource(R.drawable.bg_profile_border)
             } else {
                 holder.itemView.alpha = 0.6f
+                holder.imgProfile.background = null
             }
 
             holder.itemView.setOnClickListener { onClick(profile) }

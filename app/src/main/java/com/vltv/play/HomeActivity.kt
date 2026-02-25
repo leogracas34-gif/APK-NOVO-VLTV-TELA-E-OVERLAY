@@ -51,6 +51,9 @@ import kotlin.random.Random
 // ✅ IMPORTAÇÕES CAST
 import com.google.android.gms.cast.framework.CastButtonFactory
 import com.google.android.gms.cast.framework.CastContext
+import android.Manifest
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 
 // ✅ FIREBASE
 import com.google.firebase.ktx.Firebase
@@ -71,7 +74,8 @@ class HomeActivity : AppCompatActivity() {
 
     // --- VARIÁVEIS DO BANNER ---
     private var listaCompletaParaSorteio: List<Any> = emptyList()
-    private lateinit var bannerAdapter: BannerAdapter 
+    private lateinit var bannerAdapter: BannerAdapter
+    private val REQUEST_CODE_CAST_PERMISSIONS = 1001
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -83,6 +87,19 @@ class HomeActivity : AppCompatActivity() {
             
             binding = ActivityHomeBinding.inflate(layoutInflater)
             setContentView(binding.root)
+
+            // ✅ COLOQUE ESTE BLOCO AQUI
+            try {
+                CastContext.getSharedInstance(this)
+                binding.mediaRouteButton?.let { btn ->
+                    CastButtonFactory.setUpMediaRouteButton(applicationContext, btn)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
+            verificarPermissoesCast() // ✅ CHAME A FUNÇÃO AQUI
+            
 
             // ✅ LÓGICA DE PERFIL GLOBAL (INCLUSÃO)
             // Primeiro tenta ler do SharedPreferences (a "caderneta") para garantir sincronia
@@ -958,6 +975,36 @@ class HomeActivity : AppCompatActivity() {
                      startActivity(intent)
                 }
                 itemView.setOnClickListener { btnPlay.performClick() }
+            }
+        }
+    }
+
+        // ✅ COLE ESTAS DUAS FUNÇÕES ANTES DA ÚLTIMA CHAVE DA CLASSE
+    private fun verificarPermissoesCast() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val permissoes = arrayOf(
+                Manifest.permission.NEARBY_WIFI_DEVICES,
+                Manifest.permission.BLUETOOTH_SCAN,
+                Manifest.permission.BLUETOOTH_CONNECT
+            )
+            val faltamPermissoes = permissoes.any {
+                ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+            }
+            if (faltamPermissoes) {
+                ActivityCompat.requestPermissions(this, permissoes, REQUEST_CODE_CAST_PERMISSIONS)
+            }
+        } else {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), REQUEST_CODE_CAST_PERMISSIONS)
+            }
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_CODE_CAST_PERMISSIONS) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(this, "Busca de dispositivos ativada", Toast.LENGTH_SHORT).show()
             }
         }
     }

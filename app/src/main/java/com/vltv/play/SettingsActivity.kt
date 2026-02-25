@@ -167,8 +167,8 @@ class SettingsActivity : AppCompatActivity() {
             // ✅ PROTEÇÃO ANTI-BRANCO: Se falhar ou expirar, carrega ic_profile_default
             Glide.with(this@SettingsActivity)
                 .load(profile.imageUrl)
-                .placeholder(R.drawable.ic_profile_default) 
-                .error(R.drawable.ic_profile_default)
+                .placeholder(R.drawable.ic_profile_disney) 
+                .error(R.drawable.ic_profile_disney)
                 .circleCrop()
                 .into(holder.imgProfile)
 

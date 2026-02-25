@@ -125,6 +125,7 @@ class HomeActivity : AppCompatActivity() {
                 CastContext.getSharedInstance(this)
                 binding.mediaRouteButton?.let { btn ->
                     CastButtonFactory.setUpMediaRouteButton(applicationContext, btn)
+                    btn.visibility = View.GONE
                 }
             } catch (e: Exception) {
                 e.printStackTrace()

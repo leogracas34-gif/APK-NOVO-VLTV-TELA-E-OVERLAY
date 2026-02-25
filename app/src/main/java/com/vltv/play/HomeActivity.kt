@@ -84,9 +84,17 @@ class HomeActivity : AppCompatActivity() {
             binding = ActivityHomeBinding.inflate(layoutInflater)
             setContentView(binding.root)
 
-            // ✅ RECUPERA O PERFIL E A FOTO
-            currentProfile = intent.getStringExtra("PROFILE_NAME") ?: "Padrao"
-            currentProfileIcon = intent.getStringExtra("PROFILE_ICON")
+            // ✅ LÓGICA DE PERFIL GLOBAL (INCLUSÃO)
+            // Primeiro tenta ler do SharedPreferences (a "caderneta") para garantir sincronia
+            val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+            val savedName = prefs.getString("last_profile_name", null)
+            val savedIcon = prefs.getString("last_profile_icon", null)
+
+            // Prioridade 1: O que veio no Intent (vindo da ProfilesActivity)
+            // Prioridade 2: O que está na caderneta (SharedPreferences)
+            // Prioridade 3: Padrão
+            currentProfile = intent.getStringExtra("PROFILE_NAME") ?: savedName ?: "Padrao"
+            currentProfileIcon = intent.getStringExtra("PROFILE_ICON") ?: savedIcon
 
             // ✅ CORREÇÃO 1: BARRA DE NAVEGAÇÃO FIXA (BOTÕES VISÍVEIS)
             val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
@@ -200,6 +208,7 @@ class HomeActivity : AppCompatActivity() {
                 R.id.nav_search -> {
                     val intent = Intent(this, SearchActivity::class.java)
                     intent.putExtra("PROFILE_NAME", currentProfile)
+                    intent.putExtra("PROFILE_ICON", currentProfileIcon)
                     startActivity(intent)
                     false 
                 }
@@ -207,6 +216,7 @@ class HomeActivity : AppCompatActivity() {
                 R.id.nav_novidades -> {
                     val intent = Intent(this, NovidadesActivity::class.java)
                     intent.putExtra("PROFILE_NAME", currentProfile)
+                    intent.putExtra("PROFILE_ICON", currentProfileIcon)
                     startActivity(intent)
                     false
                 }
@@ -568,6 +578,11 @@ class HomeActivity : AppCompatActivity() {
         super.onResume()
         // 🔥 PROTEÇÃO TAMBÉM NO ONRESUME
         try {
+            // ✅ CARREGA O PERFIL GLOBAL AO VOLTAR PARA A TELA
+            val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+            currentProfile = prefs.getString("last_profile_name", currentProfile) ?: "Padrao"
+            currentProfileIcon = prefs.getString("last_profile_icon", currentProfileIcon)
+
             sortearBannerUnico()
             carregarContinuarAssistindoLocal()
             atualizarNotificacaoDownload()
@@ -610,24 +625,28 @@ class HomeActivity : AppCompatActivity() {
                         val intent = Intent(this, LiveTvActivity::class.java)
                         intent.putExtra("SHOW_PREVIEW", true)
                         intent.putExtra("PROFILE_NAME", currentProfile)
+                        intent.putExtra("PROFILE_ICON", currentProfileIcon)
                         startActivity(intent)
                     }
                     R.id.cardMovies -> {
                         val intent = Intent(this, VodActivity::class.java)
                         intent.putExtra("SHOW_PREVIEW", false)
                         intent.putExtra("PROFILE_NAME", currentProfile)
+                        intent.putExtra("PROFILE_ICON", currentProfileIcon)
                         startActivity(intent)
                     }
                     R.id.cardSeries -> {
                         val intent = Intent(this, SeriesActivity::class.java)
                         intent.putExtra("SHOW_PREVIEW", false)
                         intent.putExtra("PROFILE_NAME", currentProfile)
+                        intent.putExtra("PROFILE_ICON", currentProfileIcon)
                         startActivity(intent)
                     }
                     R.id.cardKids -> {
                         val intent = Intent(this, KidsActivity::class.java)
                         intent.putExtra("SHOW_PREVIEW", false)
                         intent.putExtra("PROFILE_NAME", "Kids")
+                        intent.putExtra("PROFILE_ICON", currentProfileIcon)
                         startActivity(intent)
                     }
                 }

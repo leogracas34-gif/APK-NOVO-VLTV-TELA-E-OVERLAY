@@ -17,9 +17,16 @@
             android:textColor="#FFFFFF"
             android:textSize="22sp"
             android:textStyle="bold"
-            android:layout_marginBottom="24dp" />
+            android:layout_marginBottom="16dp" />
 
-        <!-- Card: Controle parental -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvProfilesSettings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp"
+            android:clipToPadding="false"
+            android:orientation="horizontal" />
+
         <LinearLayout
             android:id="@+id/cardParental"
             android:layout_width="match_parent"
@@ -79,7 +86,6 @@
                 android:textAllCaps="false" />
         </LinearLayout>
 
-        <!-- Card: Limpar cache -->
         <LinearLayout
             android:id="@+id/cardClearCache"
             android:layout_width="match_parent"
@@ -105,7 +111,6 @@
                 android:textSize="13sp" />
         </LinearLayout>
 
-        <!-- Card: Sobre o aplicativo -->
         <LinearLayout
             android:id="@+id/cardAbout"
             android:layout_width="match_parent"
@@ -132,7 +137,6 @@
                 android:textSize="13sp" />
         </LinearLayout>
 
-        <!-- Card: Sair da conta -->
         <LinearLayout
             android:id="@+id/cardLogout"
             android:layout_width="match_parent"

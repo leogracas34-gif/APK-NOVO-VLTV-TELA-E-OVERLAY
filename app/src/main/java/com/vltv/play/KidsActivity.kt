@@ -34,6 +34,7 @@ import okhttp3.ResponseBody
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import org.json.JSONObject
+import com.google.android.material.bottomnavigation.BottomNavigationView
 
 class KidsActivity : AppCompatActivity() {
     private lateinit var rvHubChannels: RecyclerView
@@ -54,9 +55,11 @@ class KidsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        // --- ALTERAÇÃO: GARANTE QUE OS BOTÕES DO APARELHO FIQUEM FIXOS ---
+        WindowCompat.setDecorFitsSystemWindows(window, true)
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
-        windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
+        windowInsetsController.isAppearanceLightStatusBars = false 
+        // Removidas as linhas que ocultavam as systemBars (navigationBars)
 
         setContentView(R.layout.activity_kids)
 
@@ -111,12 +114,45 @@ class KidsActivity : AppCompatActivity() {
         setupLayouts()
         setupHubChannels()
         carregarConteudoKids()
+        setupBottomNavigation() // Chamada para configurar o rodapé
+    }
+
+    // --- NOVA FUNÇÃO: CONFIGURAÇÃO DO RODAPÉ ---
+    private fun setupBottomNavigation() {
+        val nav = findViewById<BottomNavigationView>(R.id.bottomNavigation)
+        nav?.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.nav_home -> {
+                    finish()
+                    true
+                }
+                R.id.nav_search -> {
+                    val intent = Intent(this, SearchActivity::class.java)
+                    startActivity(intent)
+                    false 
+                }
+                R.id.nav_novidades -> {
+                    val intent = Intent(this, NovidadesActivity::class.java)
+                    startActivity(intent)
+                    false
+                }
+                R.id.nav_profile -> {
+                    val intent = Intent(this, SettingsActivity::class.java)
+                    startActivity(intent)
+                    false
+                }
+                else -> false
+            }
+        }
     }
 
     override fun onResume() {
         super.onResume()
+        // Mantendo os botões fixos também no onResume
+        WindowCompat.setDecorFitsSystemWindows(window, true)
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
-        windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
+        windowInsetsController.isAppearanceLightStatusBars = false
+
         etSearchKids.setText("")
         etSearchKids.clearFocus()
         atualizarRecentesVisual()

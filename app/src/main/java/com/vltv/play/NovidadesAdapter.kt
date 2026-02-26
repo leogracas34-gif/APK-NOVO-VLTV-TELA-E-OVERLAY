@@ -88,14 +88,20 @@ class NovidadesAdapter(
             }
         }
 
+                // Garante que a sinopse SEMPRE apareça, independente de ser em breve ou não
+        holder.tvSinopse.text = item.sinopse
+        holder.tvSinopse.visibility = View.VISIBLE
+
         if (item.isEmBreve) {
+            // Se for "Em Breve", apenas esconde os botões (já que não tem o que assistir ainda)
             holder.containerBotoes.visibility = View.GONE
         } else {
+            // Se não for em breve, busca no banco de dados completo para liberar os botões
             CoroutineScope(Dispatchers.IO).launch {
                 val streamEncontrado = if (item.isSerie) {
-                    database.streamDao().getRecentSeries(5000).firstOrNull { it.name.contains(item.titulo, true) }
+                    database.streamDao().getAllSeries().find { it.name.contains(item.titulo, true) }
                 } else {
-                    database.streamDao().searchVod(item.titulo).firstOrNull()
+                    database.streamDao().getAllVods().find { it.name.contains(item.titulo, true) }
                 }
 
                 withContext(Dispatchers.Main) {
@@ -113,7 +119,6 @@ class NovidadesAdapter(
                                 Intent(context, DetailsActivity::class.java).apply { 
                                     putExtra("stream_id", streamEncontrado.stream_id)
                                     putExtra("name", streamEncontrado.name)
-                                    // AJUSTADO: Usando "icon" para o fundo aparecer na DetailsActivity
                                     putExtra("poster", streamEncontrado.stream_icon)
                                     putExtra("icon", item.imagemFundoUrl ?: streamEncontrado.stream_icon)
                                     putExtra("rating", streamEncontrado.rating)
@@ -134,6 +139,7 @@ class NovidadesAdapter(
                             toggleFavorito(context, realId, item.isSerie) 
                         }
                     } else {
+                        // Se por algum motivo o filtro da Activity passou algo que o banco não achou aqui
                         holder.containerBotoes.visibility = View.GONE
                     }
                 }

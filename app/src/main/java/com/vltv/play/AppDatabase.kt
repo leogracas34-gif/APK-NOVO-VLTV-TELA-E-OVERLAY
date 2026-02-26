@@ -145,6 +145,13 @@ interface StreamDao {
     @Query("SELECT COUNT(*) FROM vod_streams")
     suspend fun getVodCount(): Int
 
+    @Query("SELECT * FROM vod_streams")
+    suspend fun getAllVods(): List<VodEntity>
+
+    @Query("SELECT * FROM series_streams")
+    suspend fun getAllSeries(): List<SeriesEntity>
+    // -----------------------------------------------
+
     @Transaction
     @Query("SELECT * FROM series_streams ORDER BY last_modified DESC LIMIT :limit")
     suspend fun getRecentSeries(limit: Int): List<SeriesEntity>

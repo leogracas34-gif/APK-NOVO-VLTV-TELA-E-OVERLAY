@@ -54,9 +54,8 @@ class NovidadesAdapter(
         
         holder.tvTitulo.text = item.titulo
         
-        // GARANTE A EXIBIÇÃO DA SINOPSE
         holder.tvSinopse.text = item.sinopse
-        holder.tvSinopse.visibility = if (item.sinopse.isNotEmpty()) View.VISIBLE else View.GONE
+        holder.tvSinopse.visibility = View.VISIBLE
         
         holder.tvTagline.text = if (item.isTop10) "Top ${item.posicaoTop10} hoje" else item.tagline
 
@@ -91,13 +90,10 @@ class NovidadesAdapter(
 
         if (item.isEmBreve) {
             holder.containerBotoes.visibility = View.GONE
-            // Na aba "Em Breve", forçamos a sinopse a aparecer já que não tem botões
-            holder.tvSinopse.visibility = View.VISIBLE 
         } else {
             CoroutineScope(Dispatchers.IO).launch {
                 val streamEncontrado = if (item.isSerie) {
-                    // AJUSTE: Buscando no catálogo completo de séries para sincronizar
-                    database.streamDao().getAllSeries().firstOrNull { it.name.contains(item.titulo, true) }
+                    database.streamDao().getRecentSeries(5000).firstOrNull { it.name.contains(item.titulo, true) }
                 } else {
                     database.streamDao().searchVod(item.titulo).firstOrNull()
                 }
@@ -117,6 +113,7 @@ class NovidadesAdapter(
                                 Intent(context, DetailsActivity::class.java).apply { 
                                     putExtra("stream_id", streamEncontrado.stream_id)
                                     putExtra("name", streamEncontrado.name)
+                                    // AJUSTADO: Usando "icon" para o fundo aparecer na DetailsActivity
                                     putExtra("poster", streamEncontrado.stream_icon)
                                     putExtra("icon", item.imagemFundoUrl ?: streamEncontrado.stream_icon)
                                     putExtra("rating", streamEncontrado.rating)

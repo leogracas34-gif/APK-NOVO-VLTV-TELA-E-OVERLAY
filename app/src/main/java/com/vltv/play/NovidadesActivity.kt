@@ -165,7 +165,7 @@ class NovidadesActivity : AppCompatActivity() {
                             
                             if (!isEmBreve) {
                                 if (isSerie) {
-                                    val serieLocal = database.streamDao().getRecentSeries(5000)
+                                    val serieLocal = database.streamDao().getAllSeries()
                                         .find { it.name.contains(tituloOrig, true) }
                                     if (serieLocal != null) idServidorValido = serieLocal.series_id
                                 } else {

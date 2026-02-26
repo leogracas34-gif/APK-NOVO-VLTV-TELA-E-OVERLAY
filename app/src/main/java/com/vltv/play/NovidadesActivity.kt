@@ -114,7 +114,6 @@ class NovidadesActivity : AppCompatActivity() {
 
     private fun carregarTodasAsListasTMDb() {
         val dataHoje = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()) 
-        val dataRecente = "2024-01-01" 
         
         // 1. Em Breve
         val urlEmBreve = "https://api.themoviedb.org/3/discover/movie?api_key=$apiKey&language=pt-BR&region=BR&with_release_type=2|3&primary_release_date.gte=$dataHoje&sort_by=primary_release_date.asc"
@@ -122,16 +121,16 @@ class NovidadesActivity : AppCompatActivity() {
             runOnUiThread { adapter.atualizarLista(listaEmBreve) }
         }
 
-        // 2. Todo Mundo Assistindo
-        val urlTodoMundo = "https://api.themoviedb.org/3/discover/movie?api_key=$apiKey&language=pt-BR&primary_release_date.gte=$dataRecente&sort_by=popularity.desc"
+        // 2. Todo Mundo Assistindo (Ajustado para Trending para não repetir o Top 10)
+        val urlTodoMundo = "https://api.themoviedb.org/3/trending/movie/week?api_key=$apiKey&language=pt-BR"
         buscarDadosNaApi(urlTodoMundo, listaTodoMundo, isTop10 = false, tagFixa = "Bombando no Mundo", isEmBreve = false, isSerie = false) {}
 
         // 3. Top 10 Séries
-        val urlTopSeries = "https://api.themoviedb.org/3/discover/tv?api_key=$apiKey&language=pt-BR&sort_by=popularity.desc"
+        val urlTopSeries = "https://api.themoviedb.org/3/tv/popular?api_key=$apiKey&language=pt-BR&page=1"
         buscarDadosNaApi(urlTopSeries, listaTopSeries, isTop10 = true, tagFixa = "Top 10 Séries", isEmBreve = false, isSerie = true) {}
 
         // 4. Top 10 Filmes
-        val urlTopFilmes = "https://api.themoviedb.org/3/discover/movie?api_key=$apiKey&language=pt-BR&sort_by=popularity.desc"
+        val urlTopFilmes = "https://api.themoviedb.org/3/movie/popular?api_key=$apiKey&language=pt-BR&page=1"
         buscarDadosNaApi(urlTopFilmes, listaTopFilmes, isTop10 = true, tagFixa = "Top 10 Filmes", isEmBreve = false, isSerie = false) {}
     }
 
@@ -155,6 +154,10 @@ class NovidadesActivity : AppCompatActivity() {
                         val tempLista = mutableListOf<NovidadeItem>()
                         var posicaoCount = 1
                         
+                        // Busca o catálogo completo uma vez por aba para comparar
+                        val catalogoSeries = if (isSerie && !isEmBreve) database.streamDao().getAllSeries() else emptyList()
+                        val catalogoVods = if (!isSerie && !isEmBreve) database.streamDao().getAllVods() else emptyList()
+
                         for (i in 0 until results.length()) {
                             if (tempLista.size >= (if (isTop10) 10 else 20)) break
 
@@ -164,13 +167,13 @@ class NovidadesActivity : AppCompatActivity() {
                             var idServidorValido = 0
                             
                             if (!isEmBreve) {
+                                val nomeParaBusca = tituloOrig.lowercase().trim()
+                                
                                 if (isSerie) {
-                                    val serieLocal = database.streamDao().getAllSeries()
-                                        .find { it.name.contains(tituloOrig, true) }
+                                    val serieLocal = catalogoSeries.find { it.name.lowercase().contains(nomeParaBusca) }
                                     if (serieLocal != null) idServidorValido = serieLocal.series_id
                                 } else {
-                                    val filmeLocal = database.streamDao().getAllVods()
-                                        .find { it.name.contains(tituloOrig, true) }
+                                    val filmeLocal = catalogoVods.find { it.name.lowercase().contains(nomeParaBusca) }
                                     if (filmeLocal != null) idServidorValido = filmeLocal.stream_id
                                 }
                                 

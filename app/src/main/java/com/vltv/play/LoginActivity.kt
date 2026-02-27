@@ -105,7 +105,7 @@ class LoginActivity : AppCompatActivity() {
             val temFilmes = db.streamDao().getVodCount() > 0
             
             if (temFilmes) {
-                withContext(Dispatchers.Main) { abrirHomeDireto() }
+                withContext(Dispatchers.Main) { decidirProximaTela() }
             } else {
                 withContext(Dispatchers.Main) { 
                     binding = ActivityLoginBinding.inflate(layoutInflater)
@@ -114,7 +114,7 @@ class LoginActivity : AppCompatActivity() {
                     Toast.makeText(this@LoginActivity, "Atualizando conteúdo...", Toast.LENGTH_SHORT).show()
                 }
                 preCarregarConteudoInicial(dns, user, pass)
-                withContext(Dispatchers.Main) { abrirHomeDireto() }
+                withContext(Dispatchers.Main) { decidirProximaTela() }
             }
         }
     }
@@ -156,7 +156,7 @@ class LoginActivity : AppCompatActivity() {
                     }
                     
                     preCarregarConteudoInicial(dnsVencedor!!, user, pass)
-                    withContext(Dispatchers.Main) { abrirHomeDireto() }
+                    withContext(Dispatchers.Main) { decidirProximaTela() }
                 } else {
                     withContext(Dispatchers.Main) {
                         mostrarErro("Nenhum servidor respondeu. Verifique dados.")
@@ -257,6 +257,26 @@ class LoginActivity : AppCompatActivity() {
         
         // 🔥 CHAVE DA CORREÇÃO: Configura API para o DNS vencedor
         XtreamApi.setBaseUrl("$dns/")
+    }
+
+    private fun decidirProximaTela() {
+        // Detecta se é TV (Geralmente não possui tela de toque)
+        val isTV = !packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_TOUCHSCREEN)
+
+        if (isTV) {
+            // Lógica para TV: Pula Perfis e vai para Home
+            val intent = Intent(this, HomeActivity::class.java)
+            intent.putExtra("PROFILE_NAME", "TV_Box") // Perfil fixo padrão para TV
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            startActivity(intent)
+            finish()
+        } else {
+            // Lógica para Celular: Vai para seleção de perfis
+            val intent = Intent(this, ProfilesActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            startActivity(intent)
+            finish()
+        }
     }
 
     private fun abrirHomeDireto() {

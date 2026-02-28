@@ -279,6 +279,13 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
+    private fun abrirHomeDireto() {
+        val intent = Intent(this, ProfilesActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        startActivity(intent)
+        finish()
+    }
+
     private fun mostrarErro(msg: String) {
         binding.progressBar.visibility = View.GONE
         binding.btnLogin.isEnabled = true
